@@ -7,7 +7,7 @@ using Markdig.Renderers;
 using Markdig.Renderers.Html;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
-using Bwets.Markdig.Extensions.Html;
+using bwets.Markdig.Extensions.Html;
 using Path = System.IO.Path;
 #if WINDOWS
 using Microsoft.Windows.AppLifecycle;
@@ -19,7 +19,7 @@ namespace mdviewx.Services;
 
 public sealed class MarkdownRenderer : IMarkdownRenderer
 {
-    // Modular markdown features (from the Bwets.Markdig.Extensions library). Each is independent;
+    // Modular markdown features (from the bwets.Markdig.Extensions library). Each is independent;
     // enable only what's needed. mdviewx uses the full language set for highlighting.
     private static readonly MarkdownHtmlFeatures Features = new MarkdownHtmlFeatures()
         .UseSyntaxHighlighting(extendedLanguages: true)

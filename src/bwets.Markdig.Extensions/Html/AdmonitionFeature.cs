@@ -1,6 +1,6 @@
 using Markdig;
 
-namespace Bwets.Markdig.Extensions.Html;
+namespace bwets.Markdig.Extensions.Html;
 
 /// <summary>Admonitions feature: enables the Markdig extension and ships its styling.</summary>
 public sealed class AdmonitionFeature : HtmlMarkdownFeature

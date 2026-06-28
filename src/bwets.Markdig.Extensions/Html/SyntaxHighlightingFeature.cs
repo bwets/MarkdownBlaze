@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-
-namespace Bwets.Markdig.Extensions.Html;
+namespace bwets.Markdig.Extensions.Html;
 
 /// <summary>
 /// Code syntax highlighting feature (highlight.js). Markdig already emits <c>language-*</c> classes,
@@ -18,13 +16,13 @@ public sealed class SyntaxHighlightingFeature : HtmlMarkdownFeature
         _extendedLanguages = extendedLanguages;
     }
 
-    public override IEnumerable<MarkdownAsset> Assets => new[]
-    {
+    public override IEnumerable<MarkdownAsset> Assets =>
+    [
         new MarkdownAsset(
             "highlight.min.js",
             MarkdownAssetKind.Script,
             EmbeddedAsset.Read(_extendedLanguages ? "highlight.full.min.js" : "highlight.common.min.js")),
-    };
+    ];
 
     public override string Head =>
         "<style>pre code.hljs { padding: 1rem; border-radius: 6px; }\n" + Themes + "</style>";

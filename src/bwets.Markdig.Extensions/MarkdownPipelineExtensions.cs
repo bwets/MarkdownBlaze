@@ -1,8 +1,8 @@
 using Markdig;
-using Bwets.Markdig.Extensions.Admonitions;
-using Bwets.Markdig.Extensions.Mermaid;
+using bwets.Markdig.Extensions.Admonitions;
+using bwets.Markdig.Extensions.Mermaid;
 
-namespace Bwets.Markdig.Extensions;
+namespace bwets.Markdig.Extensions;
 
 /// <summary>
 /// Extension methods to activate individual Markdig extensions on a <see cref="MarkdownPipelineBuilder"/>.
