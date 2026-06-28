@@ -54,11 +54,11 @@
 
   <!--
     bwets.Markdig.Extensions lives in its own repo (../../bwets.Markdig.Extensions).
-    UseBwetsReferences=true  -> reference the sibling project (feature-branch development)
-    UseBwetsReferences=false -> reference the published NuGet package
+    UseBwetsReferences=false -> reference the published NuGet package (the committed default)
+    UseBwetsReferences=true  -> reference the sibling project (opt in locally for development)
   -->
   <PropertyGroup>
-    <UseBwetsReferences Condition="'$(UseBwetsReferences)' == ''">true</UseBwetsReferences>
+    <UseBwetsReferences Condition="'$(UseBwetsReferences)' == ''">false</UseBwetsReferences>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(UseBwetsReferences)' == 'true'">
