@@ -52,8 +52,24 @@
     <PackageReference Include="Markdig" />
   </ItemGroup>
 
+  <!--
+    bwets.Markdig.Extensions lives in its own repo (../../bwets.Markdig.Extensions).
+    UseBwetsReferences=true  -> reference the sibling project (feature-branch development)
+    UseBwetsReferences=false -> reference the published NuGet package
+  -->
+  <PropertyGroup>
+    <UseBwetsReferences Condition="'$(UseBwetsReferences)' == ''">true</UseBwetsReferences>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(UseBwetsReferences)' == 'true'">
+    <ProjectReference Include="..\..\..\bwets.Markdig.Extensions\src\bwets.Markdig.Extensions\bwets.Markdig.Extensions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseBwetsReferences)' != 'true'">
+    <PackageReference Include="bwets.Markdig.Extensions" />
+  </ItemGroup>
+
   <ItemGroup>
-    <ProjectReference Include="..\bwets.Markdig.Extensions\bwets.Markdig.Extensions.csproj" />
     <ProjectReference Include="..\mdviewx.MauiControls\mdviewx.MauiControls.csproj" />
   </ItemGroup>
 

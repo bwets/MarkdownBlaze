@@ -3,6 +3,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Allow the floating bwets.Markdig.Extensions 0.1.* version under central package management. -->
+    <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
     <!-- Align the Uno SDK's implicit MAUI Embedding packages with the upgraded Maui packages.
