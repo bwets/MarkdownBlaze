@@ -88,9 +88,44 @@ public sealed class MarkdownRenderer : IMarkdownRenderer
             }
 
             var path = candidate.Trim().Trim('"');
-            if (path.EndsWith(".md", StringComparison.OrdinalIgnoreCase) && File.Exists(path))
+            if (!path.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
             {
-                return path;
+                continue;
+            }
+
+            var resolved = ResolveExisting(path);
+            if (resolved is not null)
+            {
+                return resolved;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Resolves a markdown path that may be absolute, relative to the working directory, or relative
+    /// to the application (searched upward from the executable). The last case lets a single relative
+    /// startup path in launchSettings work across heads whose working directories differ.
+    /// </summary>
+    private static string? ResolveExisting(string path)
+    {
+        if (File.Exists(path))
+        {
+            return path;
+        }
+
+        if (Path.IsPathRooted(path))
+        {
+            return null;
+        }
+
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, path);
+            if (File.Exists(candidate))
+            {
+                return candidate;
             }
         }
 

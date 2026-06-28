@@ -1,16 +1,8 @@
 {
-  "iisSettings": {
-    "windowsAuthentication": false,
-    "anonymousAuthentication": true,
-    "iisExpress": {
-      "applicationUrl": "http://localhost:8080",
-      "sslPort": 0
-    }
-  },
   "profiles": {
     "mdviewx (WinAppSDK Unpackaged)": {
       "commandName": "Project",
-      "commandLineArgs": "../../docs/index.md",
+      "commandLineArgs": "docs/index.md",
       "compatibleTargetFramework": "windows"
     },
     "mdviewx (WinAppSDK Packaged)": {
@@ -19,7 +11,7 @@
     },
     "mdviewx (Desktop)": {
       "commandName": "Project",
-      "commandLineArgs": "../../docs/index.md",
+      "commandLineArgs": "docs/index.md",
       "compatibleTargetFramework": "desktop"
     },
     "mdviewx (Desktop WSL2)": {
