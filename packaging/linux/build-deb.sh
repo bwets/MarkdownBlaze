@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds a .deb from a published Skia-desktop linux-x64 output directory.
+# Builds a .deb from a published linux-x64 output directory.
 #
 # Usage: build-deb.sh <version> <publish-dir>
 #   <version>     e.g. 1.0.5
@@ -34,7 +34,7 @@ Priority: optional
 Architecture: amd64
 Depends: libgtk-3-0, libwebkit2gtk-4.1-0
 Maintainer: bwets
-Description: A fast, offline, feature-rich Markdown viewer (Uno Platform).
+Description: A fast, offline, feature-rich Markdown viewer.
 EOF
 
 dpkg-deb --root-owner-group --build "$ROOT" "${PKG}.deb"

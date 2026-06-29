@@ -14,7 +14,8 @@
 
   <Properties>
     <DisplayName>MarkdownBlaze</DisplayName>
-    <PublisherDisplayName>bwets</PublisherDisplayName>
+    <!-- Must exactly match the Partner Center account's publisher display name for Store submission. -->
+    <PublisherDisplayName>Gregory Kieffer</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
 
