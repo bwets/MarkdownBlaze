@@ -1,14 +1,14 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
-PackageIdentifier: bwets.MarkdownBlaze
+PackageIdentifier: GregoryKieffer.MarkdownBlaze
 PackageVersion: __VERSION__
 PackageLocale: en-US
-Publisher: bwets
+Publisher: Gregory Kieffer
 PublisherUrl: https://github.com/bwets
 PublisherSupportUrl: https://github.com/bwets/MarkdownBlaze/issues
 PackageName: MarkdownBlaze
 PackageUrl: https://github.com/bwets/MarkdownBlaze
 License: Proprietary
-Copyright: Copyright (c) bwets
+Copyright: Copyright (c) Gregory Kieffer
 ShortDescription: A fast, offline Markdown viewer with syntax highlighting, Mermaid diagrams, callouts, and a live outline.
 Description: |-
   MarkdownBlaze is a fast, offline viewer for Markdown files. It renders tables, task lists,

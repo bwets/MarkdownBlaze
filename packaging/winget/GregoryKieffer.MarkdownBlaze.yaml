@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.6.0.schema.json
 # Version manifest. __VERSION__ / __SHA256__ are filled in for the first manual submission;
 # later versions are updated automatically by the release workflow (winget-releaser).
-PackageIdentifier: bwets.MarkdownBlaze
+PackageIdentifier: GregoryKieffer.MarkdownBlaze
 PackageVersion: __VERSION__
 DefaultLocale: en-US
 ManifestType: version

@@ -191,7 +191,7 @@ jobs:
       # The package must already exist there (seed the first version manually — see packaging/winget).
       - uses: vedantmgoyal9/winget-releaser@v2
         with:
-          identifier: bwets.MarkdownBlaze
+          identifier: GregoryKieffer.MarkdownBlaze
           version: ${{ needs.setup.outputs.version }}
           release-tag: v${{ needs.setup.outputs.version }}
           installers-regex: '-win-x64\.zip$'

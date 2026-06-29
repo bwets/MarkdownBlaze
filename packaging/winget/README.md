@@ -19,7 +19,7 @@ wingetcreate new https://github.com/bwets/MarkdownBlaze/releases/download/v<ver>
 ```
 
 When prompted, set:
-- **PackageIdentifier:** `bwets.MarkdownBlaze`
+- **PackageIdentifier:** `GregoryKieffer.MarkdownBlaze`
 - **InstallerType:** `zip`, **NestedInstallerType:** `portable`
 - **Nested file:** `MarkdownBlaze.exe` (command alias `MarkdownBlaze`)
 
@@ -40,5 +40,5 @@ Then run the release with **publish_winget = true**.
 ## Install
 
 ```powershell
-winget install bwets.MarkdownBlaze
+winget install GregoryKieffer.MarkdownBlaze
 ```
