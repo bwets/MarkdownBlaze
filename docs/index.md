@@ -7,7 +7,7 @@ tags:
 
 # Sci-Fi Library
 
-Welcome to the **mdviewx** sample library — a small hand-built wiki celebrating a few
+Welcome to the **MarkdownBlaze** sample library — a small hand-built wiki celebrating a few
 landmark science-fiction sagas. It exists to show off what the viewer can do: linked
 pages, diagrams, callouts, syntax highlighting, and a live document outline.
 
@@ -43,7 +43,7 @@ This very page demonstrates several features at once:
 
 ```text
 Tip: edit this file in your favourite editor and save —
-mdviewx reloads the view automatically.
+MarkdownBlaze reloads the view automatically.
 ```
 
 Happy reading. Pick a collection above, or jump straight to the

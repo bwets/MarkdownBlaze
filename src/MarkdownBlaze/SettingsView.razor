@@ -1,0 +1,38 @@
+<div class="app-shell">
+    <header class="app-header">
+        <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => OnBack.InvokeAsync())" Title="Back"><Ico Name="back" /></FluentButton>
+        <span class="title">Settings</span>
+    </header>
+
+    <div class="content-area">
+        <div class="settings">
+            <h2>Settings</h2>
+
+            <div class="setting-row">
+                <div class="setting-label">Appearance</div>
+                <FluentRadioGroup TValue="DesignThemeModes" Value="@CurrentMode" ValueChanged="OnRadioChanged"
+                                  Orientation="Orientation.Vertical">
+                    <FluentRadio Value="@DesignThemeModes.System">Use system theme</FluentRadio>
+                    <FluentRadio Value="@DesignThemeModes.Light">Light</FluentRadio>
+                    <FluentRadio Value="@DesignThemeModes.Dark">Dark</FluentRadio>
+                </FluentRadioGroup>
+            </div>
+
+            <div class="setting-row muted">
+                MarkdownBlaze — offline Markdown viewer · Photino + Fluent UI
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public DesignThemeModes CurrentMode { get; set; }
+    [Parameter] public EventCallback<DesignThemeModes> OnModeChanged { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+
+    private async Task OnRadioChanged(DesignThemeModes mode)
+    {
+        CurrentMode = mode;
+        await OnModeChanged.InvokeAsync(mode);
+    }
+}

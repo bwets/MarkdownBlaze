@@ -1,49 +1,39 @@
 # Packaging & releases
 
-mdviewx is released via the **`release` GitHub Actions workflow** (`.github/workflows/release.yml`),
-which is **manual only** (`workflow_dispatch`) — it never runs on push.
+MarkdownBlaze is a **Photino + Blazor (Fluent UI)** desktop app on .NET 10. Releases are produced by the
+**`release` GitHub Actions workflow** (`.github/workflows/release.yml`), which is **manual only**
+(`workflow_dispatch`) — it never runs on push.
 
 ## Running a release
 
 Actions → **release** → *Run workflow*:
 
-- **version** — leave empty to use `1.0.<run_number>` (the patch increases with each build), or
-  type an explicit version to override.
+- **version** — leave empty to use `1.0.<run_number>` (the patch increases with each build), or type
+  an explicit version.
 - **publish_aur** — also push the AUR package (needs the AUR secrets below).
 
-The workflow builds, then creates a GitHub **Release** `v<version>` with:
+It creates a GitHub **Release `v<version>`** with:
 
 | Artifact | Contents |
 |---|---|
-| `mdviewx-<v>-win-x64.zip` | Portable Windows build (Skia desktop, self-contained) |
-| `mdviewx-<v>-linux-x64.tar.gz` / `-arm64` | Self-contained Linux builds |
-| `mdviewx_<v>_amd64.deb` | Debian/Ubuntu package |
-| `*.msix` | Microsoft Store package (best effort — see below) |
+| `MarkdownBlaze-<v>-win-x64.zip` | Windows build (self-contained; uses the OS WebView2 runtime) |
+| `MarkdownBlaze-<v>-linux-x64.tar.gz` / `-arm64` | Self-contained Linux builds |
+| `MarkdownBlaze_<v>_amd64.deb` | Debian/Ubuntu package |
 | `SHA256SUMS` | Checksums for every artifact |
 
-### Runtime dependencies (Linux)
-The Linux builds need WebKitGTK at runtime: `libgtk-3-0` and `libwebkit2gtk-4.1-0` (declared by
-the `.deb` and the AUR package).
+### Runtime dependencies
+- **Windows:** the Microsoft **WebView2 Runtime** (preinstalled on current Windows).
+- **Linux:** **WebKitGTK** + GTK — `webkit2gtk-4.1` and `gtk3` (declared by the `.deb` and the AUR package).
 
 ## AUR
 
-`packaging/aur/PKGBUILD.template` is rendered by the workflow (version + sha256 of the linux-x64
-tarball) and pushed to the AUR.
-
-**One-time setup:**
-1. Create an [AUR account](https://aur.archlinux.org) and add your SSH public key to it.
-2. The first publish creates the `mdviewx` AUR package (the SSH user must be allowed to push).
-3. Add repo secrets:
-   - `AUR_USERNAME` — your AUR account name
-   - `AUR_EMAIL` — the commit email
-   - `AUR_SSH_PRIVATE_KEY` — the private key whose public half is on your AUR account
-
-Then run the release with **publish_aur = true**.
+`packaging/aur/PKGBUILD.template` is rendered by the workflow (version + tarball sha256) and pushed
+to the AUR. One-time setup:
+1. Create an [AUR account](https://aur.archlinux.org) and add your SSH public key.
+2. Add repo secrets `AUR_USERNAME`, `AUR_EMAIL`, `AUR_SSH_PRIVATE_KEY`.
+3. Run the release with **publish_aur = true**.
 
 ## Microsoft Store
 
-See [microsoft-store/README.md](microsoft-store/README.md).
-
-## Windows note
-The portable Windows zip uses the Skia desktop head; on Windows the WinAppSDK/MSIX build (the Store
-package) hosts the WebView natively and is the recommended Windows distribution.
+Not configured. Photino apps can be MSIX-packaged for the Store, but that's a separate setup and is
+not part of this workflow.

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=MarkdownBlaze
+Comment=Markdown viewer
+# Exec is rewritten with the absolute binary path by install-linux.sh.
+Exec=MarkdownBlaze %f
+Icon=MarkdownBlaze
+Terminal=false
+Categories=Office;Viewer;TextTools;
+MimeType=text/markdown;text/x-markdown;

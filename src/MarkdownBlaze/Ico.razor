@@ -1,0 +1,25 @@
+@((MarkupString)Svg)
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public int Size { get; set; } = 18;
+
+    private string Svg => Name switch
+    {
+        "menu"    => S("<path d='M4 7h16M4 12h16M4 17h16'/>"),
+        "back"    => S("<path d='M15 19l-7-7 7-7'/>"),
+        "forward" => S("<path d='M9 5l7 7-7 7'/>"),
+        "refresh" => S("<path d='M4 12a8 8 0 1 0 2.3-5.6'/><path d='M4 4v4h4'/>"),
+        "print"   => S("<path d='M6 9V3h12v6'/><path d='M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2'/><path d='M6 14h12v7H6z'/>"),
+        "folder"  => S("<path d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/>"),
+        "more"    => F("<circle cx='12' cy='5' r='1.7'/><circle cx='12' cy='12' r='1.7'/><circle cx='12' cy='19' r='1.7'/>"),
+        "gear"    => S("<circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'/>"),
+        _ => "",
+    };
+
+    private string S(string paths) =>
+        $"<svg viewBox='0 0 24 24' width='{Size}' height='{Size}' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>{paths}</svg>";
+
+    private string F(string paths) =>
+        $"<svg viewBox='0 0 24 24' width='{Size}' height='{Size}' fill='currentColor' stroke='none'>{paths}</svg>";
+}

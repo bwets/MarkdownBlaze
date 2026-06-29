@@ -17,9 +17,7 @@ permissions:
   contents: write
 
 env:
-  PROJECT: src/mdviewx/mdviewx.csproj
-  DESKTOP_TFM: net10.0-desktop
-  WINDOWS_TFM: net10.0-windows10.0.26100
+  PROJECT: src/MarkdownBlaze/MarkdownBlaze.csproj
 
 jobs:
   setup:
@@ -29,11 +27,7 @@ jobs:
     steps:
       - id: v
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            v="${{ inputs.version }}"
-          else
-            v="1.0.${{ github.run_number }}"
-          fi
+          if [ -n "${{ inputs.version }}" ]; then v="${{ inputs.version }}"; else v="1.0.${{ github.run_number }}"; fi
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "Release version: $v"
 
@@ -48,34 +42,18 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Publish portable (Skia desktop, win-x64)
+      - name: Publish (win-x64, self-contained)
         shell: pwsh
-        run: >
-          dotnet publish $env:PROJECT -f $env:DESKTOP_TFM -r win-x64 -c Release --self-contained true
-          -p:UseBwetsReferences=false -p:ApplicationDisplayVersion=$env:VERSION -o publish/win-x64
+        run: dotnet publish $env:PROJECT -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -o publish/win-x64
 
-      - name: Zip portable build
+      - name: Zip
         shell: pwsh
-        run: Compress-Archive -Path publish/win-x64/* -DestinationPath "mdviewx-$env:VERSION-win-x64.zip"
-
-      # Microsoft Store package (WinAppSDK / MSIX). Unsigned — Partner Center re-signs on upload.
-      # Best effort: requires the store identity in Package.appxmanifest (see packaging/microsoft-store).
-      - name: Build MSIX (Microsoft Store)
-        shell: pwsh
-        continue-on-error: true
-        run: >
-          dotnet build $env:PROJECT -f $env:WINDOWS_TFM -c Release -p:UseBwetsReferences=false
-          -p:ApplicationDisplayVersion=$env:VERSION
-          -p:GenerateAppxPackageOnBuild=true -p:AppxPackageSigningEnabled=false
-          -p:AppxPackageDir=${{ github.workspace }}\msix\
+        run: Compress-Archive -Path publish/win-x64/* -DestinationPath "MarkdownBlaze-$env:VERSION-win-x64.zip"
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: |
-            mdviewx-*-win-x64.zip
-            msix/**/*.msix*
-          if-no-files-found: warn
+          path: MarkdownBlaze-*-win-x64.zip
 
   linux:
     needs: setup
@@ -92,24 +70,23 @@ jobs:
         run: |
           set -euo pipefail
           for rid in linux-x64 linux-arm64; do
-            out="mdviewx-$VERSION-$rid"
-            dotnet publish "$PROJECT" -f "$DESKTOP_TFM" -r "$rid" -c Release --self-contained true \
-              -p:UseBwetsReferences=false -p:ApplicationDisplayVersion="$VERSION" -o "$out"
+            out="MarkdownBlaze-$VERSION-$rid"
+            dotnet publish "$PROJECT" -c Release -r "$rid" --self-contained true -p:Version="$VERSION" -o "$out"
             # Bundle the desktop entry + icon so the tarball is self-contained for packaging.
-            cp packaging/linux/mdviewx.desktop "$out/mdviewx.desktop"
-            cp src/mdviewx/Assets/Icons/icon.svg "$out/mdviewx.svg"
-            chmod +x "$out/mdviewx" || true
+            cp packaging/linux/MarkdownBlaze.desktop "$out/MarkdownBlaze.desktop"
+            cp src/MarkdownBlaze/Assets/icon.svg "$out/MarkdownBlaze.svg"
+            chmod +x "$out/MarkdownBlaze" || true
             tar -czf "$out.tar.gz" "$out"
           done
 
       - name: Build .deb (x64)
-        run: bash packaging/linux/build-deb.sh "$VERSION" "mdviewx-$VERSION-linux-x64"
+        run: bash packaging/linux/build-deb.sh "$VERSION" "MarkdownBlaze-$VERSION-linux-x64"
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux
           path: |
-            mdviewx-*-linux-*.tar.gz
+            MarkdownBlaze-*-linux-*.tar.gz
             *.deb
 
   release:
@@ -125,7 +102,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          find . -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.msix' -o -name '*.msixbundle' \) -print0 \
+          find . -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' \) -print0 \
             | xargs -0 sha256sum > ../SHA256SUMS
           cat ../SHA256SUMS
 
@@ -133,14 +110,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
-          name: mdviewx ${{ env.VERSION }}
+          name: MarkdownBlaze ${{ env.VERSION }}
           generate_release_notes: true
           files: |
             dist/**/*.zip
             dist/**/*.tar.gz
             dist/**/*.deb
-            dist/**/*.msix
-            dist/**/*.msixbundle
             SHA256SUMS
 
   aur:
@@ -159,7 +134,7 @@ jobs:
       - name: Render PKGBUILD
         run: |
           set -euo pipefail
-          sha=$(sha256sum "dist/mdviewx-$VERSION-linux-x64.tar.gz" | cut -d' ' -f1)
+          sha=$(sha256sum "dist/MarkdownBlaze-$VERSION-linux-x64.tar.gz" | cut -d' ' -f1)
           sed -e "s/__VERSION__/$VERSION/g" -e "s/__SHA256__/$sha/g" \
             packaging/aur/PKGBUILD.template > PKGBUILD
           echo "----- PKGBUILD -----"; cat PKGBUILD
@@ -167,7 +142,7 @@ jobs:
       - name: Publish to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v2
         with:
-          pkgname: mdviewx
+          pkgname: MarkdownBlaze
           pkgbuild: ./PKGBUILD
           commit_username: ${{ secrets.AUR_USERNAME }}
           commit_email: ${{ secrets.AUR_EMAIL }}

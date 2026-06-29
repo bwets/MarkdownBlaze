@@ -1,0 +1,50 @@
+@inject PreferencesStore Prefs
+@inject IJSRuntime JS
+
+<FluentDesignTheme @bind-Mode="_mode" StorageName="MarkdownBlaze-theme" />
+
+@if (_view == AppView.Settings)
+{
+    <SettingsView CurrentMode="_mode" OnModeChanged="SetMode" OnBack="@(() => Show(AppView.Viewer))" />
+}
+else
+{
+    <ViewerView OnOpenSettings="@(() => Show(AppView.Settings))" />
+}
+
+<FluentToastProvider />
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<FluentMenuProvider />
+
+@code {
+    private enum AppView { Viewer, Settings }
+
+    private AppView _view = AppView.Viewer;
+    private DesignThemeModes _mode = DesignThemeModes.System;
+
+    protected override void OnInitialized()
+    {
+        _mode = Prefs.Current.ThemeMode switch
+        {
+            "Light" => DesignThemeModes.Light,
+            "Dark" => DesignThemeModes.Dark,
+            _ => DesignThemeModes.System,
+        };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("mdSetTheme", _mode.ToString());
+    }
+
+    private void Show(AppView view) => _view = view;
+
+    private async Task SetMode(DesignThemeModes mode)
+    {
+        _mode = mode;
+        Prefs.Current.ThemeMode = mode.ToString();
+        Prefs.Save();
+        await JS.InvokeVoidAsync("mdSetTheme", mode.ToString());
+    }
+}

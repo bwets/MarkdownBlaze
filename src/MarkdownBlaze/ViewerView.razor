@@ -1,0 +1,214 @@
+@implements IDisposable
+@inject NavigationService Nav
+@inject PreferencesStore Prefs
+@inject IJSRuntime JS
+
+<div class="app-shell">
+    <header class="app-header">
+        <FluentButton Appearance="Appearance.Stealth" OnClick="ToggleSidebar" Title="Toggle sidebar (Ctrl+B)"><Ico Name="menu" /></FluentButton>
+        <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => Nav.Back())" Disabled="@(!Nav.CanBack)" Title="Back (Alt+Left)"><Ico Name="back" /></FluentButton>
+        <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => Nav.Forward())" Disabled="@(!Nav.CanForward)" Title="Forward (Alt+Right)"><Ico Name="forward" /></FluentButton>
+        <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => Nav.Reload())" Title="Refresh (F5)"><Ico Name="refresh" /></FluentButton>
+        <FluentButton Appearance="Appearance.Stealth" OnClick="Print" Title="Print (Ctrl+P)"><Ico Name="print" /></FluentButton>
+        <FluentButton Appearance="Appearance.Stealth" OnClick="OpenFolder" Title="Open containing folder"><Ico Name="folder" /></FluentButton>
+
+        <span class="title">@Nav.CurrentTitle</span>
+
+        <FluentButton Appearance="Appearance.Stealth" OnClick="OpenMoreMenu" Title="More"><Ico Name="more" /></FluentButton>
+    </header>
+
+    <div class="app-body @(_pinned ? "" : "no-sidebar")">
+        <aside class="sidebar">
+            <div class="tabstrip">
+                <button class="tab @(_tab == 0 ? "active" : "")" @onclick="@(() => SelectTab(0))">Headers</button>
+                <button class="tab @(_tab == 1 ? "active" : "")" @onclick="@(() => SelectTab(1))">Session</button>
+                <button class="tab @(_tab == 2 ? "active" : "")" @onclick="@(() => SelectTab(2))">Global</button>
+            </div>
+            <div class="tab-panels">
+                @if (_tab == 0)
+                {
+                    <div class="list">
+                        @if (Nav.CurrentHeadings.Count == 0) { <div class="empty">No headings.</div> }
+                        @foreach (var h in Nav.CurrentHeadings)
+                        {
+                            <button class="row toc-link" style="@($"padding-left:{10 + (h.Level - 1) * 14}px")"
+                                    @onclick="@(() => ScrollTo(h.Slug))">@h.Text</button>
+                        }
+                    </div>
+                }
+                else if (_tab == 1)
+                {
+                    <div class="list">
+                        @if (_session.Count == 0) { <div class="empty">Nothing opened yet.</div> }
+                        @foreach (var s in _session)
+                        {
+                            <button class="row @(s.Current ? "current" : "")" title="@s.Path"
+                                    @onclick="@(() => Nav.GoToIndex(s.Index))"
+                                    @oncontextmenu="@(e => OpenRowMenu(e, s.Path))" @oncontextmenu:preventDefault="true">
+                                @if (s.Current) { <span class="dot">●</span> }@s.Title
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="list">
+                        @if (Nav.GlobalHistory.Count == 0) { <div class="empty">No history.</div> }
+                        @foreach (var e in Nav.GlobalHistory)
+                        {
+                            <button class="row" title="@e.Path"
+                                    @onclick="@(() => Nav.Navigate(e.Path))"
+                                    @oncontextmenu="@(ev => OpenRowMenu(ev, e.Path))" @oncontextmenu:preventDefault="true">
+                                @e.Title
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </aside>
+
+        <div id="md-splitter" class="splitter"></div>
+
+        <main class="content-area">
+            <div class="content markdown-body">@((MarkupString)Nav.CurrentHtml)</div>
+        </main>
+    </div>
+</div>
+
+@if (_menuOpen)
+{
+    <div class="menu-backdrop" @onclick="CloseMenu" @oncontextmenu="CloseMenu" @oncontextmenu:preventDefault="true"></div>
+    <div class="ctx" style="@MenuStyle">
+        @foreach (var item in _menuItems)
+        {
+            <button @onclick="@(() => RunItem(item.OnClick))">@item.Label</button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback OnOpenSettings { get; set; }
+
+    private bool _pinned = true;
+    private int _tab;
+    private int _lastRenderToken = -1;
+    private IReadOnlyList<SessionItem> _session = [];
+
+    // Unified popup menu (More button + row context menu).
+    private bool _menuOpen;
+    private bool _menuRight;
+    private double _menuX, _menuY;
+    private List<(string Label, Action OnClick)> _menuItems = [];
+
+    private string MenuStyle => _menuRight
+        ? "top:46px; right:8px"
+        : $"left:{_menuX.ToString(System.Globalization.CultureInfo.InvariantCulture)}px; top:{_menuY.ToString(System.Globalization.CultureInfo.InvariantCulture)}px";
+
+    protected override void OnInitialized()
+    {
+        _pinned = Prefs.Current.SidebarPinned;
+        _tab = Math.Clamp(Prefs.Current.SidebarTab, 0, 2);
+
+        Nav.Changed += OnNavChanged;
+        JsBridge.Key += OnKey;
+        JsBridge.SidebarResized += OnSidebarResized;
+
+        RefreshSession();
+        Nav.Initialize();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("mdSetSidebarWidth", (int)Prefs.Current.SidebarWidth);
+            await JS.InvokeVoidAsync("mdInitResizer", "md-splitter");
+        }
+        if (Nav.RenderToken != _lastRenderToken)
+        {
+            _lastRenderToken = Nav.RenderToken;
+            await JS.InvokeVoidAsync("mdInit");
+        }
+    }
+
+    private void OnNavChanged() { RefreshSession(); InvokeAsync(StateHasChanged); }
+    private void RefreshSession() => _session = Nav.SessionItems();
+
+    private void SelectTab(int index)
+    {
+        _tab = Math.Clamp(index, 0, 2);
+        Prefs.Current.SidebarTab = _tab;
+        Prefs.Save();
+    }
+
+    private void ToggleSidebar()
+    {
+        _pinned = !_pinned;
+        Prefs.Current.SidebarPinned = _pinned;
+        Prefs.Save();
+    }
+
+    private async Task ScrollTo(string id)
+    {
+        if (!string.IsNullOrEmpty(id)) await JS.InvokeVoidAsync("mdScrollTo", id);
+    }
+
+    private async Task Print() => await JS.InvokeVoidAsync("mdPrint");
+
+    private void OpenFolder()
+    {
+        if (Nav.CurrentPath is not null) NavigationService.OpenContainingFolder(Nav.CurrentPath);
+    }
+
+    private void OpenMoreMenu()
+    {
+        _menuRight = true;
+        _menuItems = [("Settings", () => _ = OnOpenSettings.InvokeAsync())];
+        _menuOpen = true;
+    }
+
+    private void OpenRowMenu(MouseEventArgs e, string path)
+    {
+        _menuRight = false;
+        _menuX = e.ClientX;
+        _menuY = e.ClientY;
+        _menuItems =
+        [
+            ("Open", () => Nav.Navigate(path)),
+            ("Open in new window", () => NavigationService.OpenInNewWindow(path)),
+            ("Copy filename", () => CopyName(path)),
+            ("Open containing folder", () => NavigationService.OpenContainingFolder(path)),
+        ];
+        _menuOpen = true;
+    }
+
+    private void CloseMenu() => _menuOpen = false;
+    private void RunItem(Action action) { _menuOpen = false; action(); }
+
+    private void CopyName(string path) => _ = JS.InvokeVoidAsync("mdCopy", Path.GetFileName(path));
+
+    private void OnKey(string combo)
+    {
+        switch (combo)
+        {
+            case "alt+left": Nav.Back(); break;
+            case "alt+right": Nav.Forward(); break;
+            case "f5": case "ctrl+r": Nav.Reload(); break;
+            case "ctrl+p": _ = Print(); break;
+            case "ctrl+b": ToggleSidebar(); InvokeAsync(StateHasChanged); break;
+        }
+    }
+
+    private void OnSidebarResized(int width)
+    {
+        Prefs.Current.SidebarWidth = width;
+        Prefs.Save();
+    }
+
+    public void Dispose()
+    {
+        Nav.Changed -= OnNavChanged;
+        JsBridge.Key -= OnKey;
+        JsBridge.SidebarResized -= OnSidebarResized;
+    }
+}
