@@ -16,7 +16,8 @@ It creates a GitHub **Release `v<version>`** with:
 
 | Artifact | Contents |
 |---|---|
-| `MarkdownBlaze-<v>-win-x64.zip` | Windows build (self-contained; uses the OS WebView2 runtime) |
+| `MarkdownBlaze-<v>-win-x64.zip` | Portable Windows build (self-contained; uses the OS WebView2 runtime) |
+| `MarkdownBlaze-<v>-win-x64.msix` + `.cer` | Windows MSIX (self-signed) + its certificate for sideloading |
 | `MarkdownBlaze-<v>-linux-x64.tar.gz` / `-arm64` | Self-contained Linux builds |
 | `MarkdownBlaze_<v>_amd64.deb` | Debian/Ubuntu package |
 | `SHA256SUMS` | Checksums for every artifact |
@@ -33,7 +34,21 @@ to the AUR. One-time setup:
 2. Add repo secrets `AUR_USERNAME`, `AUR_EMAIL`, `AUR_SSH_PRIVATE_KEY`.
 3. Run the release with **publish_aur = true**.
 
-## Microsoft Store
+## Windows MSIX
 
-Not configured. Photino apps can be MSIX-packaged for the Store, but that's a separate setup and is
-not part of this workflow.
+The `release` workflow packs the published app into an **MSIX** (`packaging/windows/AppxManifest.xml`
++ generated tile logos, via the Windows SDK `makeappx`) and **self-signs** it. Because it's
+self-signed, install it by sideloading:
+
+```powershell
+# (elevated, once) trust the published certificate, then install
+Import-Certificate -FilePath MarkdownBlaze-<v>.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+Add-AppxPackage MarkdownBlaze-<v>-win-x64.msix
+```
+
+The manifest declares `.md`/`.markdown` file associations, so the installed app registers as a
+Markdown handler.
+
+**Microsoft Store:** replace the self-signed cert with your Partner Center identity (set the
+`<Identity>` Name/Publisher in `AppxManifest.xml` to the reserved values) and submit the package;
+the Store re-signs it.

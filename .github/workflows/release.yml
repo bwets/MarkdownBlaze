@@ -46,14 +46,39 @@ jobs:
         shell: pwsh
         run: dotnet publish $env:PROJECT -c Release -r win-x64 --self-contained true -p:Version=$env:VERSION -o publish/win-x64
 
-      - name: Zip
+      - name: Zip (portable)
         shell: pwsh
         run: Compress-Archive -Path publish/win-x64/* -DestinationPath "MarkdownBlaze-$env:VERSION-win-x64.zip"
+
+      # Package the same publish output as a self-signed, sideloadable MSIX. (For the Store, replace
+      # the self-signed cert with your Partner Center identity / a real code-signing cert.)
+      - name: Build MSIX (self-signed)
+        shell: pwsh
+        run: |
+          $pub = "publish/win-x64"
+          New-Item -ItemType Directory -Force "$pub/Images" | Out-Null
+          Add-Type -AssemblyName System.Drawing
+          function Logo($w,$h,$path,$fs){ $b=New-Object System.Drawing.Bitmap $w,$h; $g=[System.Drawing.Graphics]::FromImage($b); $g.Clear([System.Drawing.ColorTranslator]::FromHtml("#E8540F")); $g.SmoothingMode='AntiAlias'; $g.TextRenderingHint='AntiAliasGridFit'; $f=New-Object System.Drawing.Font("Segoe UI",$fs,[System.Drawing.FontStyle]::Bold); $sf=New-Object System.Drawing.StringFormat; $sf.Alignment='Center'; $sf.LineAlignment='Center'; $g.DrawString("M",$f,[System.Drawing.Brushes]::White,(New-Object System.Drawing.RectangleF(0,0,$w,$h)),$sf); $b.Save($path,[System.Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $b.Dispose() }
+          Logo 44 44 "$pub/Images/Square44x44Logo.png" 20
+          Logo 150 150 "$pub/Images/Square150x150Logo.png" 78
+          Logo 50 50 "$pub/Images/StoreLogo.png" 24
+          (Get-Content packaging/windows/AppxManifest.xml -Raw).Replace("__VERSION__", "$env:VERSION.0") | Set-Content "$pub/AppxManifest.xml"
+          $sdk = Get-ChildItem "C:/Program Files (x86)/Windows Kits/10/bin" -Directory | Where-Object Name -match '^10\.' | Sort-Object Name -Descending | Select-Object -First 1
+          $makeappx = Join-Path $sdk.FullName "x64/makeappx.exe"
+          $signtool = Join-Path $sdk.FullName "x64/signtool.exe"
+          $msix = "MarkdownBlaze-$env:VERSION-win-x64.msix"
+          & $makeappx pack /o /d $pub /p $msix
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=bwets" -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(5)
+          & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint $msix
+          Export-Certificate -Cert $cert -FilePath "MarkdownBlaze-$env:VERSION.cer" | Out-Null
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: MarkdownBlaze-*-win-x64.zip
+          path: |
+            MarkdownBlaze-*-win-x64.zip
+            MarkdownBlaze-*-win-x64.msix
+            MarkdownBlaze-*.cer
 
   linux:
     needs: setup
@@ -102,7 +127,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          find . -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' \) -print0 \
+          find . -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.msix' \) -print0 \
             | xargs -0 sha256sum > ../SHA256SUMS
           cat ../SHA256SUMS
 
@@ -116,6 +141,8 @@ jobs:
             dist/**/*.zip
             dist/**/*.tar.gz
             dist/**/*.deb
+            dist/**/*.msix
+            dist/**/*.cer
             SHA256SUMS
 
   aur:
