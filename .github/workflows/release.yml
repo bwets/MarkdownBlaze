@@ -54,6 +54,13 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path publish/win-x64/* -DestinationPath "MarkdownBlaze-$env:VERSION-win-x64.zip"
 
+      # Installer (registers the .md / .markdown association); this is what winget installs.
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:VERSION" "/DPublishDir=$env:GITHUB_WORKSPACE\publish\win-x64" "/O$env:GITHUB_WORKSPACE" packaging\windows\MarkdownBlaze.iss
+
       # Package the same publish output as a self-signed, sideloadable MSIX. (For the Store, replace
       # the self-signed cert with your Partner Center identity / a real code-signing cert.)
       - name: Build MSIX (self-signed)
@@ -83,6 +90,7 @@ jobs:
           name: windows
           path: |
             MarkdownBlaze-*-win-x64.zip
+            MarkdownBlaze-*-win-x64-setup.exe
             MarkdownBlaze-*-win-x64.msix
             MarkdownBlaze-*.cer
 
@@ -133,7 +141,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          find . -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.msix' \) -print0 \
+          find . -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.msix' -o -name '*-setup.exe' \) -print0 \
             | xargs -0 sha256sum > ../SHA256SUMS
           cat ../SHA256SUMS
 
@@ -148,6 +156,7 @@ jobs:
             dist/**/*.tar.gz
             dist/**/*.deb
             dist/**/*.msix
+            dist/**/*-setup.exe
             dist/**/*.cer
             SHA256SUMS
 
@@ -194,5 +203,5 @@ jobs:
           identifier: GregoryKieffer.MarkdownBlaze
           version: ${{ needs.setup.outputs.version }}
           release-tag: v${{ needs.setup.outputs.version }}
-          installers-regex: '-win-x64\.zip$'
+          installers-regex: '-win-x64-setup\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}
