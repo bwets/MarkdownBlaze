@@ -12,6 +12,10 @@ on:
         description: "Also publish to the AUR (requires AUR_* secrets)"
         type: boolean
         default: false
+      publish_winget:
+        description: "Also update winget (requires WINGET_TOKEN; package must already exist)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -177,3 +181,18 @@ jobs:
           commit_email: ${{ secrets.AUR_EMAIL }}
           ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
           commit_message: "Update to ${{ needs.setup.outputs.version }}"
+
+  winget:
+    needs: [setup, release]
+    if: ${{ inputs.publish_winget }}
+    runs-on: ubuntu-latest
+    steps:
+      # Opens an update PR to microsoft/winget-pkgs for the portable zip.
+      # The package must already exist there (seed the first version manually — see packaging/winget).
+      - uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: bwets.MarkdownBlaze
+          version: ${{ needs.setup.outputs.version }}
+          release-tag: v${{ needs.setup.outputs.version }}
+          installers-regex: '-win-x64\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}

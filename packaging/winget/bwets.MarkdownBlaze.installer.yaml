@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+# Portable install from the release zip — no code-signing required (unlike the MSIX).
+PackageIdentifier: bwets.MarkdownBlaze
+PackageVersion: __VERSION__
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: MarkdownBlaze.exe
+    PortableCommandAlias: MarkdownBlaze
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/bwets/MarkdownBlaze/releases/download/v__VERSION__/MarkdownBlaze-__VERSION__-win-x64.zip
+    InstallerSha256: __SHA256__
+ManifestType: installer
+ManifestVersion: 1.6.0
