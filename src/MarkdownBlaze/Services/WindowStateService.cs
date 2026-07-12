@@ -25,12 +25,59 @@ public sealed class WindowStateService
     private int? _savedX;
     private int? _savedY;
     private bool _ready;
+    private bool _fullscreen;
+    private PhotinoWindow? _window;
+
+    // Placement captured when entering fullscreen — Photino does not restore it on exit, so we do.
+    private bool _preFullMax;
+    private int _preFullW;
+    private int _preFullH;
+    private Point _preFullLoc;
 
     public WindowStateService(PreferencesStore prefs) => _prefs = prefs;
+
+    /// <summary>
+    /// Toggles borderless fullscreen (F11). Fullscreen is a transient view mode: its bounds are never
+    /// tracked or saved, so the persisted size/position/maximized state is left untouched.
+    /// </summary>
+    public void ToggleFullScreen()
+    {
+        if (_window is null) return;
+
+        if (!_fullscreen)
+        {
+            // Remember the current placement so we can restore it exactly when leaving fullscreen.
+            _preFullMax = _window.Maximized;
+            _preFullW = _window.Width;
+            _preFullH = _window.Height;
+            _preFullLoc = _window.Location;
+            _fullscreen = true; // suspend tracking before the size changes
+            _window.SetFullScreen(true);
+        }
+        else
+        {
+            // Leaving fullscreen: Photino keeps the fullscreen size, so restore the placement here.
+            // Tracking stays suspended (_fullscreen) until the window is back to its prior bounds, so
+            // the fullscreen dimensions are never written to preferences.
+            _window.SetFullScreen(false);
+            if (_preFullMax)
+            {
+                _window.SetMaximized(true);
+            }
+            else
+            {
+                _window.SetSize(_preFullW, _preFullH);
+                _window.SetLocation(_preFullLoc);
+            }
+
+            _fullscreen = false;
+        }
+    }
 
     /// <summary>Wires the service to the main window. Call once, before <c>app.Run()</c>.</summary>
     public void Attach(PhotinoWindow window)
     {
+        _window = window;
         var p = _prefs.Current;
         _savedMax = p.WindowMaximized;
         _savedW = Math.Max(p.WindowWidth, MinWidth);
@@ -62,13 +109,13 @@ public sealed class WindowStateService
         window.RegisterLocationChangedHandler((_, _) => TrackRestoredBounds(window));
         window.RegisterMaximizedHandler((_, _) =>
         {
-            if (!_ready) return;
+            if (!_ready || _fullscreen) return;
             _prefs.Current.WindowMaximized = true;
             _prefs.Save();
         });
         window.RegisterRestoredHandler((_, _) =>
         {
-            if (!_ready) return;
+            if (!_ready || _fullscreen) return;
             _prefs.Current.WindowMaximized = false;
             TrackRestoredBounds(window);
             _prefs.Save();
@@ -85,7 +132,7 @@ public sealed class WindowStateService
     /// <summary>Records the current bounds, but only while the window is in its normal (restored) state.</summary>
     private void TrackRestoredBounds(PhotinoWindow window)
     {
-        if (!_ready || window.Maximized || window.Minimized) return;
+        if (!_ready || _fullscreen || window.Maximized || window.Minimized) return;
 
         var w = window.Width;
         var h = window.Height;

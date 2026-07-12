@@ -8,10 +8,6 @@ on:
         description: "Override version (leave empty for 1.0.<run_number>)"
         required: false
         default: ""
-      publish_aur:
-        description: "Also publish to the AUR (requires AUR_* secrets)"
-        type: boolean
-        default: false
       publish_winget:
         description: "Also update winget (requires WINGET_TOKEN; package must already exist)"
         type: boolean
@@ -135,8 +131,59 @@ jobs:
             MarkdownBlaze-*-linux-*.tar.gz
             *.deb
 
+  macos:
+    needs: setup
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish, bundle .app, build .dmg (per architecture)
+        run: |
+          set -euo pipefail
+
+          # Build a multi-resolution .icns from the app icon.
+          mkdir -p icon.iconset
+          for s in 16 32 128 256 512; do
+            sips -z $s $s resources/md_512.png --out "icon.iconset/icon_${s}x${s}.png" >/dev/null
+            d=$((s * 2))
+            sips -z $d $d resources/md_512.png --out "icon.iconset/icon_${s}x${s}@2x.png" >/dev/null
+          done
+          iconutil -c icns icon.iconset -o MarkdownBlaze.icns
+
+          for rid in osx-arm64 osx-x64; do
+            pub="publish/$rid"
+            dotnet publish "$PROJECT" -c Release -r "$rid" --self-contained true -p:Version="$VERSION" -o "$pub"
+
+            stage="dmg/$rid"
+            app="$stage/MarkdownBlaze.app"
+            mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+            cp -R "$pub"/* "$app/Contents/MacOS/"
+            chmod +x "$app/Contents/MacOS/MarkdownBlaze"
+            cp MarkdownBlaze.icns "$app/Contents/Resources/MarkdownBlaze.icns"
+            sed "s/__VERSION__/$VERSION/g" packaging/macos/Info.plist > "$app/Contents/Info.plist"
+
+            # Ad-hoc sign so the app launches on Apple Silicon (arm64 requires at least an ad-hoc
+            # signature). It is NOT notarized, so first launch still needs right-click - Open.
+            codesign --force --deep --sign - "$app"
+
+            # DMG with the app plus an /Applications shortcut for drag-to-install.
+            ln -s /Applications "$stage/Applications"
+            hdiutil create -volname "MarkdownBlaze" -srcfolder "$stage" -ov -format UDZO \
+              "MarkdownBlaze-$VERSION-$rid.dmg"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: MarkdownBlaze-*-osx-*.dmg
+
   release:
-    needs: [setup, windows, linux, archpkg]
+    needs: [setup, windows, linux, macos, archpkg]
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.setup.outputs.version }}
@@ -148,7 +195,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          find . -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.msix' -o -name '*-setup.exe' -o -name '*.pkg.tar.zst' \) -print0 \
+          find . -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.msix' -o -name '*-setup.exe' -o -name '*.pkg.tar.zst' -o -name '*.dmg' \) -print0 \
             | xargs -0 sha256sum > ../SHA256SUMS
           cat ../SHA256SUMS
 
@@ -163,41 +210,11 @@ jobs:
             dist/**/*.tar.gz
             dist/**/*.deb
             dist/**/*.pkg.tar.zst
+            dist/**/*.dmg
             dist/**/*.msix
             dist/**/*-setup.exe
             dist/**/*.cer
             SHA256SUMS
-
-  aur:
-    needs: [setup, release]
-    if: ${{ inputs.publish_aur }}
-    runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ needs.setup.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: linux
-          path: dist
-
-      - name: Render PKGBUILD
-        run: |
-          set -euo pipefail
-          sha=$(sha256sum "dist/MarkdownBlaze-$VERSION-linux-x64.tar.gz" | cut -d' ' -f1)
-          sed -e "s/__VERSION__/$VERSION/g" -e "s/__SHA256__/$sha/g" \
-            packaging/aur/PKGBUILD.template > PKGBUILD
-          echo "----- PKGBUILD -----"; cat PKGBUILD
-
-      - name: Publish to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v2
-        with:
-          pkgname: MarkdownBlaze
-          pkgbuild: ./PKGBUILD
-          commit_username: ${{ secrets.AUR_USERNAME }}
-          commit_email: ${{ secrets.AUR_EMAIL }}
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update to ${{ needs.setup.outputs.version }}"
 
   winget:
     needs: [setup, release]

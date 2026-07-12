@@ -13,6 +13,11 @@
     <!-- Opt out of the solution's central package management + warnings-as-errors. -->
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- Faster startup: precompile to native (ReadyToRun) when publishing for a specific runtime,
+         and enable tiered PGO so hot paths optimize sooner. R2R needs a RID, so it only kicks in for
+         the published `-r <rid>` release build, not plain `dotnet build`. -->
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+    <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
   <ItemGroup>

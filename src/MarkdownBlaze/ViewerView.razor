@@ -2,6 +2,7 @@
 @inject NavigationService Nav
 @inject PreferencesStore Prefs
 @inject WindowHost Window
+@inject WindowStateService WindowState
 @inject IJSRuntime JS
 
 <div class="app-shell">
@@ -91,11 +92,56 @@
     </div>
 }
 
+@if (_shortcutsOpen)
+{
+    <div class="menu-backdrop" @onclick="CloseShortcuts" @oncontextmenu="CloseShortcuts" @oncontextmenu:preventDefault="true"></div>
+    <div class="shortcuts" role="dialog" aria-label="Keyboard shortcuts">
+        <div class="shortcuts-head">Keyboard shortcuts</div>
+        <table class="shortcuts-table">
+            @foreach (var s in Shortcuts)
+            {
+                <tr>
+                    <td class="sc-action">@s.Action</td>
+                    <td class="sc-keys">
+                        @{ var firstAlt = true; }
+                        @foreach (var alt in s.Keys.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            @if (!firstAlt) { <span class="sc-or">/</span> }
+                            firstAlt = false;
+                            var keys = alt.Split('+');
+                            @for (var i = 0; i < keys.Length; i++)
+                            {
+                                @if (i > 0) { <span class="sc-plus">+</span> }
+                                <kbd>@keys[i]</kbd>
+                            }
+                        }
+                    </td>
+                </tr>
+            }
+        </table>
+        <div class="shortcuts-foot">Press <kbd>?</kbd> or <kbd>Esc</kbd> to close</div>
+    </div>
+}
+
 @code {
     [Parameter] public EventCallback OnOpenSettings { get; set; }
 
     private bool _pinned = true;
+    private bool _shortcutsOpen;
     private int _tab;
+
+    // (action, keys) shown in the ? shortcuts overlay. Keys are space-separated tokens; "+" joins a chord.
+    private static readonly (string Action, string Keys)[] Shortcuts =
+    [
+        ("Toggle sidebar", "F1 Ctrl+B"),
+        ("Back / Forward", "Alt+← Alt+→"),
+        ("Refresh", "F5 Ctrl+R"),
+        ("Open file", "Ctrl+O"),
+        ("Print", "Ctrl+P"),
+        ("Fullscreen", "F11"),
+        ("Show this help", "?"),
+        ("Close popup", "Esc"),
+    ];
     private int _lastRenderToken = -1;
     private IReadOnlyList<SessionItem> _session = [];
 
@@ -175,7 +221,11 @@
     private void OpenMoreMenu()
     {
         _menuRight = true;
-        _menuItems = [("Settings", () => _ = OnOpenSettings.InvokeAsync())];
+        _menuItems =
+        [
+            ("Keyboard shortcuts", () => _shortcutsOpen = true),
+            ("Settings", () => _ = OnOpenSettings.InvokeAsync()),
+        ];
         _menuOpen = true;
     }
 
@@ -195,6 +245,7 @@
     }
 
     private void CloseMenu() => _menuOpen = false;
+    private void CloseShortcuts() => _shortcutsOpen = false;
     private void RunItem(Action action) { _menuOpen = false; action(); }
 
     private void CopyName(string path) => _ = JS.InvokeVoidAsync("mdCopy", Path.GetFileName(path));
@@ -208,7 +259,12 @@
             case "f5": case "ctrl+r": Nav.Reload(); break;
             case "ctrl+p": _ = Print(); break;
             case "ctrl+o": _ = OpenFile(); break;
-            case "ctrl+b": ToggleSidebar(); InvokeAsync(StateHasChanged); break;
+            case "f1": case "ctrl+b": ToggleSidebar(); InvokeAsync(StateHasChanged); break;
+            case "f11": WindowState.ToggleFullScreen(); break;
+            case "help": _shortcutsOpen = !_shortcutsOpen; InvokeAsync(StateHasChanged); break;
+            case "escape":
+                if (_shortcutsOpen || _menuOpen) { _shortcutsOpen = false; _menuOpen = false; InvokeAsync(StateHasChanged); }
+                break;
         }
     }
 

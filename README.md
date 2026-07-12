@@ -67,9 +67,10 @@ dotnet run --project src/MarkdownBlaze -- "docs/index.md"
 ```
 
 ### Releases & packaging
-Prebuilt, self-contained binaries (Windows zip, Linux `tar.gz`/`.deb`, AUR) are produced by the
-manual [`release` workflow](packaging/README.md). On Linux, `packaging/linux/install-linux.sh`
-installs a `.desktop` entry and registers MarkdownBlaze as the default `.md` handler.
+Prebuilt, self-contained binaries (Windows zip/installer/MSIX, Linux `tar.gz`/`.deb`/`.pkg.tar.zst`,
+macOS `.dmg`) are produced by the manual [`release` workflow](packaging/README.md). On Linux,
+`packaging/linux/install-linux.sh` installs a `.desktop` entry and registers MarkdownBlaze as the
+default `.md` handler.
 
 ---
 
@@ -89,7 +90,7 @@ src/
     SettingsView.razor      Settings page
     Services/               Rendering, navigation/history, file-watch, JS interop
     wwwroot/                Host page, app.css/js, offline highlight.js + mermaid + katex
-  packaging/                Linux .desktop + installer, .deb builder, AUR PKGBUILD
+  packaging/                Linux .desktop/.deb/PKGBUILD, Windows installer/MSIX, macOS .app/.dmg
 ```
 
 ## License

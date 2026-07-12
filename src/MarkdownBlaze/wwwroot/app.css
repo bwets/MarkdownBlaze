@@ -276,6 +276,41 @@ details.admonition > summary.admonition-title { cursor: pointer; list-style: non
 }
 .ctx button:hover { background: var(--neutral-fill-stealth-hover); }
 
+/* ---- Keyboard shortcuts overlay (?) ---- */
+.shortcuts {
+    position: fixed;
+    z-index: 1001;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 340px;
+    max-width: 90vw;
+    background: var(--neutral-layer-1);
+    border: 1px solid var(--neutral-stroke-divider-rest);
+    border-radius: 10px;
+    padding: 18px 24px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+}
+.shortcuts-head { font-weight: 600; font-size: 1.05rem; margin-bottom: .8em; }
+.shortcuts-table { border-collapse: collapse; width: 100%; }
+.shortcuts-table td { padding: .35em .3em; vertical-align: middle; }
+.sc-action { color: var(--neutral-foreground-rest); padding-right: 2.5em !important; }
+.sc-keys { text-align: right; white-space: nowrap; }
+.sc-or, .sc-plus { color: var(--neutral-foreground-hint); margin: 0 .3em; }
+.shortcuts kbd {
+    display: inline-block;
+    min-width: 1.3em;
+    padding: .12em .5em;
+    font-family: inherit;
+    font-size: .82em;
+    text-align: center;
+    background: var(--md-code-bg);
+    border: 1px solid var(--md-border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+}
+.shortcuts-foot { margin-top: 1.1em; font-size: .82rem; color: var(--neutral-foreground-hint); text-align: center; }
+
 /* ---- Settings ---- */
 .settings { max-width: 720px; margin: 0 auto; padding: 2rem; }
 .settings h2 { margin-top: 0; }

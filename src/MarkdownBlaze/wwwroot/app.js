@@ -46,16 +46,47 @@ function mdRenderMath() {
     });
 }
 
-// Run math, syntax highlighting + mermaid over the freshly rendered markdown.
-window.mdInit = function () {
-    try { mdRenderMath(); } catch (e) { console.error('math', e); }
-    try { if (window.hljs) window.hljs.highlightAll(); } catch (e) { console.error('hljs', e); }
+// Lazy asset loading: the heavy render libraries are fetched only the first time a document needs
+// them, keeping startup fast. Each URL loads at most once (the promise is cached).
+const mdAssets = {};
+function mdLoadScript(src) {
+    return mdAssets[src] || (mdAssets[src] = new Promise(function (resolve, reject) {
+        const s = document.createElement('script');
+        s.src = src; s.async = true;
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+    }));
+}
+function mdLoadCss(href) {
+    if (mdAssets[href]) return;
+    mdAssets[href] = true;
+    const l = document.createElement('link');
+    l.rel = 'stylesheet'; l.href = href;
+    document.head.appendChild(l);
+}
+
+function mdRunMermaid() {
     try {
-        if (window.mermaid) {
-            window.mermaid.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'default' });
-            window.mermaid.run();
-        }
+        window.mermaid.initialize({ startOnLoad: false, theme: isDark() ? 'dark' : 'default' });
+        window.mermaid.run();
     } catch (e) { console.error('mermaid', e); }
+}
+
+// Render the freshly injected markdown: highlight code, render math, draw mermaid diagrams — each
+// only if present, and each pulling in its library on demand.
+window.mdInit = function () {
+    if (document.querySelector('.math, pre > code.language-math')) {
+        mdLoadCss('lib/katex/katex.min.css');
+        mdLoadScript('lib/katex/katex.min.js').then(mdRenderMath).catch(e => console.error('katex load', e));
+    }
+    if (document.querySelector('pre code:not(.language-mermaid):not(.language-math)')) {
+        mdLoadScript('lib/highlight.full.min.js')
+            .then(() => { try { window.hljs.highlightAll(); } catch (e) { console.error('hljs', e); } })
+            .catch(e => console.error('hljs load', e));
+    }
+    if (document.querySelector('pre.mermaid')) {
+        mdLoadScript('lib/mermaid.min.js').then(mdRunMermaid).catch(e => console.error('mermaid load', e));
+    }
 };
 
 window.mdSetTheme = function (mode) {
@@ -107,7 +138,11 @@ window.addEventListener('keydown', function (e) {
     let combo = '';
     if (e.altKey && e.key === 'ArrowLeft') combo = 'alt+left';
     else if (e.altKey && e.key === 'ArrowRight') combo = 'alt+right';
+    else if (e.key === 'F1') combo = 'f1';
     else if (e.key === 'F5') combo = 'f5';
+    else if (e.key === 'F11') combo = 'f11';
+    else if (e.key === '?') combo = 'help';
+    else if (e.key === 'Escape') combo = 'escape';
     else if (e.ctrlKey && (e.key === 'r' || e.key === 'R')) combo = 'ctrl+r';
     else if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) combo = 'ctrl+p';
     else if (e.ctrlKey && (e.key === 'o' || e.key === 'O')) combo = 'ctrl+o';

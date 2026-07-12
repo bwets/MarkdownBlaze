@@ -10,7 +10,6 @@ Actions → **release** → *Run workflow*:
 
 - **version** — leave empty to use `1.0.<run_number>` (the patch increases with each build), or type
   an explicit version.
-- **publish_aur** — also push to the AUR (needs the AUR secrets below).
 - **publish_winget** — also open a winget update PR (needs `WINGET_TOKEN`; see `packaging/winget`).
 - **publish_store** — also submit to the Microsoft Store (see below).
 
@@ -24,11 +23,13 @@ It creates a GitHub **Release `v<version>`** with:
 | `MarkdownBlaze-<v>-linux-x64.tar.gz` / `-arm64` | Self-contained Linux builds |
 | `MarkdownBlaze_<v>_amd64.deb` | Debian/Ubuntu package |
 | `MarkdownBlaze-<v>-*.pkg.tar.zst` | Arch Linux package (`pacman -U`) |
+| `MarkdownBlaze-<v>-osx-arm64.dmg` / `-osx-x64` | macOS disk images (Apple Silicon / Intel) |
 | `SHA256SUMS` | Checksums for every artifact |
 
 ### Runtime dependencies
 - **Windows:** the Microsoft **WebView2 Runtime** (preinstalled on current Windows).
-- **Linux:** **WebKitGTK** + GTK — `webkit2gtk-4.1` and `gtk3` (declared by the `.deb` and the AUR package).
+- **Linux:** **WebKitGTK** + GTK — `webkit2gtk-4.1` and `gtk3` (declared by the `.deb` and the Arch package).
+- **macOS:** none — uses the system **WKWebView** (WebKit) built into macOS 11+.
 
 ## Arch Linux
 
@@ -39,9 +40,22 @@ Every release includes a prebuilt **`.pkg.tar.zst`** (built with `makepkg` from
 sudo pacman -U MarkdownBlaze-<v>-1-x86_64.pkg.tar.zst
 ```
 
-**AUR (optional):** the same PKGBUILD can be pushed to the AUR with **publish_aur = true** — one-time
-setup: an [AUR account](https://aur.archlinux.org) with your SSH key, and repo secrets
-`AUR_USERNAME`, `AUR_EMAIL`, `AUR_SSH_PRIVATE_KEY`.
+## macOS
+
+The `macos` job publishes a self-contained build for each architecture, wraps it in a
+`MarkdownBlaze.app` bundle (`packaging/macos/Info.plist` + an `.icns` generated from
+`resources/md_512.png`), and packages it as a drag-to-`/Applications` **`.dmg`**.
+
+The app is **ad-hoc signed** (so it launches on Apple Silicon) but **not notarized**, so on first
+launch macOS Gatekeeper needs a manual allow:
+
+```bash
+# Either right-click the app → Open (once), or clear the quarantine attribute:
+xattr -dr com.apple.quarantine /Applications/MarkdownBlaze.app
+```
+
+To distribute without that step, sign with a Developer ID certificate and notarize (needs an Apple
+Developer account); the `codesign --sign -` step in the workflow is where that would plug in.
 
 ## Windows MSIX
 
