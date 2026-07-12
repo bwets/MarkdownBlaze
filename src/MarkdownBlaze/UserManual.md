@@ -60,18 +60,33 @@ MarkdownBlaze supports CommonMark plus a rich set of extensions:
       B -- no --> D[Read & enjoy]
   ```
 
-- **Admonitions** in both Docusaurus and MkDocs styles:
+- **Admonitions / callouts** in Docusaurus, MkDocs, **and** GitHub/Obsidian styles:
 
-  !!! note
-      Local Markdown links open **inside** the app; external links open in your browser.
+  > [!note] Callouts
+  > `> [!note] Title` (GitHub/Obsidian), `:::note` (Docusaurus), and `!!! note` (MkDocs) all
+  > work. Add `+`/`-` after an Obsidian type — `> [!tip]- Collapsed` — for a collapsible callout.
 
+- **Math** via KaTeX — inline `$e^{i\pi}+1=0$`, display `$$…$$`, and ```` ```math ```` blocks.
+- **Emoji shortcodes** like `:rocket:` → 🚀 and `:tada:` → 🎉.
 - **YAML front matter** is parsed and hidden.
 - Local **images are inlined**, so documents render fully offline — no network access.
 
+## Obsidian & GitHub extras
+
+MarkdownBlaze aims to be a universal viewer, so vault- and repo-flavoured syntax renders too:
+
+- **Wiki links** — `[[Page]]`, `[[Page|alias]]`, and `[[Page#Heading]]` navigate in-app.
+  Image embeds `![[image.png]]` are inlined; a note embed `![[Other Note]]` becomes a link.
+- **Tags** — `#project`, `#todo/study` render as pills (a leading `#␣` is still a heading, and
+  `C#` / `#123` are left alone).
+- **Comments** — Obsidian `%%…%%` (inline or on their own `%%`-fenced lines) are hidden.
+- **Highlight / strikethrough / sub- & superscript** — `==mark==`, `~~del~~`, `H~2~O`, `x^2^`.
+- **GitHub alerts** — the `> [!NOTE]` / `[!TIP]` / `[!WARNING]` family (see callouts above).
+
 ## Links & navigation
 
-- Relative links resolve against the opened file's folder. Extension-less wiki links get
-  `.md`; folder links resolve to `index.md`.
+- Relative links resolve against the opened file's folder. Extension-less links (and `[[wiki
+  links]]`) get `.md`; folder links resolve to `index.md`.
 - Edit a file while it's open and the view **auto-refreshes**.
 
 ---

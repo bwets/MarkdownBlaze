@@ -19,7 +19,24 @@
     <PackageReference Include="PhotinoX.Blazor" Version="4.2.0" />
     <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.14.3" />
     <PackageReference Include="Markdig" Version="1.3.2" />
-    <PackageReference Include="bwets.Markdig.Extensions" Version="0.1.3" />
+  </ItemGroup>
+
+  <!--
+    bwets.Markdig.Extensions: the published NuGet package by default. Set LocalSources=true (e.g. in
+    MarkdownBlaze.csproj.user, or -p:LocalSources=true) to reference the sibling source checkout
+    instead, so both projects can be edited in one loop. The Configuration guard forces the package
+    in Release regardless of LocalSources — a local project reference must never ship in a release.
+
+    The condition lives on the ItemGroups (not a derived property) on purpose: the .user file is
+    auto-imported after the project body, but item conditions are evaluated after all properties, so
+    they see the final LocalSources value whichever way it was set.
+  -->
+  <ItemGroup Condition="'$(LocalSources)' == 'true' and '$(Configuration)' != 'Release'">
+    <ProjectReference Include="..\..\..\bwets.Markdig.Extensions\src\bwets.Markdig.Extensions\bwets.Markdig.Extensions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!('$(LocalSources)' == 'true' and '$(Configuration)' != 'Release')">
+    <PackageReference Include="bwets.Markdig.Extensions" Version="0.1.4" />
   </ItemGroup>
 
   <ItemGroup>

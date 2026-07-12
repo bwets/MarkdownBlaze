@@ -8,6 +8,14 @@ public sealed class Preferences
     public double SidebarWidth { get; set; } = 280;
     public int SidebarTab { get; set; }
     public string ThemeMode { get; set; } = "Dark"; // System | Light | Dark
+
+    // Window placement. Width/Height/X/Y are the *restored* (non-maximized) bounds; the app starts
+    // maximized by default and on first run (no saved bounds). X/Y null → center on screen.
+    public bool WindowMaximized { get; set; } = true;
+    public int WindowWidth { get; set; } = 1280;
+    public int WindowHeight { get; set; } = 860;
+    public int? WindowX { get; set; }
+    public int? WindowY { get; set; }
 }
 
 /// <summary>Persists user preferences to the local app-data folder (shared with the desktop app).</summary>

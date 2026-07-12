@@ -22,14 +22,16 @@ internal static class Program
         builder.Services.AddSingleton<MarkdownService>();
         builder.Services.AddSingleton<NavigationService>();
         builder.Services.AddSingleton<WindowHost>();
+        builder.Services.AddSingleton<WindowStateService>();
 
         builder.RootComponents.Add<App>("app");
 
         var app = builder.Build();
 
-        app.MainWindow
-            .SetTitle("MarkdownBlaze")
-            .SetSize(1280, 860);
+        app.MainWindow.SetTitle("MarkdownBlaze");
+
+        // Restore the window's saved size/position/maximized state (defaults to maximized on first run).
+        app.Services.GetRequiredService<WindowStateService>().Attach(app.MainWindow);
 
         // Set the window icon. On Windows, push the .ico onto the HWND via WM_SETICON once the native
         // window exists (Photino's SetIconFile only sets it there); other platforms use SetIconFile.

@@ -225,6 +225,28 @@ details.admonition > summary.admonition-title { cursor: pointer; list-style: non
 .admonition-example  { --adm: #7c4dff; --adm-bg: rgba(124,77,255,.1); }
 .admonition-quote    { --adm: #9e9e9e; --adm-bg: rgba(158,158,158,.12); }
 
+/* ---- Wiki links, tags, math ---- */
+/* Obsidian-style [[wiki links]] use the normal link colour but a dashed underline to hint
+   they resolve inside the vault rather than to the web. */
+.markdown-body a.wikilink { text-decoration-style: dashed; text-underline-offset: 2px; }
+
+/* Obsidian #tags as compact, non-interactive pills. */
+.markdown-body .tag {
+    display: inline-block;
+    padding: 0 .5em;
+    border-radius: 999px;
+    font-size: .85em;
+    line-height: 1.5;
+    background: var(--md-code-bg);
+    color: var(--md-link);
+    white-space: nowrap;
+}
+
+/* KaTeX display math: allow wide equations to scroll instead of overflowing the page. */
+.markdown-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: .3em 0; }
+/* A ```math fence is rendered in place into its <pre>; strip the code-block chrome. */
+.markdown-body pre.math-block { background: transparent; padding: .3em 0; border: 0; }
+
 /* ---- Popup menu (More button + history context menu) ---- */
 .menu-backdrop { position: fixed; inset: 0; z-index: 1000; }
 .ctx {

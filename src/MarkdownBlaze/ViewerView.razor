@@ -72,7 +72,10 @@
         <div id="md-splitter" class="splitter"></div>
 
         <main class="content-area">
-            <div class="content markdown-body">@((MarkupString)Nav.CurrentHtml)</div>
+            @* @key forces Blazor to discard and rebuild this subtree on every navigation instead of
+               diffing it. The rendered markdown is mutated in place by highlight.js / mermaid / KaTeX,
+               so diffing against Blazor's virtual DOM would corrupt the render tree. *@
+            <div class="content markdown-body" @key="Nav.RenderToken">@((MarkupString)Nav.CurrentHtml)</div>
         </main>
     </div>
 </div>

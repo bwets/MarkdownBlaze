@@ -14,18 +14,24 @@ public sealed record RenderResult(
     string Path, string File, string Title, string BodyHtml, IReadOnlyList<Heading> Headings);
 
 /// <summary>
-/// Renders Markdown to body HTML using the bwets.Markdig.Extensions pipeline (YAML front-matter,
-/// advanced extensions, admonitions, mermaid; highlighting via highlight.js classes). Relative links
-/// are rewritten for in-app navigation and local images are inlined as data URIs (so they load inside
-/// the app:// / http://localhost WebView origin).
+/// Renders Markdown to body HTML using the bwets.Markdig.Extensions pipeline: YAML front-matter,
+/// advanced extensions, emoji shortcodes, admonitions (Docusaurus/MkDocs/GitHub-Obsidian callouts),
+/// mermaid, wiki links, hidden Obsidian comments, and Obsidian tags. Syntax highlighting (highlight.js)
+/// and math (KaTeX) are applied client-side over the emitted classes. Relative links are rewritten for
+/// in-app navigation and local images are inlined as data URIs (so they load inside the app:// /
+/// http://localhost WebView origin).
 /// </summary>
 public sealed class MarkdownService
 {
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseYamlFrontMatter()
         .UseAdvancedExtensions()
+        .UseEmojiAndSmiley(enableSmileys: false) // :shortcode: only — no ":)"→emoji, matching GitHub/Obsidian
         .UseAdmonitions()
         .UseMermaid()
+        .UseWikiLinks()
+        .UseObsidianComments()
+        .UseObsidianTags()
         .Build();
 
     public RenderResult? Render(string markdownFilePath)

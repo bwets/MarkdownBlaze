@@ -7,8 +7,48 @@ function isDark() {
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-// Run syntax highlighting + mermaid over the freshly rendered markdown.
+// Strip the delimiters Markdig wraps around math (\(…\), \[…\], $…$, $$…$$).
+function mdStripMathDelims(s) {
+    s = s.trim();
+    if (s.startsWith('\\(') && s.endsWith('\\)')) return s.slice(2, -2);
+    if (s.startsWith('\\[') && s.endsWith('\\]')) return s.slice(2, -2);
+    if (s.startsWith('$$') && s.endsWith('$$')) return s.slice(2, -2);
+    if (s.startsWith('$') && s.endsWith('$')) return s.slice(1, -1);
+    return s;
+}
+
+// Render TeX math with KaTeX. Markdig emits inline math as <span class="math">, display math
+// ($$…$$) as <div class="math">, and GitHub ```math fences as <pre><code class="language-math">.
+// IMPORTANT: we render *into* existing elements and never remove/replace a node. The rendered
+// markup lives inside Blazor's content <div>, and swapping a node out from under Blazor corrupts
+// its render tree on the next navigation (the whole UI then freezes).
+function mdRenderMath() {
+    if (!window.katex) return;
+    // GitHub ```math fences: render display math into the existing <pre> (keep the node; hljs skips
+    // it because we clear its language-math <code> child first).
+    document.querySelectorAll('pre > code.language-math').forEach(function (code) {
+        const pre = code.parentElement;
+        if (pre.querySelector('.katex')) return; // already rendered
+        try {
+            window.katex.render(code.textContent.replace(/\n$/, ''), pre,
+                { displayMode: true, throwOnError: false });
+            pre.classList.add('math-block');
+        } catch (e) { console.error('katex', e); }
+    });
+    document.querySelectorAll('span.math, div.math').forEach(function (el) {
+        if (el.querySelector('.katex')) return; // already rendered
+        try {
+            window.katex.render(mdStripMathDelims(el.textContent), el, {
+                displayMode: el.tagName === 'DIV',
+                throwOnError: false,
+            });
+        } catch (e) { console.error('katex', e); }
+    });
+}
+
+// Run math, syntax highlighting + mermaid over the freshly rendered markdown.
 window.mdInit = function () {
+    try { mdRenderMath(); } catch (e) { console.error('math', e); }
     try { if (window.hljs) window.hljs.highlightAll(); } catch (e) { console.error('hljs', e); }
     try {
         if (window.mermaid) {
