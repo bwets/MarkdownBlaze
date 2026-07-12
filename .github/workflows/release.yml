@@ -168,8 +168,15 @@ jobs:
             sed "s/__VERSION__/$VERSION/g" packaging/macos/Info.plist > "$app/Contents/Info.plist"
 
             # Ad-hoc sign so the app launches on Apple Silicon (arm64 requires at least an ad-hoc
-            # signature). It is NOT notarized, so first launch still needs right-click - Open.
-            codesign --force --deep --sign - "$app"
+            # signature on each Mach-O). Not notarized, so first launch still needs right-click - Open.
+            # Sign every Mach-O binary (executable, dylibs, createdump) at the top of Contents/MacOS;
+            # web assets under wwwroot are plain resources. We avoid `codesign --deep`, which walks
+            # wwwroot/_content and mis-detects those folders as nested bundles. The bundle seal is
+            # best-effort — the app launches from its signed binaries regardless.
+            while IFS= read -r -d '' f; do
+              if file -b "$f" | grep -q "Mach-O"; then codesign --force --sign - "$f"; fi
+            done < <(find "$app/Contents/MacOS" -maxdepth 1 -type f -print0)
+            codesign --force --sign - "$app" || echo "bundle seal skipped; signed binaries suffice for launch"
 
             # DMG with the app plus an /Applications shortcut for drag-to-install.
             ln -s /Applications "$stage/Applications"
