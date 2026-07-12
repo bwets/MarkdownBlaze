@@ -18,6 +18,24 @@
                 </FluentRadioGroup>
             </div>
 
+            <div class="setting-row">
+                <div class="setting-label">Global history</div>
+                @if (!_confirming)
+                {
+                    <FluentButton Appearance="Appearance.Outline" Disabled="@(_count == 0)"
+                                  OnClick="@(() => _confirming = true)">Clear global history</FluentButton>
+                    <span class="muted" style="margin-left:.6rem">
+                        @(_cleared ? "History cleared." : $"{_count} item{(_count == 1 ? "" : "s")}")
+                    </span>
+                }
+                else
+                {
+                    <span>Clear all @_count entries?</span>
+                    <FluentButton Appearance="Appearance.Accent" OnClick="ClearHistory" style="margin-left:.6rem">Clear</FluentButton>
+                    <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => _confirming = false)">Cancel</FluentButton>
+                }
+            </div>
+
             <div class="setting-row muted">
                 MarkdownBlaze — offline Markdown viewer · Photino + Fluent UI
             </div>
@@ -25,14 +43,30 @@
     </div>
 </div>
 
+@inject HistoryStore History
+
 @code {
     [Parameter] public DesignThemeModes CurrentMode { get; set; }
     [Parameter] public EventCallback<DesignThemeModes> OnModeChanged { get; set; }
     [Parameter] public EventCallback OnBack { get; set; }
 
+    private int _count;
+    private bool _confirming;
+    private bool _cleared;
+
+    protected override void OnInitialized() => _count = History.Entries.Count;
+
     private async Task OnRadioChanged(DesignThemeModes mode)
     {
         CurrentMode = mode;
         await OnModeChanged.InvokeAsync(mode);
+    }
+
+    private void ClearHistory()
+    {
+        History.Clear();
+        _count = 0;
+        _confirming = false;
+        _cleared = true;
     }
 }

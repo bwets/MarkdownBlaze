@@ -59,11 +59,15 @@
                         @if (Nav.GlobalHistory.Count == 0) { <div class="empty">No history.</div> }
                         @foreach (var e in Nav.GlobalHistory)
                         {
-                            <button class="row" title="@e.Path"
-                                    @onclick="@(() => Nav.Navigate(e.Path))"
-                                    @oncontextmenu="@(ev => OpenRowMenu(ev, e.Path))" @oncontextmenu:preventDefault="true">
-                                @e.Title
-                            </button>
+                            <div class="row-wrap">
+                                <button class="row" title="@e.Path"
+                                        @onclick="@(() => Nav.Navigate(e.Path))"
+                                        @oncontextmenu="@(ev => OpenRowMenu(ev, e.Path))" @oncontextmenu:preventDefault="true">
+                                    @e.Title
+                                </button>
+                                <button class="row-del" title="Remove from history"
+                                        @onclick="@(() => RemoveHistory(e.Path))">×</button>
+                            </div>
                         }
                     </div>
                 }
@@ -143,6 +147,7 @@
         ("Close popup", "Esc"),
     ];
     private int _lastRenderToken = -1;
+    private string? _lastPath;
     private IReadOnlyList<SessionItem> _session = [];
 
     // Unified popup menu (More button + row context menu).
@@ -177,8 +182,14 @@
         }
         if (Nav.RenderToken != _lastRenderToken)
         {
+            // Reset the scroll position only when the document actually changed (link click, back/
+            // forward, history) — not on a same-file reload/auto-refresh, which keeps your place.
+            var documentChanged = Nav.CurrentPath != _lastPath;
             _lastRenderToken = Nav.RenderToken;
+            _lastPath = Nav.CurrentPath;
             await JS.InvokeVoidAsync("mdInit");
+            if (documentChanged)
+                await JS.InvokeVoidAsync("mdScrollTop");
         }
     }
 
@@ -246,6 +257,10 @@
 
     private void CloseMenu() => _menuOpen = false;
     private void CloseShortcuts() => _shortcutsOpen = false;
+
+    // Delete a single global-history entry (the hover × on a row). The store raises Changed, which
+    // refreshes the list.
+    private void RemoveHistory(string path) => Nav.RemoveFromHistory(path);
     private void RunItem(Action action) { _menuOpen = false; action(); }
 
     private void CopyName(string path) => _ = JS.InvokeVoidAsync("mdCopy", Path.GetFileName(path));

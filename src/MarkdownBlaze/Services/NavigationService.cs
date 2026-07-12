@@ -24,9 +24,13 @@ public sealed class NavigationService : IDisposable
         _md = md;
         _history = history;
         _watcher.Changed += Reload;
+        _history.Changed += OnHistoryChanged;
         JsBridge.Link += OnLink;
         JsBridge.FileDropped += OnFileDropped;
     }
+
+    // History pruned in the background (missing files removed) → refresh the sidebar.
+    private void OnHistoryChanged() => Changed?.Invoke();
 
     public string? CurrentPath { get; private set; }
     public string CurrentTitle { get; private set; } = "MarkdownBlaze";
@@ -38,6 +42,9 @@ public sealed class NavigationService : IDisposable
     public bool CanForward => _index >= 0 && _index < _session.Count - 1;
 
     public IReadOnlyList<HistoryEntry> GlobalHistory => _history.Entries;
+
+    /// <summary>Removes a single file from the persisted global history.</summary>
+    public void RemoveFromHistory(string path) => _history.Remove(path);
 
     public event Action? Changed;
 
@@ -54,6 +61,9 @@ public sealed class NavigationService : IDisposable
         var path = _md.GetStartupFilePath();
         if (path is not null) Navigate(path);
         else Changed?.Invoke();
+
+        // Clean stale (deleted/moved) files out of the global history off the startup path.
+        _history.PruneMissingInBackground();
     }
 
     public void Navigate(string path)
@@ -187,6 +197,7 @@ public sealed class NavigationService : IDisposable
     {
         JsBridge.Link -= OnLink;
         JsBridge.FileDropped -= OnFileDropped;
+        _history.Changed -= OnHistoryChanged;
         _watcher.Dispose();
     }
 }

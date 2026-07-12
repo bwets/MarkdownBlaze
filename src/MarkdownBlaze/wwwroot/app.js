@@ -100,6 +100,12 @@ window.mdScrollTo = function (id) {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
+// Reset the content viewport to the top (used when navigating to a new document).
+window.mdScrollTop = function () {
+    const el = document.querySelector('.content-area');
+    if (el) el.scrollTop = 0;
+};
+
 window.mdPrint = function () { try { window.print(); } catch (e) { } };
 
 window.mdCopy = function (text) {
