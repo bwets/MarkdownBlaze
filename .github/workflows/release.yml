@@ -162,6 +162,19 @@ jobs:
             pub="publish/$rid"
             dotnet publish "$PROJECT" -c Release -r "$rid" --self-contained true -p:Version="$VERSION" -o "$pub"
 
+            # Ad-hoc sign every Mach-O binary (executable, dylibs, createdump) so Apple Silicon will
+            # run them — arm64 requires at least an ad-hoc signature on each Mach-O. Not notarized, so
+            # first launch still needs right-click - Open.
+            #
+            # Sign in the FLAT publish dir, before wrapping it in the .app. Once the file lives at
+            # Contents/MacOS/<exe> next to Contents/Info.plist, codesign treats it as the bundle's
+            # main executable and signs the whole bundle — descending into the managed .dll files and
+            # failing ("code object is not signed at all"). Here there is no Info.plist, so each
+            # binary is signed on its own; `cp` then preserves the signatures.
+            while IFS= read -r -d '' f; do
+              if file -b "$f" | grep -q "Mach-O"; then codesign --force --sign - "$f"; fi
+            done < <(find "$pub" -maxdepth 1 -type f -print0)
+
             stage="dmg/$rid"
             app="$stage/MarkdownBlaze.app"
             mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
@@ -169,19 +182,6 @@ jobs:
             chmod +x "$app/Contents/MacOS/MarkdownBlaze"
             cp MarkdownBlaze.icns "$app/Contents/Resources/MarkdownBlaze.icns"
             sed "s/__VERSION__/$VERSION/g" packaging/macos/Info.plist > "$app/Contents/Info.plist"
-
-            # Ad-hoc sign every Mach-O binary (executable, dylibs, createdump) so Apple Silicon will
-            # run them — arm64 requires at least an ad-hoc signature on each Mach-O. Not notarized, so
-            # first launch still needs right-click - Open.
-            #
-            # We deliberately do NOT sign the .app bundle itself: a .NET self-contained publish drops
-            # hundreds of managed .dll files into Contents/MacOS, and `codesign` on the bundle treats
-            # those PE .dlls as unsignable nested code ("code object is not signed at all"). The
-            # bundle-level CodeResources seal is only meaningful for notarization anyway; the app
-            # launches fine from its individually-signed binaries.
-            while IFS= read -r -d '' f; do
-              if file -b "$f" | grep -q "Mach-O"; then codesign --force --sign - "$f"; fi
-            done < <(find "$app/Contents/MacOS" -maxdepth 1 -type f -print0)
 
             # DMG with the app plus an /Applications shortcut for drag-to-install.
             ln -s /Applications "$stage/Applications"
