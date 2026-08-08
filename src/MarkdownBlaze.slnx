@@ -3,5 +3,6 @@
     <File Path=".gitignore" />
     <File Path="global.json" />
   </Folder>
+  <Project Path="../../bwets.Markdig.Extensions/src/bwets.Markdig.Extensions/bwets.Markdig.Extensions.csproj" />
   <Project Path="MarkdownBlaze/MarkdownBlaze.csproj" />
 </Solution>
