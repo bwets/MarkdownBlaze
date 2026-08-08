@@ -233,6 +233,31 @@ jobs:
     if: ${{ inputs.publish_winget }}
     runs-on: ubuntu-latest
     steps:
+      # komac (used by winget-releaser) branches the update from upstream's HEAD commit, so that
+      # commit must already exist in our fork. A stale fork fails with a misleading
+      # "<user> does not have the correct permissions to execute `CreateRef`" — nothing is wrong with
+      # the token; the commit is simply unreachable in the fork. Sync first so the branch point exists.
+      #
+      # Requires the 'workflow' scope on WINGET_TOKEN in addition to 'public_repo': upstream carries
+      # files under .github/workflows/, and GitHub refuses any PAT write that touches those without it.
+      - name: Sync winget-pkgs fork with upstream
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          behind=$(gh api "repos/microsoft/winget-pkgs/compare/microsoft:master...$OWNER:master" --jq .behind_by)
+          echo "$OWNER/winget-pkgs is $behind commit(s) behind upstream."
+          if [ "$behind" -eq 0 ]; then
+            echo "Already up to date."
+            exit 0
+          fi
+          if ! gh api --method POST "repos/$OWNER/winget-pkgs/merge-upstream" -f branch=master; then
+            echo "::error::Could not sync $OWNER/winget-pkgs. If the API refused a write under .github/workflows, add the 'workflow' scope to the WINGET_TOKEN PAT (it needs public_repo + workflow)."
+            exit 1
+          fi
+          echo "Synced; now $(gh api "repos/microsoft/winget-pkgs/compare/microsoft:master...$OWNER:master" --jq .behind_by) commit(s) behind."
+
       # Opens an update PR to microsoft/winget-pkgs for the portable zip.
       # The package must already exist there (seed the first version manually — see packaging/winget).
       - uses: vedantmgoyal9/winget-releaser@v2
