@@ -89,7 +89,18 @@ public sealed class MarkdownService
         foreach (var arg in Environment.GetCommandLineArgs().Skip(1))
         {
             if (string.IsNullOrWhiteSpace(arg)) continue;
-            var path = arg.Trim().Trim('"');
+            // A markdown:// URL is how another application (or a link) asks us to open a document;
+            // everything else on the command line is an ordinary path.
+            var path = UriScheme.TryGetFilePath(arg) ?? arg.Trim().Trim('"');
+
+            // A folder is a legitimate thing to be pointed at — open the document it leads with.
+            if (Directory.Exists(path))
+            {
+                var entry = FindEntryFile(path);
+                if (entry is not null) return entry;
+                continue;
+            }
+
             if (!IsSupported(path)) continue;
             var resolved = ResolveExisting(path);
             if (resolved is not null) return resolved;
@@ -98,12 +109,45 @@ public sealed class MarkdownService
         return GetUserManualPath();
     }
 
+    /// <summary>Files a folder leads with, in the order they are looked for.</summary>
+    private static readonly string[] EntryFileNames = ["index", "main", "readme"];
+
+    /// <summary>
+    /// The document to open for a folder: its index/main/readme if it has one, otherwise the first
+    /// supported file in alphabetical order. Null when the folder holds no readable document.
+    /// </summary>
+    public static string? FindEntryFile(string folder)
+    {
+        List<string> files;
+        try { files = Directory.EnumerateFiles(folder).Where(f => IsSupported(f)).ToList(); }
+        catch { return null; } // unreadable folder is simply "nothing to open"
+
+        foreach (var name in EntryFileNames)
+        {
+            var match = files.FirstOrDefault(f =>
+                string.Equals(Path.GetFileNameWithoutExtension(f), name, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) return Path.GetFullPath(match);
+        }
+
+        var first = files.OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+        return first is null ? null : Path.GetFullPath(first);
+    }
+
     /// <summary>The bundled user manual shown as a welcome screen when no file is opened.</summary>
     public string? GetUserManualPath()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "UserManual.md");
         return File.Exists(path) ? path : null;
     }
+
+    /// <summary>
+    /// True for the bundled manual. It lives in the install directory, which is nobody's working
+    /// folder, so it must not become the root of the file tree.
+    /// </summary>
+    public static bool IsUserManual(string path) =>
+        string.Equals(Path.GetFullPath(path),
+                      Path.Combine(AppContext.BaseDirectory, "UserManual.md"),
+                      StringComparison.OrdinalIgnoreCase);
 
     private static string? ResolveExisting(string path)
     {

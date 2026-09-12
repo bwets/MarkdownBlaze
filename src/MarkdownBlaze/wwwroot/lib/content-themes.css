@@ -1,0 +1,2907 @@
+/* ============================================================================================
+   Content themes — the look of the document itself: paper colour, typeface, size and spacing.
+   They never touch the app chrome; the toolbar, sidebar and dialogs keep following the app theme.
+
+   Each theme is one `.ct-<id>` block. app.js puts that class on <html> together with `ctl`/`ctd`,
+   which tells the rest of the CSS (highlight.js palette, mermaid) whether the document reads light
+   or dark. Nesting scopes every rule to `.markdown-body`, the content element, so a theme cannot
+   escape the document. Each block ends with a bridge mapping the theme's palette onto the app's
+   own --md-* tokens, so tables, quotes, callouts and KaTeX come along with it.
+
+   Generated file — do not hand-edit.
+   ============================================================================================ */
+
+/* The one bundled typeface: the Academic theme is the LaTeX look, and that is the LaTeX face. */
+@font-face { font-family: 'Latin Modern Roman'; font-weight: normal; font-style: normal;
+             src: url('fonts/lmroman10-regular.woff') format('woff'); font-display: swap; }
+@font-face { font-family: 'Latin Modern Roman'; font-weight: bold; font-style: normal;
+             src: url('fonts/lmroman10-bold.woff') format('woff'); font-display: swap; }
+@font-face { font-family: 'Latin Modern Roman'; font-weight: normal; font-style: italic;
+             src: url('fonts/lmroman10-italic.woff') format('woff'); font-display: swap; }
+@font-face { font-family: 'Latin Modern Roman'; font-weight: bold; font-style: italic;
+             src: url('fonts/lmroman10-bolditalic.woff') format('woff'); font-display: swap; }
+
+/* ---- Book — large serif with generous spacing ------------------------------------------- */
+.ct-book {
+  .markdown-body {
+    @media print {
+      *,
+      *:before,
+      *:after {
+        background: transparent !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+    
+      a,
+      a:visited {
+        text-decoration: underline;
+      }
+    
+      a[href]:after {
+        content: " (" attr(href) ")";
+      }
+    
+      abbr[title]:after {
+        content: " (" attr(title) ")";
+      }
+    
+      a[href^="#"]:after,
+      a[href^="javascript:"]:after {
+        content: "";
+      }
+    
+      pre,
+      blockquote {
+        border: 1px solid #999;
+        page-break-inside: avoid;
+      }
+    
+      thead {
+        display: table-header-group;
+      }
+    
+      tr,
+      img {
+        page-break-inside: avoid;
+      }
+    
+      img {
+        max-width: 100% !important;
+      }
+    
+      p,
+      h2,
+      h3 {
+        orphans: 3;
+        widows: 3;
+      }
+    
+      h2,
+      h3 {
+        page-break-after: avoid;
+      }
+    }
+    
+    & {
+      font-size: 12px;
+    }
+    
+    @media screen and (min-width: 32rem) and (max-width: 48rem) {
+      & {
+        font-size: 15px;
+      }
+    }
+    
+    @media screen and (min-width: 48rem) {
+      & {
+        font-size: 16px;
+      }
+    }
+    
+    & {
+      line-height: 1.85;
+    }
+    
+    p,
+    .splendor-p {
+      font-size: 1rem;
+      margin-bottom: 1.3rem;
+    }
+    
+    h1,
+    .splendor-h1,
+    h2,
+    .splendor-h2,
+    h3,
+    .splendor-h3,
+    h4,
+    .splendor-h4 {
+      margin: 1.414rem 0 .5rem;
+      font-weight: inherit;
+      line-height: 1.42;
+    }
+    
+    h1,
+    .splendor-h1 {
+      margin-top: 0;
+      font-size: 3.998rem;
+    }
+    
+    h2,
+    .splendor-h2 {
+      font-size: 2.827rem;
+    }
+    
+    h3,
+    .splendor-h3 {
+      font-size: 1.999rem;
+    }
+    
+    h4,
+    .splendor-h4 {
+      font-size: 1.414rem;
+    }
+    
+    h5,
+    .splendor-h5 {
+      font-size: 1.121rem;
+    }
+    
+    h6,
+    .splendor-h6 {
+      font-size: .88rem;
+    }
+    
+    small,
+    .splendor-small {
+      font-size: .707em;
+    }
+    
+    /* https://github.com/mrmrs/fluidity */
+    
+    img,
+    canvas,
+    iframe,
+    video,
+    svg,
+    select,
+    textarea {
+      max-width: 100%;
+    }
+    
+    
+    & {
+      font-size: 18px;
+      max-width: 100%;
+    }
+    
+    & {
+      color: #444;
+      font-family: 'Merriweather', Georgia, serif;
+      margin: 0;
+      max-width: 100%;
+    }
+    
+    /* === A bit of a gross hack so we can have bleeding divs/blockquotes. */
+    
+    p,
+    h1, h2, h3, h4, h5, h6, ul, ol, dl, pre, hr, figure, .admonition, .katex-display {
+      margin: 1rem auto 1rem;
+      max-width: 36rem;
+      padding: .25rem;
+    }
+    
+    div {
+      width: 100%;
+    }
+    
+    div img {
+      width: 100%;
+    }
+    
+    blockquote p {
+      font-size: 1.5rem;
+      font-style: italic;
+      margin: 1rem auto 1rem;
+      max-width: 48rem;
+    }
+    
+    li {
+      margin-left: 2rem;
+    }
+    
+    /* Counteract the specificity of the gross *:not() chain. */
+    
+    h1 {
+      padding: 4rem 0 !important;
+    }
+    
+    /*  === End gross hack */
+    
+    p {
+      color: #555;
+      height: auto;
+      line-height: 1.45;
+    }
+    
+    pre,
+    code {
+      font-family: Menlo, Monaco, "Courier New", monospace;
+    }
+    
+    pre {
+      background-color: #fafafa;
+      font-size: .8rem;
+      overflow-x: scroll;
+      padding: 1.125em;
+    }
+    
+    a,
+    a:visited {
+      color: #3498db;
+    }
+    
+    a:hover,
+    a:focus,
+    a:active {
+      color: #2980b9;
+    }
+
+    --md-fg: #333333;
+    --md-border: #dddddd;
+    --md-link: #2980b9;
+    --md-code-bg: #fafafa;
+    --md-quote: #555555;
+    --md-row: #fafafa;
+    background: #ffffff;
+    .admonition { background: #fafafa; }
+  }
+  .content-area.document-pane { background: #ffffff; }
+}
+/* ---- Classic — compact serif, the plain printed page ------------------------------------ */
+.ct-classic {
+  .markdown-body {
+    & { font-size: 100%; overflow-y: scroll; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    
+    &{
+    color:#444;
+    font-family:Georgia, Palatino, 'Palatino Linotype', Times, 'Times New Roman', serif;
+    font-size:12px;
+    line-height:1.5em;
+    padding:1em;
+    margin:auto;
+    max-width:42em;
+    background:#fefefe;
+    }
+    
+    a{ color: #0645ad; text-decoration:none;}
+    a:visited{ color: #0b0080; }
+    a:hover{ color: #06e; }
+    a:active{ color:#faa700; }
+    a:focus{ outline: thin dotted; }
+    a:hover, a:active{ outline: 0; }
+    
+    ::-moz-selection{background:rgba(255,255,0,0.3);color:#000}
+    ::selection{background:rgba(255,255,0,0.3);color:#000}
+    
+    a::-moz-selection{background:rgba(255,255,0,0.3);color:#0645ad}
+    a::selection{background:rgba(255,255,0,0.3);color:#0645ad}
+    
+    p{
+    margin:1em 0;
+    }
+    
+    img{
+    max-width:100%;
+    }
+    
+    h1,h2,h3,h4,h5,h6{
+    font-weight:normal;
+    color:#111;
+    line-height:1em;
+    }
+    h4,h5,h6{ font-weight: bold; }
+    h1{ font-size:2.5em; }
+    h2{ font-size:2em; }
+    h3{ font-size:1.5em; }
+    h4{ font-size:1.2em; }
+    h5{ font-size:1em; }
+    h6{ font-size:0.9em; }
+    
+    blockquote{
+    color:#666666;
+    margin:0;
+    padding-left: 3em;
+    border-left: 0.5em #EEE solid;
+    }
+    hr { display: block; height: 2px; border: 0; border-top: 1px solid #aaa;border-bottom: 1px solid #eee; margin: 1em 0; padding: 0; }
+    pre, code, kbd, samp { color: #000; font-family: monospace, monospace; _font-family: 'courier new', monospace; font-size: 0.98em; }
+    pre { white-space: pre; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; }
+    
+    b, strong { font-weight: bold; }
+    
+    dfn { font-style: italic; }
+    
+    ins { background: #ff9; color: #000; text-decoration: none; }
+    
+    mark { background: #ff0; color: #000; font-style: italic; font-weight: bold; }
+    
+    sub, sup { font-size: 75%; line-height: 0; position: relative; vertical-align: baseline; }
+    sup { top: -0.5em; }
+    sub { bottom: -0.25em; }
+    
+    ul, ol { margin: 1em 0; padding: 0 0 0 2em; }
+    li p:last-child { margin:0 }
+    dd { margin: 0 0 0 2em; }
+    
+    img { border: 0; -ms-interpolation-mode: bicubic; vertical-align: middle; }
+    
+    table { border-collapse: collapse; border-spacing: 0; }
+    td { vertical-align: top; }
+    
+    @media only screen and (min-width: 480px) {
+    &{font-size:14px;}
+    }
+    
+    @media only screen and (min-width: 768px) {
+    &{font-size:16px;}
+    }
+    
+    @media print {
+      &{font-size:12pt; max-width:100%;}
+      a, a:visited { text-decoration: underline; }
+      hr { height: 1px; border:0; border-bottom:1px solid black; }
+      a[href]:after { content: " (" attr(href) ")"; }
+      abbr[title]:after { content: " (" attr(title) ")"; }
+      .ir a:after, a[href^="javascript:"]:after, a[href^="#"]:after { content: ""; }
+      pre, blockquote { border: 1px solid #999; padding-right: 1em; page-break-inside: avoid; }
+      tr, img { page-break-inside: avoid; }
+      img { max-width: 100% !important; }
+      p, h2, h3 { orphans: 3; widows: 3; }
+      h2, h3 { page-break-after: avoid; }
+    }
+
+    --md-fg: #111111;
+    --md-border: #dddddd;
+    --md-link: #0645ad;
+    --md-code-bg: #f5f5f5;
+    --md-quote: #666666;
+    --md-row: #f7f7f7;
+    background: #fefefe;
+    .admonition { background: #f7f7f7; }
+  }
+  .content-area.document-pane { background: #fefefe; }
+}
+/* ---- Elegant — airy serif with wide margins --------------------------------------------- */
+.ct-elegant {
+  .markdown-body {
+    
+    &, & {
+            padding:1em;
+            margin:auto;
+            max-width:42em;
+            background:#fefefe;
+      }
+    & {
+      font: 1.3em "Vollkorn", Palatino, Times;
+      color: #333;
+      line-height: 1.4;
+      text-align: justify;
+      }
+    header, nav, article, footer {
+      width: 700px;
+      margin:0 auto;
+      }
+    article {
+      margin-top: 4em;
+      margin-bottom: 4em;
+      min-height: 400px;
+      }
+    footer {
+      margin-bottom:50px;
+      }
+    video {
+      margin: 2em 0;
+      border:1px solid #ddd;
+      }
+    
+    nav {
+      font-size: .9em;
+      font-style: italic;
+      border-bottom: 1px solid #ddd;
+      padding: 1em 0;
+      }
+    nav p {
+      margin: 0;
+      }
+    
+    /* Typography
+    -------------------------------------------------------- */
+    
+    h1 {
+      margin-top: 0;
+      font-weight: normal;
+      }
+    h2 {
+      font-weight: normal;
+      }
+    h3 {
+      font-weight: normal;
+      font-style: italic;
+      margin-top:3em;
+      }
+    p {
+      margin-top:0;
+      hyphens:auto;
+      }
+    ul {
+      list-style: square;
+      padding-left:1.2em;
+      }
+    ol {
+      padding-left:1.2em;
+      }
+    blockquote {
+      margin-left: 1em;
+      padding-left: 1em;
+      border-left: 1px solid #ddd;
+      }
+    code {
+      font-family: "Consolas", "Menlo", "Monaco", monospace, serif;
+      font-size: .9em;
+      }
+    a {
+      color: #2484c1;
+      text-decoration: none;
+      }
+    a:hover {
+      text-decoration: underline;
+      }
+    a img {
+      border:none;
+      }
+    h1 a, h1 a:hover {
+      color: #333;
+      text-decoration: none;
+      }
+    hr {
+      color : #ddd;
+      height : 1px;
+      margin: 2em 0;
+      border-top : solid 1px #ddd;
+      border-bottom : none;
+      border-left: 0;
+      border-right: 0;
+      }
+    p#heart{
+      font-size: 2em;
+      line-height: 1;
+      text-align: center;
+      color: #ccc;
+      }
+    .red {
+      color:#B50000;
+      }
+    
+    /* Home Page
+    --------------------------- */
+    
+    &#index li {
+      margin-bottom: 1em;
+      }
+    
+    
+    /* iPad
+    -------------------------------------------------------- */
+    @media only screen and (max-device-width: 1024px) {
+    & {
+      font-size: 120%;
+      line-height: 1.4;
+      }
+    } /* @iPad */
+    
+    /* iPhone
+    -------------------------------------------------------- */
+    @media only screen and (max-device-width: 480px) {
+    & {
+      text-align: left;
+      }
+    article, footer {
+      width: auto;
+      }
+    article {
+      padding: 0 10px;
+      }
+    } /* @iPhone */
+
+    --md-fg: #333333;
+    --md-border: #cccccc;
+    --md-link: #2484c1;
+    --md-code-bg: #f7f7f7;
+    --md-quote: #666666;
+    --md-row: #f9f9f9;
+    background: #fefefe;
+    .admonition { background: #f9f9f9; }
+  }
+  .content-area.document-pane { background: #fefefe; }
+}
+/* ---- Newspaper — dense serif on newsprint ----------------------------------------------- */
+.ct-newspaper {
+  .markdown-body {
+    /* meyer reset -- http://meyerweb.com/eric/tools/css/reset/ , v2.0 | 20110126 | License: none (public domain) */
+    
+    
+    /* =========== */
+    
+    /* pt-serif-regular - latin */
+    /* pt-serif-italic - latin */
+    /* pt-serif-700 - latin */
+    /* pt-serif-700italic - latin */
+    
+    & {
+    	--active-file-bg-color: #dadada;
+    	--active-file-bg-color: rgba(32, 43, 51, 0.63);
+    	--active-file-text-color: white;
+    	--bg-color: #f3f2ee;
+    	--text-color: #1f0909;
+    	--control-text-color: #444;
+    	--rawblock-edit-panel-bd: #e5e5e5;
+    
+    	--select-text-bg-color: rgba(32, 43, 51, 0.63);
+      --select-text-font-color: white;
+    }
+    
+    pre {
+    	--select-text-bg-color: #36284e;
+    	--select-text-font-color: #fff;
+    }
+    
+    & {
+    	font-size: 16px;
+    	-webkit-font-smoothing: antialiased;
+    }
+    
+    &, & {
+    	background-color: #f3f2ee;
+    	font-family: "PT Serif", 'Times New Roman', Times, serif;
+    	color: #1f0909;
+    	line-height: 1.5em;
+    }
+    
+    /*& {
+    	overflow-x: auto;
+        max-width: initial;
+    	padding-left: calc(50% - 17em);
+        padding-right: calc(50% - 17em);
+    }
+    
+    @media (max-width: 36em) {
+     	& {
+     		padding-left: 1em;
+        	padding-right: 1em;
+     	}
+    }*/
+    
+    & {
+    	max-width: 40em;
+    }
+    
+    @media only screen and (min-width: 1400px) {
+    	& {
+    			max-width: 914px;
+    	}
+    }
+    
+    ol li {
+    	list-style-type: decimal;
+    	list-style-position: outside;
+    }
+    ul li {
+    	list-style-type: disc;
+    	list-style-position: outside;
+    }
+    
+    ol,
+    ul {
+    	list-style: none;
+    }
+    
+    blockquote,
+    q {
+    	quotes: none;
+    }
+    blockquote:before,
+    blockquote:after,
+    q:before,
+    q:after {
+    	content: '';
+    	content: none;
+    }
+    table {
+    	border-collapse: collapse;
+    	border-spacing: 0;
+    }
+    /* styles */
+    
+    /* ====== */
+    
+    /* headings */
+    
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+    	font-weight: bold;
+    }
+    h1 {
+    	font-size: 1.875em;
+    	/*30 / 16*/
+    	line-height: 1.6em;
+    	/* 48 / 30*/
+    	margin-top: 2em;
+    }
+    h2,
+    h3 {
+    	font-size: 1.3125em;
+    	/*21 / 16*/
+    	line-height: 1.15;
+    	/*24 / 21*/
+    	margin-top: 2.285714em;
+    	/*48 / 21*/
+    	margin-bottom: 1.15em;
+    	/*24 / 21*/
+    }
+    h3 {
+    	font-weight: normal;
+    }
+    h4 {
+    	font-size: 1.125em;
+    	/*18 / 16*/
+    	margin-top: 2.67em;
+    	/*48 / 18*/
+    }
+    h5,
+    h6 {
+    	font-size: 1em;
+    	/*16*/
+    }
+    h1 {
+    	border-bottom: 1px solid;
+    	margin-bottom: 1.875em;
+    	padding-bottom: 0.8125em;
+    }
+    /* links */
+    
+    a {
+    	text-decoration: none;
+    	color: #065588;
+    }
+    a:hover,
+    a:active {
+    	text-decoration: underline;
+    }
+    /* block spacing */
+    
+    p,
+    blockquote,
+    .md-fences {
+    	margin-bottom: 1.5em;
+    }
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+    	margin-bottom: 1.5em;
+    }
+    /* blockquote */
+    
+    blockquote {
+    	font-style: italic;
+    	border-left: 5px solid;
+    	margin-left: 2em;
+    	padding-left: 1em;
+    }
+    /* lists */
+    
+    ul,
+    ol {
+    	margin: 0 0 1.5em 1.5em;
+    }
+    /* tables */
+    .md-meta,.md-before, .md-after {
+    	color:#999;
+    }
+    
+    table {
+    	margin-bottom: 1.5em;
+    	/*24 / 16*/
+    	font-size: 1em;
+    	/* width: 100%; */
+    }
+    thead th,
+    tfoot th {
+    	padding: .25em .25em .25em .4em;
+    	text-transform: uppercase;
+    }
+    th {
+    	text-align: left;
+    }
+    td {
+    	vertical-align: top;
+    	padding: .25em .25em .25em .4em;
+    }
+    
+    code,
+    .md-fences {
+    	background-color: #dadada;
+    }
+    
+    code {
+    	padding-left: 2px;
+    	padding-right: 2px;
+    }
+    
+    .md-fences {
+    	margin-left: 2em;
+    	margin-bottom: 3em;
+    	padding-left: 1ch;
+    	padding-right: 1ch;
+    }
+    
+    pre,
+    code,
+    tt {
+    	font-size: .875em;
+    	line-height: 1.714285em;
+    }
+    /* some fixes */
+    
+    h1 {
+    	line-height: 1.3em;
+    	font-weight: normal;
+    	margin-bottom: 0.5em;
+    }
+    
+    p + ul,
+    p + ol{
+    	margin-top: .5em;
+    }
+    
+    h3 + ul,
+    h4 + ul,
+    h5 + ul,
+    h6 + ul,
+    h3 + ol,
+    h4 + ol,
+    h5 + ol,
+    h6 + ol {
+    	margin-top: .5em;
+    }
+    
+    li > ul,
+    li > ol {
+    	margin-top: inherit;
+    	margin-bottom: 0;
+    }
+    
+    li ol>li {
+    	list-style-type: lower-alpha;
+    }
+    
+    li li ol>li{
+    	list-style-type: lower-roman;
+    }
+    
+    h2,
+    h3 {
+    	margin-bottom: .75em;
+    }
+    hr {
+    	border-top: none;
+    	border-right: none;
+    	border-bottom: 1px solid;
+    	border-left: none;
+    }
+    h1 {
+    	border-color: #c5c5c5;
+    }
+    blockquote {
+    	border-color: #bababa;
+    	color: #656565;
+    }
+    
+    blockquote ul,
+    blockquote ol {
+    	margin-left:0;
+    }
+    
+    .ty-table-edit {
+    	background-color: transparent;
+    }
+    thead {
+    	background-color: #dadada;
+    }
+    tr:nth-child(even) {
+    	background: #e8e7e7;
+    }
+    hr {
+    	border-color: #c5c5c5;
+    }
+    .task-list{
+    	padding-left: 1rem;
+    }
+    
+    .md-task-list-item {
+    	padding-left: 1.5rem;
+    	list-style-type: none;
+    }
+    
+    .md-task-list-item > input:before {
+    	content: '\221A';
+    	display: inline-block;
+    	width: 1.25rem;
+      	height: 1.6rem;
+    	vertical-align: middle;
+    	text-align: center;
+    	color: #ddd;
+    	background-color: #F3F2EE;
+    }
+    
+    .md-task-list-item > input:checked:before,
+    .md-task-list-item > input[checked]:before{
+    	color: inherit;
+    }
+    
+    & pre.md-meta-block {
+    	min-height: 1.875rem;
+    	color: #555;
+    	border: 0px;
+    	background: transparent;
+    	margin-top: -4px;
+    	margin-left: 1em;
+    	margin-top: 1em;
+    }
+    
+    .md-image>.md-meta {
+    	color: #9B5146;
+    }
+    
+    .md-image>.md-meta{
+    	font-family: Menlo, 'Ubuntu Mono', Consolas, 'Courier New', 'Microsoft Yahei', 'Hiragino Sans GB', 'WenQuanYi Micro Hei', serif;
+    }
+    
+    
+    &>h3.md-focus:before{
+    	left: -1.5rem;
+    	color:#999;
+    	border-color:#999;
+    }
+    &>h4.md-focus:before{
+    	left: -1.5rem;
+    	top: .25rem;
+    	color:#999;
+    	border-color:#999;
+    }
+    &>h5.md-focus:before{
+    	left: -1.5rem;
+    	top: 0.3125rem;
+    	color:#999;
+    	border-color:#999;
+    }
+    &>h6.md-focus:before{
+    	left: -1.5rem;
+    	top: 0.3125rem;
+    	color:#999;
+    	border-color:#999;
+    }
+    
+    .md-toc:focus .md-toc-content{
+    	margin-top: 19px;
+    }
+    
+    .md-toc-content:empty:before{
+    	color: #065588;
+    }
+    .md-toc-item {
+    	color: #065588;
+    }
+    & div.md-toc-tooltip {
+    	background-color: #f3f2ee;
+    }
+    
+    #typora-sidebar {
+    	background-color: #f3f2ee;
+    	-webkit-box-shadow: 0 6px 12px rgba(0, 0, 0, 0.375);
+      	box-shadow: 0 6px 12px rgba(0, 0, 0, 0.375);
+    }
+    
+    .pin-outline #typora-sidebar {
+    	background: inherit;
+    	box-shadow: none;
+    	border-right: 1px dashed;
+    }
+    
+    .pin-outline #typora-sidebar:hover .outline-title-wrapper {
+    	border-left:1px dashed;
+    }
+    
+    .outline-item:hover {
+      background-color: #dadada;
+      border-left: 28px solid #dadada;
+      border-right: 18px solid #dadada;
+    }
+    
+    .typora-node .outline-item:hover {
+      	border-right: 28px solid #dadada;
+    }
+    
+    .outline-expander:before {
+      content: "\f0da";
+      font-family: FontAwesome;
+      font-size:14px;
+      top: 1px;
+    }
+    
+    .outline-expander:hover:before,
+    .outline-item-open>.outline-item>.outline-expander:before {
+      content: "\f0d7";
+    }
+    
+    .modal-content {
+    	background-color: #f3f2ee;
+    }
+    
+    .auto-suggest-container ul li {
+    	list-style-type: none;
+    }
+    
+    /** UI for electron */
+    
+    .megamenu-menu,
+    #top-titlebar, #top-titlebar *,
+    .megamenu-content {
+    	background: #f3f2ee;
+    	color: #1f0909;
+    }
+    
+    .megamenu-menu-header {
+    	border-bottom: 1px dashed #202B33;
+    }
+    
+    .megamenu-menu {
+    	box-shadow: none;
+    	border-right: 1px dashed;
+    }
+    
+    header, .context-menu, .megamenu-content, footer {
+    	font-family: "PT Serif", 'Times New Roman', Times, serif;
+        color: #1f0909;
+    }
+    
+    #megamenu-back-btn {
+    	color: #1f0909;
+    	border-color: #1f0909;
+    }
+    
+    .megamenu-menu-header #megamenu-menu-header-title:before {
+    	color: #1f0909;
+    }
+    
+    .megamenu-menu-list li a:hover, .megamenu-menu-list li a.active {
+    	color: inherit;
+    	background-color: #e8e7df;
+    }
+    
+    .long-btn:hover {
+    	background-color: #e8e7df;
+    }
+    
+    #recent-file-panel tbody tr:nth-child(2n-1) {
+        background-color: transparent !important;
+    }
+    
+    .megamenu-menu-panel tbody tr:hover td:nth-child(2) {
+        color: inherit;
+    }
+    
+    .megamenu-menu-panel .btn {
+    	background-color: #D2D1D1;
+    }
+    
+    .btn-default {
+    	background-color: transparent;
+    }
+    
+    .typora-sourceview-on #toggle-sourceview-btn,
+    .ty-show-word-count #footer-word-count {
+    	background: #c7c5c5;
+    }
+    
+    #typora-quick-open {
+        background-color: inherit;
+    }
+    
+    .md-diagram-panel {
+    	margin-top: 8px;
+    }
+    
+    .file-list-item-file-name {
+    	font-weight: initial;
+    }
+    
+    .file-list-item-summary {
+    	opacity: 1;
+    }
+    
+    .file-list-item {
+    	color: #777;
+    }
+    
+    .file-list-item.active {
+    	background-color: inherit;
+    	color: black;
+    }
+    
+    .ty-side-sort-btn.active {
+    	background-color: inherit;
+    }
+    
+    .file-list-item.active .file-list-item-file-name  {
+    	font-weight: bold;
+    }
+    
+    .file-list-item{
+        opacity:1 !important;
+    }
+    
+    .file-library-node.active>.file-node-background{
+    	background-color: rgba(32, 43, 51, 0.63);
+    	background-color: var(--active-file-bg-color);
+    }
+    
+    .file-tree-node.active>.file-node-content{
+    	color: white;
+    	color: var(--active-file-text-color);
+    }
+    
+    .md-task-list-item>input {
+    	margin-left: -1.7em;
+    	margin-top: calc(1rem - 12px);
+    	-webkit-appearance: button;
+    }
+    
+    input {
+    	border: 1px solid #aaa;
+    }
+    
+    .megamenu-menu-header #megamenu-menu-header-title,
+    .megamenu-menu-header:hover, 
+    .megamenu-menu-header:focus {
+    	color: inherit;
+    }
+    
+    .dropdown-menu .divider {
+    	border-color: #e5e5e5;
+    	opacity: 1;
+    }
+    
+    /* https://github.com/typora/typora-issues/issues/2046 */
+    .os-windows-7 strong,
+    .os-windows-7 strong  {
+    	font-weight: 760;
+    }
+    
+    .ty-preferences .btn-default {
+    	background: transparent;
+    }
+    
+    .ty-preferences .window-header {
+    	border-bottom: 1px dashed #202B33;
+    	box-shadow: none;
+    }
+    
+    #sidebar-loading-template, #sidebar-loading-template.file-list-item {
+    	color: #777;
+    }
+    
+    .searchpanel-search-option-btn.active {
+    	background: #777;
+    	color: white;
+    }
+    
+    .export-detail, .light .export-detail, 
+    .light .export-item.active, 
+    .light .export-items-list-control {
+    	background: #e0e0e0;
+    	border-radius: 2px;
+    	font-weight: 700;
+    	color: inherit
+    }
+
+    --md-fg: #1f0909;
+    --md-border: #c5c5c5;
+    --md-link: #065588;
+    --md-code-bg: #e8e7df;
+    --md-quote: #656565;
+    --md-row: #e8e7df;
+    background: #f3f2ee;
+    .admonition { background: #e8e7df; }
+  }
+  .content-area.document-pane { background: #f3f2ee; }
+}
+/* ---- Academic — the LaTeX paper look ---------------------------------------------------- */
+.ct-academic {
+  .markdown-body {
+    /*********************************************************************
+    This is free and unencumbered software released into the public domain.
+    
+    Anyone is free to copy, modify, publish, use, compile, sell, or
+    distribute this software, either in source code form or as a compiled
+    binary, for any purpose, commercial or non-commercial, and by any
+    means.
+    
+    For more information, please refer to <http://unlicense.org/>
+    *********************************************************************/
+    
+    /*
+    WiTeX
+    https://github.com/AndrewBelt/WiTeX
+    */
+    
+    
+    /* Latin Modern (LaTeX default) font */
+    
+    
+    
+    
+    
+    /* Page Layout */
+    
+    & {
+      background-color: white;
+      font-size: 13pt;
+    }
+    
+    & {
+    	font-family: 'Latin Modern Roman', serif;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+    	border: none;
+    	font-weight: bold;
+    }
+    
+    a, a:visited {
+    	color: #a00;
+    }
+    
+    ul {
+    	list-style: disc;
+    }
+    
+    /* Content Box */
+    
+    .content {
+    	max-width: 720px;
+    	margin: 2em auto;
+    }
+    
+    .content > h1:first-child {
+    	text-align: center;
+    	display: block;
+    }
+    
+    /* Article Body */
+    
+    .content {
+    	text-align: justify;
+    	-moz-hyphens: auto;
+    	-webkit-hyphens: auto;
+    	hyphens: auto;
+      padding: 0 1em;
+    }
+    
+    dl dd {
+    	/* center definitions (most useful for display equations) */
+    	text-align: center;
+    }
+    
+    @media (min-width: 43.75em) {
+      .content {
+        padding: 0;
+      }
+    }
+
+    --md-fg: #000000;
+    --md-border: #cccccc;
+    --md-link: #0645ad;
+    --md-code-bg: #f5f5f5;
+    --md-quote: #555555;
+    --md-row: #f7f7f7;
+    background: #ffffff;
+    .admonition { background: #f7f7f7; }
+  }
+  .content-area.document-pane { background: #ffffff; }
+}
+/* ---- Report — clean sans with ruled headings -------------------------------------------- */
+.ct-report {
+  .markdown-body {
+    @media print {
+      *,
+      *:before,
+      *:after {
+        background: transparent !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+    
+      a,
+      a:visited {
+        text-decoration: underline;
+      }
+    
+      a[href]:after {
+        content: " (" attr(href) ")";
+      }
+    
+      abbr[title]:after {
+        content: " (" attr(title) ")";
+      }
+    
+      a[href^="#"]:after,
+      a[href^="javascript:"]:after {
+        content: "";
+      }
+    
+      pre,
+      blockquote {
+        border: 1px solid #999;
+        page-break-inside: avoid;
+      }
+    
+      thead {
+        display: table-header-group;
+      }
+    
+      tr,
+      img {
+        page-break-inside: avoid;
+      }
+    
+      img {
+        max-width: 100% !important;
+      }
+    
+      p,
+      h2,
+      h3 {
+        orphans: 3;
+        widows: 3;
+      }
+    
+      h2,
+      h3 {
+        page-break-after: avoid;
+      }
+    }
+    
+    pre,
+    code {
+      font-family: Menlo, Monaco, "Courier New", monospace;
+    }
+    
+    pre {
+      padding: .5rem;
+      line-height: 1.25;
+      overflow-x: scroll;
+    }
+    
+    a,
+    a:visited {
+      color: #3498db;
+    }
+    
+    a:hover,
+    a:focus,
+    a:active {
+      color: #2980b9;
+    }
+    
+    .modest-no-decoration {
+      text-decoration: none;
+    }
+    
+    & {
+      font-size: 12px;
+    }
+    
+    @media screen and (min-width: 32rem) and (max-width: 48rem) {
+      & {
+        font-size: 15px;
+      }
+    }
+    
+    @media screen and (min-width: 48rem) {
+      & {
+        font-size: 16px;
+      }
+    }
+    
+    & {
+      line-height: 1.85;
+    }
+    
+    p,
+    .modest-p {
+      font-size: 1rem;
+      margin-bottom: 1.3rem;
+    }
+    
+    h1,
+    .modest-h1,
+    h2,
+    .modest-h2,
+    h3,
+    .modest-h3,
+    h4,
+    .modest-h4 {
+      margin: 1.414rem 0 .5rem;
+      font-weight: inherit;
+      line-height: 1.42;
+    }
+    
+    h1,
+    .modest-h1 {
+      margin-top: 0;
+      font-size: 3.998rem;
+    }
+    
+    h2,
+    .modest-h2 {
+      font-size: 2.827rem;
+    }
+    
+    h3,
+    .modest-h3 {
+      font-size: 1.999rem;
+    }
+    
+    h4,
+    .modest-h4 {
+      font-size: 1.414rem;
+    }
+    
+    h5,
+    .modest-h5 {
+      font-size: 1.121rem;
+    }
+    
+    h6,
+    .modest-h6 {
+      font-size: .88rem;
+    }
+    
+    small,
+    .modest-small {
+      font-size: .707em;
+    }
+    
+    /* https://github.com/mrmrs/fluidity */
+    
+    img,
+    canvas,
+    iframe,
+    video,
+    svg,
+    select,
+    textarea {
+      max-width: 100%;
+    }
+    
+    
+    
+    & {
+      font-size: 18px;
+      max-width: 100%;
+    }
+    
+    & {
+      color: #444;
+      font-family: 'Open Sans Condensed', sans-serif;
+      font-weight: 300;
+      margin: 0 auto;
+      max-width: 48rem;
+      line-height: 1.45;
+      padding: .25rem;
+    }
+    
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      font-family: Arimo, Helvetica, sans-serif;
+    }
+    
+    h1,
+    h2,
+    h3 {
+      border-bottom: 2px solid #fafafa;
+      margin-bottom: 1.15rem;
+      padding-bottom: .5rem;
+      text-align: center;
+    }
+    
+    blockquote {
+      border-left: 8px solid #fafafa;
+      padding: 1rem;
+    }
+    
+    pre,
+    code {
+      background-color: #fafafa;
+    }
+
+    --md-fg: #444444;
+    --md-border: #e4e4e4;
+    --md-link: #2980b9;
+    --md-code-bg: #fafafa;
+    --md-quote: #666666;
+    --md-row: #fafafa;
+    background: #ffffff;
+    .admonition { background: #fafafa; }
+  }
+  .content-area.document-pane { background: #ffffff; }
+}
+/* ---- Modern — roomy sans, the look of a web page ---------------------------------------- */
+.ct-modern {
+  .markdown-body {
+    
+    & {
+      font-family: 'PT Sans', Helvetica, 'Helvetica Neuve', Arial, Tahoma, sans-serif;
+      font-size: 17px;
+    
+      color: #333;
+    
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+      color:#222;
+      margin:0 0 20px;
+    }
+    
+    p, ul, ol, table, pre, dl {
+      margin:0 0 20px;
+    }
+    
+    h1, h2, h3 {
+      line-height:1.1;
+    }
+    
+    h1 {
+      font-size:28px;
+    }
+    
+    h2 {
+      color:#393939;
+    }
+    
+    h3, h4, h5, h6 {
+      color:#494949;
+    }
+    
+    a {
+      color:#39c;
+      font-weight:400;
+      text-decoration:none;
+    }
+    
+    a small {
+      font-size:11px;
+      color:#777;
+      margin-top:-0.6em;
+      display:block;
+    }
+    
+    .wrapper {
+      width:860px;
+      margin:0 auto;
+    }
+    
+    blockquote {
+      border-left:1px solid #e5e5e5;
+      margin:0;
+      padding:0 0 0 20px;
+      font-style:italic;
+    }
+    
+    code, pre {
+      color:#333;
+      font-size:12px;
+    }
+    
+    pre {
+      padding:8px 15px;
+      background: #f8f8f8;
+      border-radius:5px;
+      border:1px solid #e5e5e5;
+      overflow-x: auto;
+    }
+    
+    table {
+      width:100%;
+      border-collapse:collapse;
+    }
+    
+    th, td {
+      text-align:left;
+      padding:5px 10px;
+      border-bottom:1px solid #e5e5e5;
+    }
+    
+    dt {
+      color:#444;
+      font-weight:700;
+    }
+    
+    th {
+      color:#444;
+    }
+    
+    img {
+      max-width:100%;
+    }
+    
+    header {
+      width:270px;
+      float:left;
+      position:fixed;
+    }
+    
+    header ul {
+      list-style:none;
+      height:40px;
+    
+      padding:0;
+    
+      background: #eee;
+      background: linear-gradient(to bottom, #f8f8f8 0%,#dddddd 100%);
+    
+      border-radius:5px;
+      border:1px solid #d2d2d2;
+      box-shadow:inset #fff 0 1px 0, inset rgba(0,0,0,0.03) 0 -1px 0;
+      width:270px;
+    }
+    
+    header li {
+      width:89px;
+      float:left;
+      border-right:1px solid #d2d2d2;
+      height:40px;
+    }
+    
+    header ul a {
+      line-height:1;
+      font-size:11px;
+      color:#999;
+      display:block;
+      text-align:center;
+      padding-top:6px;
+      height:40px;
+    }
+    
+    strong {
+      color:#222;
+      font-weight:700;
+    }
+    
+    header ul li + li {
+      width:88px;
+      border-left:1px solid #fff;
+    }
+    
+    header ul li + li + li {
+      border-right:none;
+      width:89px;
+    }
+    
+    header ul a strong {
+      font-size:14px;
+      display:block;
+      color:#222;
+    }
+    
+    section {
+      width:500px;
+      float:right;
+      padding-bottom:50px;
+    }
+    
+    small {
+      font-size:11px;
+    }
+    
+    hr {
+      border:0;
+      background:#e5e5e5;
+      height:1px;
+      margin:0 0 20px;
+    }
+    
+    footer {
+      width:270px;
+      float:left;
+      position:fixed;
+      bottom:50px;
+    }
+    
+    @media print, screen and (max-width: 960px) {
+    
+      div.wrapper {
+        width:auto;
+        margin:0;
+      }
+    
+      header, section, footer {
+        float:none;
+        position:static;
+        width:auto;
+      }
+    
+      header {
+        padding-right:320px;
+      }
+    
+      section {
+        border:1px solid #e5e5e5;
+        border-width:1px 0;
+        padding:20px 0;
+        margin:0 0 20px;
+      }
+    
+      header a small {
+        display:inline;
+      }
+    
+      header ul {
+        position:absolute;
+        right:50px;
+        top:52px;
+      }
+    }
+    
+    @media print, screen and (max-width: 720px) {
+      & {
+        word-wrap:break-word;
+      }
+    
+      header {
+        padding:0;
+      }
+    
+      header ul, header p.view {
+        position:static;
+      }
+    
+      pre, code {
+        word-wrap:normal;
+      }
+    }
+    
+    @media print, screen and (max-width: 480px) {
+      & {
+        padding:15px;
+      }
+    
+      header ul {
+        display:none;
+      }
+    }
+    
+    @media print {
+      & {
+        padding:0.4in;
+        font-size:12pt;
+        color:#444;
+      }
+    }
+    
+    
+    #wrapper {
+      margin-left: auto;
+      margin-right: auto;
+      background-color: white;
+    }
+    
+    .ca-menu {
+     list-style: none;
+      padding: 0;
+      margin: 20px auto;
+    }
+    
+    #navi {
+    padding-top: 15px;
+    padding-right: 15px;
+    float: right;
+    width: 420px;
+    }
+    
+    #title {
+    padding-left: 15px;
+    width: 460px;
+    float: left;
+    }
+    div.clear {
+    clear: both;
+    }
+    
+    
+      h1 { font-size: 2.5em; line-height: 1; }
+      h2 { font-size: 2em;   line-height: 1; }
+      h3 { font-size: 1.5em; line-height: 1; }
+      h4 { font-size: 1.2em; line-height: 1.25; }
+      h5 { font-size: 1em;   line-height: 1; font-weight: bold; }
+      h6 { font-size: 1em;   line-height: 1; font-weight: bold; }
+    
+      h1, h2, h3, h4, h5, h6 { font-weight: normal; margin-top: 1.5em; margin-bottom: 1em; }
+      h1, h2 { margin-bottom: 0.75em; }
+    
+    .post p {
+      max-width: 580px;
+    }
+    
+    ul.list, ol.list {
+      padding-left: 3.333em;
+      max-width: 580px;
+    }
+    
+    .post h2 {
+      border-bottom: 1px solid #EDEDED;
+    }
+    
+    h1:nth-child(1),
+    h2:nth-child(1),
+    h3:nth-child(1),
+    h4:nth-child(1),
+    h5:nth-child(1),
+    h6:nth-child(1) {
+      margin-top: 0;
+    }
+    
+    & {
+      padding: 1em;
+    }
+    
+    #wrapper {
+      padding: 1em;
+    }
+    
+    @media (min-width: 43.75em) {
+      & {
+        padding: 2em;
+      }
+      #wrapper {
+        padding: 2em;
+      }
+    }
+    
+    @media (min-width: 62em) {
+      & {
+        padding: 3em;
+      }
+      #wrapper {
+        max-width: 740px;
+        padding: 3em;
+      }
+    }
+
+    --md-fg: #222222;
+    --md-border: #e5e5e5;
+    --md-link: #0a84c1;
+    --md-code-bg: #f8f8f8;
+    --md-quote: #666666;
+    --md-row: #f8f8f8;
+    background: #ffffff;
+    .admonition { background: #f8f8f8; }
+  }
+  .content-area.document-pane { background: #ffffff; }
+}
+/* ---- Simple — compact modern sans ------------------------------------------------------- */
+.ct-simple {
+  .markdown-body {
+    /* Sakura.css v1.5.1
+     * ================
+     * Minimal css theme.
+     * Project: https://github.com/oxalorg/sakura/
+     */
+    /* Body */
+    & {
+      font-size: 62.5%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    }
+    
+    & {
+      font-size: 1.8rem;
+      line-height: 1.618;
+      max-width: 38em;
+      margin: auto;
+      color: #222222;
+      background-color: #ffffff;
+      padding: 13px;
+    }
+    
+    @media (max-width: 684px) {
+      & {
+        font-size: 1.53rem;
+      }
+    }
+    @media (max-width: 382px) {
+      & {
+        font-size: 1.35rem;
+      }
+    }
+    h1, h2, h3, h4, h5, h6 {
+      line-height: 1.1;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      font-weight: 700;
+      margin-top: 3rem;
+      margin-bottom: 1.5rem;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      -ms-word-break: break-all;
+      word-break: break-word;
+    }
+    
+    h1 {
+      font-size: 2.35em;
+    }
+    
+    h2 {
+      font-size: 2em;
+    }
+    
+    h3 {
+      font-size: 1.75em;
+    }
+    
+    h4 {
+      font-size: 1.5em;
+    }
+    
+    h5 {
+      font-size: 1.25em;
+    }
+    
+    h6 {
+      font-size: 1em;
+    }
+    
+    p {
+      margin-top: 0px;
+      margin-bottom: 2.5rem;
+    }
+    
+    small, sub, sup {
+      font-size: 75%;
+    }
+    
+    hr {
+      border-color: #007559;
+    }
+    
+    a {
+      text-decoration: none;
+      color: #007559;
+    }
+    a:visited {
+      color: #004232;
+    }
+    a:hover {
+      color: #006994;
+      border-bottom: 2px solid #222222;
+    }
+    
+    ul {
+      padding-left: 1.4em;
+      margin-top: 0px;
+      margin-bottom: 2.5rem;
+    }
+    
+    li {
+      margin-bottom: 0.4em;
+    }
+    
+    blockquote {
+      margin-left: 0px;
+      margin-right: 0px;
+      padding-left: 1em;
+      padding-top: 0.8em;
+      padding-bottom: 0.8em;
+      padding-right: 0.8em;
+      border-left: 5px solid #007559;
+      margin-bottom: 2.5rem;
+      background-color: #f7f7f7;
+    }
+    
+    blockquote p {
+      margin-bottom: 0;
+    }
+    
+    img, video {
+      height: auto;
+      max-width: 100%;
+      margin-top: 0px;
+      margin-bottom: 2.5rem;
+    }
+    
+    /* Pre and Code */
+    pre {
+      background-color: #f7f7f7;
+      display: block;
+      padding: 1em;
+      overflow-x: auto;
+      margin-top: 0px;
+      margin-bottom: 2.5rem;
+      font-size: 0.9em;
+    }
+    
+    code, kbd, samp {
+      font-size: 0.9em;
+      padding: 0 0.5em;
+      background-color: #f7f7f7;
+      white-space: pre-wrap;
+    }
+    
+    pre > code {
+      padding: 0;
+      background-color: transparent;
+      white-space: pre;
+      font-size: 1em;
+    }
+    
+    /* Tables */
+    table {
+      text-align: justify;
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+    
+    td, th {
+      padding: 0.5em;
+      border-bottom: 1px solid #f7f7f7;
+    }
+    
+    /* Buttons, forms and input */
+    input, textarea {
+      border: 1px solid #222222;
+    }
+    input:focus, textarea:focus {
+      border: 1px solid #007559;
+    }
+    
+    textarea {
+      width: 100%;
+    }
+    
+    .button, button,
+    input[type=submit],
+    input[type=reset],
+    input[type=button],
+    input[type=file]::file-selector-button {
+      display: inline-block;
+      padding: 5px 10px;
+      text-align: center;
+      text-decoration: none;
+      white-space: nowrap;
+      background-color: #007559;
+      color: #ffffff;
+      border-radius: 1px;
+      border: 1px solid #007559;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+    .button:hover, button:hover,
+    input[type=submit]:hover,
+    input[type=reset]:hover,
+    input[type=button]:hover,
+    input[type=file]::file-selector-button:hover {
+      background-color: #006994;
+      color: #ffffff;
+      outline: 0;
+    }
+    
+    .button[disabled], button[disabled],
+    input[type=submit][disabled],
+    input[type=reset][disabled],
+    input[type=button][disabled],
+    input[type=file][disabled] {
+      cursor: default;
+      opacity: 0.5;
+    }
+    .button:focus-visible, button:focus-visible,
+    input[type=submit]:focus-visible,
+    input[type=reset]:focus-visible,
+    input[type=button]:focus-visible,
+    input[type=file]:focus-visible {
+      outline-style: solid;
+      outline-width: 2px;
+    }
+    
+    textarea, select, input {
+      color: #222222;
+      padding: 6px 10px; /* The 6px vertically centers text on FF, ignored by Webkit */
+      margin-bottom: 10px;
+      background-color: #f7f7f7;
+      border: 1px solid #f7f7f7;
+      border-radius: 4px;
+      box-shadow: none;
+      box-sizing: border-box;
+    }
+    textarea:focus, select:focus, input:focus {
+      border: 1px solid #007559;
+      outline: 0;
+    }
+    
+    input[type=checkbox]:focus {
+      outline: 1px dotted #007559;
+    }
+    
+    label, legend, fieldset {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+
+    --md-fg: #222222;
+    --md-border: #e0e0e0;
+    --md-link: #006994;
+    --md-code-bg: #f7f7f7;
+    --md-quote: #4a4a4a;
+    --md-row: #f7f7f7;
+    background: #ffffff;
+    .admonition { background: #f7f7f7; }
+  }
+  .content-area.document-pane { background: #ffffff; }
+}
+/* ---- Writer — soft grey writing paper --------------------------------------------------- */
+.ct-writer {
+  .markdown-body {
+    /*
+     * This document has been created with Marked.app <http://markedapp.com>.
+     * Copyright 2011 Brett Terpstra
+     * ---------------------------------------------------------------------------
+     * Please leave this notice in place, along with any additional credits below.
+     *
+     * Byword.css theme is based on Byword.app <http://bywordapp.com>
+     * Authors: @brunodecarvalho, @jpedroso, @rcabaco
+     * Copyright 2011 Metaclassy, Lda. <http://metaclassy.com>
+     */
+    
+    & {
+      font-size: 62.5%; /* base font-size: 10px */
+    }
+    
+    & {
+        background-color: #f2f2f2;
+        color: #3c3c3c;
+    
+        /* Change font size below */
+      font-size: 1.7em;
+      line-height: 1.4em;
+    
+      /* Change font below */
+    
+      /* Sans-serif fonts */
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    
+      /* Serif fonts */
+      /*
+      font-family: "Cochin", "Baskerville", "Georgia", serif;
+      -webkit-font-smoothing: subpixel-antialiased;
+      */
+    
+      /* Monospaced fonts */
+      /*
+      font-family: "Courier New", Menlo, Monaco, mono;
+      -webkit-font-smoothing: antialiased;
+      */
+    
+      margin: auto;
+      max-width: 42em;
+    }
+    a {
+        color: #308bd8;
+        text-decoration:none;
+    }
+    a:hover {
+        text-decoration: underline;
+    }
+    /* headings */
+    h1, h2 {
+        line-height:1.2em;
+        margin-top:32px;
+        margin-bottom:12px;
+    }
+    h1:first-child {
+        margin-top:0;
+    }
+    h3, h4, h5, h6 {
+        margin-top:12px;
+        margin-bottom:0;
+    }
+    h5, h6 {
+        font-size:0.9em;
+        line-height:1.0em;
+    }
+    /* end of headings */
+    p {
+        margin:0 0 24px 0;
+    }
+    p:last-child {
+        margin:0;
+    }
+    #wrapper hr {
+        width: 100%;
+        margin: 3em auto;
+        border: 0;
+        color: #eee;
+        background-color: #ccc;
+        height: 1px;
+        -webkit-box-shadow:0px 1px 0px rgba(255, 255, 255, 0.75);
+    }
+    /* lists */
+    ol {
+        list-style: outside decimal;
+    }
+    ul {
+        list-style: outside disc;
+    }
+    ol, ul {
+        padding-left:0;
+        margin-bottom:24px;
+    }
+    ol li {
+        margin-left:28px;
+    }
+    ul li {
+        margin-bottom:8px;
+        margin-left:16px;
+    }
+    ol:last-child, ul:last-child {
+        margin:0;
+    }
+    li > ol, li > ul {
+        padding-left:12px;
+    }
+    dl {
+        margin-bottom:24px;
+    }
+    dl dt {
+        font-weight:bold;
+        margin-bottom:8px;
+    }
+    dl dd {
+        margin-left:0;
+        margin-bottom:12px;
+    }
+    dl dd:last-child, dl:last-child {
+        margin-bottom:0;
+    }
+    /* end of lists */
+    pre {
+        white-space: pre-wrap;
+        width: 96%;
+        margin-bottom: 24px;
+        overflow: hidden;
+        padding: 3px 10px;
+        -webkit-border-radius: 3px;
+        background-color: #eee;
+        border: 1px solid #ddd;
+    }
+    code {
+        white-space: nowrap;
+        font-size: 1.1em;
+        padding: 2px;
+        -webkit-border-radius: 3px;
+        background-color: #eee;
+        border: 1px solid #ddd;
+    }
+    pre code {
+        white-space: pre-wrap;
+        border: none;
+        padding: 0;
+        background-color: transparent;
+        -webkit-border-radius: 0;
+    }
+    blockquote {
+        margin-left: 0;
+        margin-right: 0;
+        width: 96%;
+        padding: 0 10px;
+        border-left: 3px solid #ddd;
+        color: #777;
+    }
+    table {
+        margin-left: auto;
+        margin-right: auto;
+        margin-bottom: 24px;
+        border-bottom: 1px solid #ddd;
+        border-right: 1px solid #ddd;
+        border-spacing: 0;
+    }
+    table th {
+        padding: 3px 10px;
+        background-color: #eee;
+        border-top: 1px solid #ddd;
+        border-left: 1px solid #ddd;
+    }
+    table tr {
+    }
+    table td {
+        padding: 3px 10px;
+        border-top: 1px solid #ddd;
+        border-left: 1px solid #ddd;
+    }
+    caption {
+        font-size: 1.2em;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    figure {
+        display: block;
+        text-align: center;
+    }
+    #wrapper img {
+        border: none;
+        display: block;
+        margin: 1em auto;
+        max-width: 100%;
+    }
+    figcaption {
+        font-size: 0.8em;
+        font-style: italic;
+    }
+    mark {
+        background: #fefec0;
+        padding:1px 3px;
+    }
+    
+    
+    /* classes */
+    
+    .markdowncitation {
+    }
+    .footnote {
+        font-size: 0.8em;
+        vertical-align: super;
+    }
+    .footnotes ol {
+        font-weight: bold;
+    }
+    .footnotes ol li p {
+        font-weight: normal;
+    }
+    
+    /* custom formatting classes */
+    
+    .shadow {
+        -webkit-box-shadow: 0 2px 4px #999;
+    }
+    
+    .source {
+        text-align: center;
+        font-size: 0.8em;
+        color: #777;
+        margin: -40px;
+    }
+    
+    @media screen {
+      .inverted, .inverted #wrapper {
+          background-color: #1a1a1a !important;
+          color: #bebebe !important;
+    
+          /* SANS-SERIF */
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+        -webkit-font-smoothing: antialiased !important;
+    
+        /* SERIF */
+        /*
+        font-family: "Cochin", "Baskerville", "Georgia", serif !important;
+        -webkit-font-smoothing: subpixel-antialiased !important;
+        */
+        /* MONO */
+        /*
+        font-family: "Courier", mono !important;
+        -webkit-font-smoothing: antialiased !important;
+        */
+      }
+      .inverted a {
+          color: #308bd8 !important;
+      }
+      .inverted hr {
+          color: #666 !important;
+          border: 0;
+          background-color: #666 !important;
+          -webkit-box-shadow: none !important;
+      }
+      .inverted pre {
+          background-color: #222 !important;
+          border-color: #3c3c3c !important;
+      }
+      .inverted code {
+          background-color: #222 !important;
+          border-color: #3c3c3c !important;
+      }
+      .inverted blockquote {
+          border-color: #333 !important;
+          color: #999 !important;
+      }
+      .inverted table {
+          border-color: #3c3c3c !important;
+      }
+      .inverted table th {
+          background-color: #222 !important;
+          border-color: #3c3c3c !important;
+      }
+      .inverted table td {
+          border-color: #3c3c3c !important;
+      }
+      .inverted mark {
+          background: #bc990b !important;
+          color:#000 !important;
+      }
+        .inverted .shadow { -webkit-box-shadow: 0 2px 4px #000 !important; }
+      #wrapper {
+            background: transparent;
+            margin: 40px;
+        }
+    }
+    
+    /* Printing support */
+    @media print {
+      & {
+        overflow: auto;
+      }
+        img, pre, blockquote, table, figure {
+            page-break-inside: avoid;
+        }
+        pre, code {
+        border: none !important;
+      }
+      #wrapper {
+            background: #fff;
+            position: relative;
+            text-indent: 0px;
+            padding: 10px;
+            font-size:85%;
+        }
+        .footnotes {
+            page-break-before: always;
+        }
+    }
+    
+    & {
+      padding: 0 1em;
+    }
+    
+    @media (min-width: 43.75em) {
+      & {
+        padding: 0;
+      }
+    }
+
+    --md-fg: #3c3c3c;
+    --md-border: #d5d5d5;
+    --md-link: #308bd8;
+    --md-code-bg: #e9e9e9;
+    --md-quote: #777777;
+    --md-row: #e9e9e9;
+    background: #f2f2f2;
+    /* html{62.5%} and body{1.7em} collapse onto one element here — restore the intended 17px. */
+    font-size: 17px;
+    .admonition { background: #e9e9e9; }
+  }
+  .content-area.document-pane { background: #f2f2f2; }
+}
+/* ---- Typewriter — monospaced draft. The upstream sheet is a dark terminal look; the ------
+       bridge below re-papers it, which is what makes it usable on a printed page. */
+.ct-typewriter {
+  .markdown-body {
+    
+    
+    pre,
+    code {
+      font-family: Menlo, Monaco, "Courier New", monospace;
+    }
+    
+    pre {
+      padding: .5rem;
+      line-height: 1.25;
+      overflow-x: scroll;
+    }
+    
+    @media print {
+      *,
+      *:before,
+      *:after {
+        background: transparent !important;
+        color: #000 !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+      }
+    
+      a,
+      a:visited {
+        text-decoration: underline;
+      }
+    
+      a[href]:after {
+        content: " (" attr(href) ")";
+      }
+    
+      abbr[title]:after {
+        content: " (" attr(title) ")";
+      }
+    
+      a[href^="#"]:after,
+      a[href^="javascript:"]:after {
+        content: "";
+      }
+    
+      pre,
+      blockquote {
+        border: 1px solid #999;
+        page-break-inside: avoid;
+      }
+    
+      thead {
+        display: table-header-group;
+      }
+    
+      tr,
+      img {
+        page-break-inside: avoid;
+      }
+    
+      img {
+        max-width: 100% !important;
+      }
+    
+      p,
+      h2,
+      h3 {
+        orphans: 3;
+        widows: 3;
+      }
+    
+      h2,
+      h3 {
+        page-break-after: avoid;
+      }
+    }
+    
+    a,
+    a:visited {
+      color: #01ff70;
+    }
+    
+    a:hover,
+    a:focus,
+    a:active {
+      color: #2ecc40;
+    }
+    
+    .retro-no-decoration {
+      text-decoration: none;
+    }
+    
+    & {
+      font-size: 12px;
+    }
+    
+    @media screen and (min-width: 32rem) and (max-width: 48rem) {
+      & {
+        font-size: 15px;
+      }
+    }
+    
+    @media screen and (min-width: 48rem) {
+      & {
+        font-size: 16px;
+      }
+    }
+    
+    & {
+      line-height: 1.85;
+    }
+    
+    p,
+    .retro-p {
+      font-size: 1rem;
+      margin-bottom: 1.3rem;
+    }
+    
+    h1,
+    .retro-h1,
+    h2,
+    .retro-h2,
+    h3,
+    .retro-h3,
+    h4,
+    .retro-h4 {
+      margin: 1.414rem 0 .5rem;
+      font-weight: inherit;
+      line-height: 1.42;
+    }
+    
+    h1,
+    .retro-h1 {
+      margin-top: 0;
+      font-size: 3.998rem;
+    }
+    
+    h2,
+    .retro-h2 {
+      font-size: 2.827rem;
+    }
+    
+    h3,
+    .retro-h3 {
+      font-size: 1.999rem;
+    }
+    
+    h4,
+    .retro-h4 {
+      font-size: 1.414rem;
+    }
+    
+    h5,
+    .retro-h5 {
+      font-size: 1.121rem;
+    }
+    
+    h6,
+    .retro-h6 {
+      font-size: .88rem;
+    }
+    
+    small,
+    .retro-small {
+      font-size: .707em;
+    }
+    
+    /* https://github.com/mrmrs/fluidity */
+    
+    img,
+    canvas,
+    iframe,
+    video,
+    svg,
+    select,
+    textarea {
+      max-width: 100%;
+    }
+    
+    &,
+    & {
+      background-color: #222;
+      min-height: 100%;
+    }
+    
+    & {
+      font-size: 18px;
+    }
+    
+    & {
+      color: #fafafa;
+      font-family: "Courier New";
+      line-height: 1.45;
+      margin: 6rem auto 1rem;
+      max-width: 48rem;
+      padding: .25rem;
+    }
+    
+    pre {
+      background-color: #333;
+    }
+    
+    blockquote {
+      border-left: 3px solid #01ff70;
+      padding-left: 1rem;
+    }
+
+    --md-fg: #23201a;
+    --md-border: #d8d2c2;
+    --md-link: #7a4b1e;
+    --md-code-bg: #f1ecdd;
+    --md-quote: #5b5648;
+    --md-row: #f6f2e8;
+    background: #fdfcf7;
+    color: #23201a;
+    a, a:visited, a:hover { color: #7a4b1e; }
+    h1, h2, h3, h4, h5, h6 { color: #23201a; }
+    blockquote { border-left-color: #b8ae94; color: #5b5648; }
+    code, pre { background: #f1ecdd; color: #23201a; }
+    .admonition { background: #f6f2e8; }
+  }
+  .content-area.document-pane { background: #fdfcf7; }
+}
+/* ---- Night — light text on a dark page -------------------------------------------------- */
+.ct-night {
+  .markdown-body {
+    /* $color-text: #dedce5; */
+    /* Sakura.css v1.5.1
+     * ================
+     * Minimal css theme.
+     * Project: https://github.com/oxalorg/sakura/
+     */
+    /* Body */
+    & {
+      font-size: 62.5%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    }
+    
+    & {
+      font-size: 1.8rem;
+      line-height: 1.618;
+      max-width: 38em;
+      margin: auto;
+      color: #d9d8dc;
+      background-color: #120c0e;
+      padding: 13px;
+    }
+    
+    @media (max-width: 684px) {
+      & {
+        font-size: 1.53rem;
+      }
+    }
+    @media (max-width: 382px) {
+      & {
+        font-size: 1.35rem;
+      }
+    }
+    h1, h2, h3, h4, h5, h6 {
+      line-height: 1.1;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      font-weight: 700;
+      margin-top: 3rem;
+      margin-bottom: 1.5rem;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      -ms-word-break: break-all;
+      word-break: break-word;
+    }
+    
+    h1 {
+      font-size: 2.35em;
+    }
+    
+    h2 {
+      font-size: 2em;
+    }
+    
+    h3 {
+      font-size: 1.75em;
+    }
+    
+    h4 {
+      font-size: 1.5em;
+    }
+    
+    h5 {
+      font-size: 1.25em;
+    }
+    
+    h6 {
+      font-size: 1em;
+    }
+    
+    p {
+      margin-top: 0px;
+      margin-bottom: 2.5rem;
+    }
+    
+    small, sub, sup {
+      font-size: 75%;
+    }
+    
+    hr {
+      border-color: #eb99a1;
+    }
+    
+    a {
+      text-decoration: none;
+      color: #eb99a1;
+    }
+    a:visited {
+      color: #e26f7a;
+    }
+    a:hover {
+      color: #DA4453;
+      border-bottom: 2px solid #d9d8dc;
+    }
+    
+    ul {
+      padding-left: 1.4em;
+      margin-top: 0px;
+      margin-bottom: 2.5rem;
+    }
+    
+    li {
+      margin-bottom: 0.4em;
+    }
+    
+    blockquote {
+      margin-left: 0px;
+      margin-right: 0px;
+      padding-left: 1em;
+      padding-top: 0.8em;
+      padding-bottom: 0.8em;
+      padding-right: 0.8em;
+      border-left: 5px solid #eb99a1;
+      margin-bottom: 2.5rem;
+      background-color: #40363a;
+    }
+    
+    blockquote p {
+      margin-bottom: 0;
+    }
+    
+    img, video {
+      height: auto;
+      max-width: 100%;
+      margin-top: 0px;
+      margin-bottom: 2.5rem;
+    }
+    
+    /* Pre and Code */
+    pre {
+      background-color: #40363a;
+      display: block;
+      padding: 1em;
+      overflow-x: auto;
+      margin-top: 0px;
+      margin-bottom: 2.5rem;
+      font-size: 0.9em;
+    }
+    
+    code, kbd, samp {
+      font-size: 0.9em;
+      padding: 0 0.5em;
+      background-color: #40363a;
+      white-space: pre-wrap;
+    }
+    
+    pre > code {
+      padding: 0;
+      background-color: transparent;
+      white-space: pre;
+      font-size: 1em;
+    }
+    
+    /* Tables */
+    table {
+      text-align: justify;
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2rem;
+    }
+    
+    td, th {
+      padding: 0.5em;
+      border-bottom: 1px solid #40363a;
+    }
+    
+    /* Buttons, forms and input */
+    input, textarea {
+      border: 1px solid #d9d8dc;
+    }
+    input:focus, textarea:focus {
+      border: 1px solid #eb99a1;
+    }
+    
+    textarea {
+      width: 100%;
+    }
+    
+    .button, button,
+    input[type=submit],
+    input[type=reset],
+    input[type=button],
+    input[type=file]::file-selector-button {
+      display: inline-block;
+      padding: 5px 10px;
+      text-align: center;
+      text-decoration: none;
+      white-space: nowrap;
+      background-color: #eb99a1;
+      color: #120c0e;
+      border-radius: 1px;
+      border: 1px solid #eb99a1;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+    .button:hover, button:hover,
+    input[type=submit]:hover,
+    input[type=reset]:hover,
+    input[type=button]:hover,
+    input[type=file]::file-selector-button:hover {
+      background-color: #DA4453;
+      color: #120c0e;
+      outline: 0;
+    }
+    
+    .button[disabled], button[disabled],
+    input[type=submit][disabled],
+    input[type=reset][disabled],
+    input[type=button][disabled],
+    input[type=file][disabled] {
+      cursor: default;
+      opacity: 0.5;
+    }
+    .button:focus-visible, button:focus-visible,
+    input[type=submit]:focus-visible,
+    input[type=reset]:focus-visible,
+    input[type=button]:focus-visible,
+    input[type=file]:focus-visible {
+      outline-style: solid;
+      outline-width: 2px;
+    }
+    
+    textarea, select, input {
+      color: #d9d8dc;
+      padding: 6px 10px; /* The 6px vertically centers text on FF, ignored by Webkit */
+      margin-bottom: 10px;
+      background-color: #40363a;
+      border: 1px solid #40363a;
+      border-radius: 4px;
+      box-shadow: none;
+      box-sizing: border-box;
+    }
+    textarea:focus, select:focus, input:focus {
+      border: 1px solid #eb99a1;
+      outline: 0;
+    }
+    
+    input[type=checkbox]:focus {
+      outline: 1px dotted #eb99a1;
+    }
+    
+    label, legend, fieldset {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+
+    --md-fg: #d9d8dc;
+    --md-border: #40363a;
+    --md-link: #eb99a1;
+    --md-code-bg: #40363a;
+    --md-quote: #b3b0b6;
+    --md-row: #1d1518;
+    background: #120c0e;
+    .admonition { background: #1d1518; }
+  }
+  .content-area.document-pane { background: #120c0e; }
+}
+
+/* ---- Applies to every content theme ------------------------------------------------------------
+   These sheets were written for a whole page, where the document element *is* the scroll container:
+   `overflow-y: scroll` reserves a scrollbar so the page does not jump, and `min-height: 100%` fills
+   the viewport. Here the document sits inside .content-area, which already scrolls, so both would
+   only add a second scrollbar of their own. */
+.ctl .markdown-body, .ctd .markdown-body {
+  overflow: visible;
+  min-height: 0;
+}

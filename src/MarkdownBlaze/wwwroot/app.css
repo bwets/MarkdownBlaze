@@ -115,6 +115,25 @@ app { display: block; height: 100%; }
     min-width: 0;
 }
 .app-header .spacer { flex: 1 1 auto; }
+
+/* Zoom control: −, the current percentage, +, reset. Grouped so it reads as one instrument, and the
+   label has a fixed width so the toolbar does not shuffle as the number changes. */
+.zoom-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 2px;
+    border-radius: 6px;
+    background: var(--neutral-fill-stealth-hover, rgba(255, 255, 255, .05));
+}
+.zoom-label {
+    min-width: 46px;
+    text-align: center;
+    font-size: .8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--neutral-foreground-rest);
+    user-select: none;
+}
 .gly { font-size: 16px; line-height: 1; font-family: "Segoe UI Symbol", "Noto Color Emoji", sans-serif; }
 .app-body { display: flex; flex: 1 1 auto; min-height: 0; }
 
@@ -208,6 +227,27 @@ app { display: block; height: 100%; }
 /* Turns red only when the × itself is hovered. */
 .row-del:hover { background: #ff3b30; color: #fff; }
 .toc-link { padding-left: 10px; }
+
+/* ---- Folder tree (Headers tab) ---- */
+.tree-root {
+    padding: 6px 10px;
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .3px;
+    text-transform: uppercase;
+    color: var(--neutral-foreground-hint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tree-folder { font-weight: 600; }
+.twisty {
+    display: inline-block;
+    width: 12px;
+    margin-right: 2px;
+    color: var(--neutral-foreground-hint);
+}
+.tree-file.current { color: var(--accent-fill-rest); font-weight: 600; }
 .empty { padding: 12px; color: var(--neutral-foreground-hint); font-size: .85rem; }
 
 /* ---- Content ---- */
@@ -234,6 +274,31 @@ app { display: block; height: 100%; }
 
 /* code blocks + mermaid */
 pre code.hljs { padding: 1rem; border-radius: 6px; display: block; }
+
+/* ---- Nothing in the document scrolls sideways --------------------------------------------------
+   The reading column is the width of the running text, and every block stays inside it: long code
+   wraps, diagrams scale, and wide tables shrink. Without this a code block gets its own horizontal
+   scrollbar — the highlight.js sheet puts overflow-x:auto on the inner <code>, and it bites hardest
+   under a content theme, where the column is narrower than the pane.
+
+   The `.content.markdown-body` compound is deliberate: content-theme rules land one class deeper
+   than a plain `.content`, so a single class would lose to them. Two classes ties, and app.css is
+   the last stylesheet, so these win. */
+.content.markdown-body pre,
+.content.markdown-body pre code {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    overflow-x: visible;
+}
+.content.markdown-body pre.mermaid { overflow: visible; text-align: center; }
+.content.markdown-body pre.mermaid svg { max-width: 100%; height: auto; }
+/* A table keeps its natural width, capped at the column so it can never scroll. It is data, not
+   prose: forced into a book measure a seven-column table breaks its headings mid-word, which is
+   worse than a table that runs a little wider than the paragraphs around it. */
+.content.markdown-body table { max-width: 100%; }
+.content.markdown-body th,
+.content.markdown-body td { overflow-wrap: break-word; }
+
 pre.mermaid { background: transparent; text-align: center; line-height: normal; }
 
 /* ---- Admonitions (mirrors bwets.Markdig.Extensions AdmonitionFeature) ---- */
@@ -342,9 +407,189 @@ details.admonition > summary.admonition-title { cursor: pointer; list-style: non
 }
 .shortcuts-foot { margin-top: 1.1em; font-size: .82rem; color: var(--neutral-foreground-hint); text-align: center; }
 
+/* ---- Page view ----
+   The document keeps its own element and is simply given the width of a sheet; a repeating gradient
+   paints the paper and the gaps behind it, and app.js inserts spacers so no block straddles a gap.
+   Three classes deep so these win over a content theme, which sizes the same element. */
+/* The desk the sheets lie on. app.js sets it away from the paper colour so the sheet edges read.
+   `body` is on the front to outrank a content theme, which papers this same element with the
+   document's own colour — without it the desk takes the paper's colour and the sheets disappear. */
+body .content-area.document-pane.paged {
+    background: var(--page-desk, #6b6b6b);
+    padding: 12px 0;
+}
+.content-area.paged .content {
+    width: var(--page-w);
+    max-width: none;
+    margin: 0 auto;
+    padding: var(--page-margin);
+    box-sizing: border-box;
+    /* One repeating band per sheet: a hairline, the paper, a hairline, then the gap. The hairlines
+       give each sheet a visible top and bottom edge when paper and desk are close in value. */
+    background:
+        repeating-linear-gradient(to bottom,
+            var(--page-edge) 0 1px,
+            var(--page-paper) 1px calc(var(--page-h) - 1px),
+            var(--page-edge) calc(var(--page-h) - 1px) var(--page-h),
+            transparent var(--page-h) calc(var(--page-h) + var(--page-gap)));
+    /* Follows the gradient's alpha, so every sheet gets its own shadow rather than one for the lot. */
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .5));
+}
+/* A sheet has hard edges, so a wide table has to fit it — the same concession printing makes, for
+   the same reason: there is nothing past the edge of the paper. */
+.content-area.paged .content th,
+.content-area.paged .content td { overflow-wrap: anywhere; }
+
+/* ---- Toast ----
+   A word about what just changed, for the keyboard shortcuts that have no other feedback. */
+.toast {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+    padding: 7px 16px;
+    border-radius: 999px;
+    /* Fallbacks matter here: this floats over the document, which a content theme may have painted
+       any colour, so it must never come out as bare text on the page. */
+    background: var(--neutral-layer-3, #26262b);
+    color: var(--neutral-foreground-rest, #f2f2f2);
+    border: 1px solid var(--neutral-stroke-divider-rest, rgba(255, 255, 255, .18));
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+    font-size: .85rem;
+    white-space: nowrap;
+    pointer-events: none; /* never in the way of the document underneath */
+    /* Rises in, holds long enough to read, fades out. The 1.4s matches the timer that removes it,
+       so the element leaves exactly as it finishes fading rather than blinking out. */
+    animation: toast-life 1.4s ease-out forwards;
+}
+@keyframes toast-life {
+    0%   { opacity: 0; transform: translate(-50%, 6px); }
+    10%  { opacity: 1; transform: translate(-50%, 0); }
+    70%  { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -3px); }
+}
+
+/* ---- Print bar ----
+   Ctrl+P opens this instead of printing straight away: pick the content theme for this print, then
+   Ctrl+P again (or the Print button) to send it. Overlays the bottom of the window and is dropped
+   from the printout itself by the @media print rules. */
+.print-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--neutral-layer-3);
+    border-top: 1px solid var(--neutral-stroke-divider-rest);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, .18);
+}
+.print-bar-label { font-weight: 600; font-size: .85rem; margin-right: 4px; }
+.print-chip {
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--neutral-stroke-divider-rest);
+    background: transparent;
+    color: var(--neutral-foreground-rest);
+    font-family: inherit;
+    font-size: .82rem;
+    cursor: pointer;
+}
+.print-chip:hover { background: var(--neutral-fill-stealth-hover); }
+.print-chip.active {
+    background: var(--accent-fill-rest);
+    border-color: var(--accent-fill-rest);
+    color: var(--neutral-fill-rest);
+    font-weight: 600;
+}
+.print-bar-hint { margin-left: auto; font-size: .8rem; color: var(--neutral-foreground-hint); }
+/* Keep the last lines of the document reachable while the bar covers them. */
+.app-body.printing .content { padding-bottom: 5rem; }
+
 /* ---- Settings ---- */
 .settings { max-width: 720px; margin: 0 auto; padding: 2rem; }
 .settings h2 { margin-top: 0; }
 .setting-row { margin: 1.2rem 0; }
 .setting-label { font-weight: 600; margin-bottom: .4rem; }
 .muted { color: var(--neutral-foreground-hint); }
+
+/* ---- Printing ---------------------------------------------------------------------------------
+   Print the document, not the app: the toolbar, sidebar, splitter and every overlay are dropped, and
+   the scroll containers (html/body/.app-shell/.content-area all clip on screen) are unclamped so the
+   content flows over as many sheets as it needs. app.js additionally forces the light theme before
+   opening the print dialog, so the colours below are always the light ones. */
+@media print {
+    html, body { height: auto; overflow: visible; background: #fff; }
+    app { height: auto; }
+
+    /* No content theme (html has neither ctl nor ctd) → the document is printed in the app's own
+       light palette, pinned here so the output never depends on app.js having swapped the theme
+       class. With a content theme the theme's own colours win: its palette is what was picked. */
+    html:not(.ctl):not(.ctd) {
+        --md-fg: #1f2328;
+        --md-border: #d0d7de;
+        --md-link: #0969da;
+        --md-code-bg: rgba(175,184,193,.2);
+        --md-quote: #59636e;
+        --md-row: #f6f8fa;
+    }
+    html:not(.ctl):not(.ctd) .hljs { color: #24292e !important; background: transparent !important; }
+
+    /* A content theme was chosen on purpose, so print its colours rather than letting the browser
+       drop the "background graphics" it needs to look like itself. */
+    html.ctl, html.ctd, html.ctl .markdown-body, html.ctd .markdown-body {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+    html.ctd body { background: transparent; } /* the theme paints the page, not the app shell */
+
+    /* App chrome — nothing here belongs on paper. */
+    .app-header,
+    .sidebar,
+    .splitter,
+    .print-bar,
+    .toast,
+    .menu-backdrop,
+    .ctx,
+    .shortcuts,
+    fluent-toast-provider,
+    fluent-dialog-provider,
+    fluent-tooltip-provider,
+    fluent-menu-provider { display: none !important; }
+
+    /* Unclamp the shell: flex + fixed viewport height would print a single cropped page. */
+    .app-shell, .app-body, .content-area { display: block; height: auto; overflow: visible; }
+
+    /* The document itself takes the full page width — the on-screen reading measure is too narrow
+       once the sidebar is gone, and the margins come from @page. The second rule outranks the
+       content themes, which set their own on-screen measure on the same element. */
+    .content { max-width: none; margin: 0; padding: 0; color: #000; }
+    .content.markdown-body { max-width: none; margin: 0; padding: 0; }
+
+    /* On screen a wide table may run past the reading column — the pane simply scrolls. Paper has no
+       such escape: anything past the edge of the sheet is guillotined. `anywhere` lets a cell break
+       mid-word, which is what allows the table to shrink to the page; a broken heading is recoverable,
+       a missing last column is not. */
+    .content.markdown-body th,
+    .content.markdown-body td { overflow-wrap: anywhere; }
+
+    /* Keep code, tables, quotes, diagrams and callouts whole rather than split across sheets, and
+       wrap long code lines (a print sheet cannot be scrolled sideways). */
+    pre, blockquote, table, figure, img, .admonition, .katex-display { break-inside: avoid; }
+    h1, h2, h3, h4 { break-after: avoid; }
+    .content pre { overflow: visible; white-space: pre-wrap; word-wrap: break-word; }
+    .content img, pre.mermaid svg { max-width: 100%; height: auto; }
+
+    /* Links stay underlined but lose the blue — it prints as washed-out grey on a mono printer. */
+    .content a { color: #000; text-decoration: underline; }
+}
+
+/* Keep this at or above ~9mm. The browser draws its own header and footer inside the page margin —
+   document title and date on top, page URL and "1 of 3" at the bottom — and drops the lot when the
+   margin is too small to hold it. The page numbers are worth the address line that comes with them,
+   so the margin stays large enough for the browser to print them. */
+@page { margin: 15mm; }

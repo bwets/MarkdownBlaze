@@ -9,6 +9,18 @@ public sealed class Preferences
     public int SidebarTab { get; set; }
     public string ThemeMode { get; set; } = "Dark"; // System | Light | Dark
 
+    /// <summary>Default skin for the rendered document — an id from <see cref="ContentThemes"/>.</summary>
+    public string ContentTheme { get; set; } = ContentThemes.Auto;
+
+    /// <summary>How the document is laid out: "continuous" (one flowing column) or "page" (sheets).</summary>
+    public string ViewMode { get; set; } = ViewModes.Continuous;
+
+    /// <summary>In page view, what a sheet is sized against: "width" or "page".</summary>
+    public string PageFit { get; set; } = ViewModes.FitWidth;
+
+    /// <summary>Reader's zoom on the document itself; 1 is natural size. The app never scales.</summary>
+    public double DocumentZoom { get; set; } = 1;
+
     // Window placement. Width/Height/X/Y are the *restored* (non-maximized) bounds; the app starts
     // maximized by default and on first run (no saved bounds). X/Y null → center on screen.
     public bool WindowMaximized { get; set; } = true;

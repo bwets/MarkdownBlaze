@@ -43,5 +43,19 @@
             </array>
         </dict>
     </array>
+    <!-- markdown:// links: the address the window shows and prints, so another application can hand
+         a document straight to the viewer. Windows registers this from Settings; macOS and Linux
+         take it from the bundle and the .desktop entry. -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>MarkdownBlaze document</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>markdown</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>

@@ -3,8 +3,9 @@ Type=Application
 Name=MarkdownBlaze
 Comment=Markdown viewer
 # Exec is rewritten with the absolute binary path by install-linux.sh.
-Exec=MarkdownBlaze %f
+# %u rather than %f: the entry also handles markdown:// URLs, and %f would only pass file paths.
+Exec=MarkdownBlaze %u
 Icon=MarkdownBlaze
 Terminal=false
 Categories=Office;Viewer;TextTools;
-MimeType=text/markdown;text/x-markdown;
+MimeType=text/markdown;text/x-markdown;x-scheme-handler/markdown;

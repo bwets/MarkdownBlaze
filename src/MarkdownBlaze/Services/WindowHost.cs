@@ -25,4 +25,14 @@ public sealed class WindowHost
         var files = await window.ShowOpenFileAsync("Open file", startDir, multiSelect: false, filters);
         return files is { Length: > 0 } ? files[0] : null;
     }
+
+    /// <summary>Shows the native folder picker; returns the chosen folder or null.</summary>
+    public async Task<string?> PickFolderAsync(string? startDir)
+    {
+        var window = Window;
+        if (window is null) return null;
+
+        var folders = await window.ShowOpenFolderAsync("Open folder", startDir, multiSelect: false);
+        return folders is { Length: > 0 } ? folders[0] : null;
+    }
 }

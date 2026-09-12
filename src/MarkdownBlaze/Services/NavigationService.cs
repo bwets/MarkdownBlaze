@@ -2,12 +2,14 @@ using System.Diagnostics;
 
 namespace MarkdownBlaze.Services;
 
-public sealed record SessionItem(int Index, string Path, string Title, bool Current);
-
 /// <summary>
-/// Holds the viewer state: the back/forward session history, the current document (rendered HTML +
-/// headings + title), the global history, file-watch reloads and link handling. Raises
-/// <see cref="Changed"/> whenever the UI should refresh.
+/// Holds the viewer state: the back/forward stack, the current document (rendered HTML + headings +
+/// title), the global history, file-watch reloads and link handling. Raises <see cref="Changed"/>
+/// whenever the UI should refresh.
+/// <para>
+/// The back/forward stack is not shown anywhere — it exists only to drive the two arrows. The list
+/// of it used to be a sidebar tab; the global history is the one worth browsing.
+/// </para>
 /// </summary>
 public sealed class NavigationService : IDisposable
 {
@@ -17,7 +19,6 @@ public sealed class NavigationService : IDisposable
 
     private readonly List<string> _session = [];
     private int _index = -1;
-    private readonly Dictionary<string, string> _titleCache = new(StringComparer.OrdinalIgnoreCase);
 
     public NavigationService(MarkdownService md, HistoryStore history)
     {
@@ -48,16 +49,19 @@ public sealed class NavigationService : IDisposable
 
     public event Action? Changed;
 
-    public IReadOnlyList<SessionItem> SessionItems()
-    {
-        var list = new List<SessionItem>(_session.Count);
-        for (var i = 0; i < _session.Count; i++)
-            list.Add(new SessionItem(i, _session[i], TitleFor(_session[i]), i == _index));
-        return list;
-    }
+    private bool _initialized;
 
+    /// <summary>
+    /// Opens whatever the app was started with. Called by the viewer when it is created — which
+    /// happens again every time the reader comes back from Settings, so it runs once and only once:
+    /// otherwise leaving Settings would re-open the startup document and throw away the one being
+    /// read, along with its place on the page.
+    /// </summary>
     public void Initialize()
     {
+        if (_initialized) { Changed?.Invoke(); return; }
+        _initialized = true;
+
         var path = _md.GetStartupFilePath();
         if (path is not null) Navigate(path);
         else Changed?.Invoke();
@@ -106,7 +110,6 @@ public sealed class NavigationService : IDisposable
 
     public void Back() { if (CanBack) { _index--; SetCurrent(_session[_index]); } }
     public void Forward() { if (CanForward) { _index++; SetCurrent(_session[_index]); } }
-    public void GoToIndex(int i) { if (i >= 0 && i < _session.Count) { _index = i; SetCurrent(_session[i]); } }
 
     public void Reload()
     {
@@ -136,13 +139,9 @@ public sealed class NavigationService : IDisposable
             CurrentTitle = result.Title;
             CurrentHtml = result.BodyHtml;
             CurrentHeadings = result.Headings;
-            _titleCache[Path.GetFullPath(path)] = result.Title;
         }
         RenderToken++;
     }
-
-    private string TitleFor(string path) =>
-        _titleCache.TryGetValue(Path.GetFullPath(path), out var t) ? t : Path.GetFileNameWithoutExtension(path);
 
     private void OnLink(string kind, string value)
     {

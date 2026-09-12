@@ -42,8 +42,15 @@ public sealed class HistoryStore
 
         lock (_lock)
         {
-            _entries.RemoveAll(e => string.Equals(e.Path, full, StringComparison.OrdinalIgnoreCase));
-            _entries.Insert(0, new HistoryEntry(full, title, DateTimeOffset.UtcNow));
+            // A file already in the list keeps its place. The history is a record of what you have
+            // opened, and a list that reshuffles itself every time you click a row is one you cannot
+            // navigate: the entry you just used jumps away from where you found it.
+            var existing = _entries.FindIndex(e => string.Equals(e.Path, full, StringComparison.OrdinalIgnoreCase));
+            if (existing >= 0)
+                _entries[existing] = _entries[existing] with { Title = title, LastOpenedUtc = DateTimeOffset.UtcNow };
+            else
+                _entries.Insert(0, new HistoryEntry(full, title, DateTimeOffset.UtcNow));
+
             if (_entries.Count > MaxEntries)
                 _entries.RemoveRange(MaxEntries, _entries.Count - MaxEntries);
             Save();

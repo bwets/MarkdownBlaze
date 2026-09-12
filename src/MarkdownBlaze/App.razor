@@ -33,6 +33,7 @@ else
         };
     }
 
+    // The document's own theme belongs to the viewer, which owns the toolbar it is chosen from.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender) await JS.InvokeVoidAsync("mdSetTheme", _mode.ToString());
@@ -47,4 +48,5 @@ else
         Prefs.Save();
         await JS.InvokeVoidAsync("mdSetTheme", mode.ToString());
     }
+
 }
