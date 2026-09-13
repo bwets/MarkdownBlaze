@@ -389,22 +389,47 @@ window.mdScrollTop = function () {
 // colours the document when no content theme is active. Everything is restored afterwards from one
 // snapshot of the <html> class list, which carries both the app theme and the content theme.
 let mdClassBeforePrint = null;
+let mdViewBeforePrint = null;
 
 function mdSnapshotForPrint() {
     if (mdClassBeforePrint === null) mdClassBeforePrint = document.documentElement.className;
 }
 
+// Page view draws its own sheets — paper, edges, shadow — and breaks the text with margins. On paper
+// that is all in the way: the printer paginates by itself, so those sheets would be printed *onto*
+// its pages, borders and all. Printing therefore falls back to the plain flow, at natural size, and
+// page view is put back afterwards.
+function mdEnterPrintLayout() {
+    if (mdViewBeforePrint) return;
+    mdViewBeforePrint = { mode: mdView.mode, fit: mdView.fit, zoom: mdDocZoom };
+    mdView = { mode: 'continuous', fit: mdView.fit };
+    mdDocZoom = 1; // the reader's zoom is a screen comfort, not a paper size
+    mdPaginate();  // clears the sheets, the breaks and the zoom in one pass
+}
+
+function mdLeavePrintLayout() {
+    if (!mdViewBeforePrint) return;
+    mdView = { mode: mdViewBeforePrint.mode, fit: mdViewBeforePrint.fit };
+    mdDocZoom = mdViewBeforePrint.zoom;
+    mdViewBeforePrint = null;
+    mdPaginate();
+}
+
 function mdForceLightTheme() {
     mdSnapshotForPrint();
+    mdEnterPrintLayout();
     const el = document.documentElement;
     el.classList.remove('theme-dark', 'theme-system');
     el.classList.add('theme-light');
 }
 
 function mdRestoreThemeAfterPrint() {
-    if (mdClassBeforePrint === null) return;
-    document.documentElement.className = mdClassBeforePrint;
-    mdClassBeforePrint = null;
+    if (mdClassBeforePrint === null && !mdViewBeforePrint) return;
+    if (mdClassBeforePrint !== null) {
+        document.documentElement.className = mdClassBeforePrint;
+        mdClassBeforePrint = null;
+    }
+    mdLeavePrintLayout();
     return mdRedrawMermaid(mdMermaidTheme());
 }
 

@@ -547,6 +547,15 @@ body .content-area.document-pane.paged {
     }
     html.ctd body { background: transparent; } /* the theme paints the page, not the app shell */
 
+    /* Belt and braces for page view: app.js drops back to the plain flow before printing, so these
+       rules normally match nothing. If a browser ever prints without firing beforeprint, they still
+       keep the drawn sheets — paper, edges, shadow — off the printer's own pages. */
+    .content-area.paged .content {
+        background: none !important;
+        filter: none !important;
+        zoom: 1 !important;
+    }
+
     /* App chrome — nothing here belongs on paper. */
     .app-header,
     .sidebar,
