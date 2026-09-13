@@ -8,7 +8,7 @@
    escape the document. Each block ends with a bridge mapping the theme's palette onto the app's
    own --md-* tokens, so tables, quotes, callouts and KaTeX come along with it.
 
-   Generated file — do not hand-edit.
+   Generated file — do not hand-edit. See scripts/build-content-themes.sh.
    ============================================================================================ */
 
 /* The one bundled typeface: the Academic theme is the LaTeX look, and that is the LaTeX face. */

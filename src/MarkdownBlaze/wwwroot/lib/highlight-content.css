@@ -1,6 +1,8 @@
 /* Highlight.js palettes selected by the *content* theme's lightness (app.js sets ctl/ctd on
    <html>), so code blocks match the document skin instead of the app chrome. Loaded after
-   highlight-theme.css, which keeps handling the "follow app theme" case. */
+   highlight-theme.css, which keeps handling the "follow app theme" case.
+
+   Generated file — do not hand-edit. See scripts/build-content-themes.sh. */
 .ctl {
 pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5px}/*!
   Theme: GitHub
