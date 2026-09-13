@@ -92,6 +92,12 @@ body.drag-over::after {
     pointer-events: none;
 }
 body { font-family: -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", sans-serif; }
+
+/* Only the document is text. Everything around it — toolbar, sidebar, tabs, bars, menus — is
+   furniture, and dragging across furniture in a native app does not paint a blue selection. Form
+   fields keep their own selection so typing and editing still behave. */
+body { user-select: none; }
+.content, .content *, input, textarea { user-select: text; }
 app { display: block; height: 100%; }
 
 /* ---- App shell ---- */
