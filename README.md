@@ -6,8 +6,26 @@ and lets you pick how that paper should look. No Electron, no network access, no
 OS WebView driven by **[Photino](https://www.tryphotino.io/) + Blazor** and
 **[Microsoft Fluent UI](https://www.fluentui-blazor.net/)** on **.NET 10**.
 
+<p align="center">
+  <img src="resources/screenshots/slideshow.gif" width="900"
+       alt="A slideshow of MarkdownBlaze: a document with its folder and outline, the document themes, the print bar, page view, code, math and diagrams">
+</p>
+
 > 📖 The [`docs/`](docs/index.md) folder is a self-contained sample wiki that doubles as a feature
 > tour. Open it with `MarkdownBlaze docs/`.
+
+## Screenshots
+
+| | |
+|:---:|:---:|
+| <img src="resources/screenshots/document-themes.png" alt="The document theme menu" width="430"><br>**Eleven document themes**, from the toolbar or `F9` | <img src="resources/screenshots/print-bar.png" alt="The print bar with the Book theme previewed" width="430"><br>**Print bar** — pick the look for this one print |
+| <img src="resources/screenshots/page-view.png" alt="Page view showing a whole A4 sheet" width="430"><br>**Page view** — the document on paper, before you print | <img src="resources/screenshots/theme-academic.png" alt="A document in the Academic theme" width="430"><br>**Academic** — the look of a typeset paper |
+| <img src="resources/screenshots/code.png" alt="Tables, a callout and highlighted code" width="430"><br>**Code**, tables and callouts | <img src="resources/screenshots/math.png" alt="Tags and KaTeX math in the light appearance" width="430"><br>**Math**, tags and Obsidian syntax |
+
+<details>
+<summary>Tables and diagrams, light appearance</summary>
+<p align="center"><img src="resources/screenshots/tables-and-diagrams.png" alt="A table and a Mermaid diagram in the light appearance" width="900"></p>
+</details>
 
 ---
 
@@ -19,13 +37,17 @@ OS WebView driven by **[Photino](https://www.tryphotino.io/) + Blazor** and
   Writer, Typewriter and Night, plus *Follow app theme*. Each changes the paper colour, the typeface
   and the spacing of the **document only**: the toolbar and sidebar keep the appearance you chose.
   Pick one from the toolbar or step through them with `F9`.
+- **Justified, hyphenated text** in the document's own language — recognised from the text (English,
+  French, German, Spanish, Dutch, Italian, Portuguese, Czech, Swedish, Danish, Norwegian) or
+  stated with `lang:` in the front matter.
 - **Two views** — **Continuous**, one column that scrolls, and **Pages**, the document laid onto A4
   sheets with real print margins and page breaks, fitted either to the pane's width or to a whole
   sheet. `F2` cycles. Page view is a live preview of the printed result.
 - **Zoom the document, not the app** — `Ctrl` + wheel, `Ctrl +` / `Ctrl -`, a trackpad pinch, or the
   toolbar's `− 100% + ↺`. The window itself never scales, so the interface stays where you put it.
-- **Nothing scrolls sideways** — long code wraps, diagrams scale to the column, wide tables fit the
-  sheet.
+- **Blocks stay in the column** — diagrams scale to it and wide tables fit it. In *Follow app theme*
+  code keeps its lines as written and scrolls sideways when one runs long; under a document theme,
+  in page view and on paper, long lines of code wrap, because a sheet cannot be scrolled.
 
 ### Printing
 
@@ -37,9 +59,9 @@ OS WebView driven by **[Photino](https://www.tryphotino.io/) + Blazor** and
 
 ### Navigating
 
-- **Folder tree** — the sidebar's *Headers* tab shows the folder you are reading, with other folders
-  and documents closed and the current document expanded to its own headings. One tree for moving
-  between files and within one.
+- **Folder panels** — the sidebar's *Contents* tab shows the folder you are reading as nested,
+  collapsible panels: one per folder, one per document. The current document's panel holds its own
+  headings as a tree, so files and folders are never mistaken for what is inside them.
 - **The folder you point at is the root.** Open a file and you get its folder; open a folder and it
   reads that folder's `index`, `main` or `readme`, else the first document alphabetically. Following
   a link never moves the root.
@@ -81,6 +103,9 @@ Rendering comes from the standalone
 - Both register themselves on first run under `HKEY_CURRENT_USER` — no elevation, nothing to switch
   on — and repair themselves if the app moves. Linux and macOS packages register the handler through
   the `.desktop` entry and `Info.plist`.
+- **What's new** — a version-by-version list of changes, under the ⋮ menu.
+- **Guided tour** — on first start, a few tooltips point at the main features. It can be skipped at
+  any step, put off until the next launch, and run again from *Settings*.
 - **Remembers** window size, position, maximized state, sidebar width, view, theme and zoom.
 
 ### Keyboard shortcuts
@@ -141,12 +166,15 @@ src/
     Program.cs              Photino + Blazor host, markdown:// scheme, shell integration
     App.razor               Root (app theme, view switch)
     ViewerView.razor        Toolbar, folder tree, print bar, view modes, zoom
+    UserManual.md           The manual shown when no file is given
+    WhatsNew.md             What changed, one section per app version (⋮ → What's new)
     SettingsView.razor      Settings page
     Services/
       MarkdownService       Markdown → HTML, startup file/folder resolution
       NavigationService     Current document, back/forward, links, file watching
       FileTreeService       The folder being read, as a lazily-read tree
       ContentThemes         The document themes and their light/dark character
+      DocumentLanguage      The language a document is written in, for hyphenation
       ViewModes             Continuous vs page view
       ShellIntegration      Explorer verbs and the markdown:// handler
       UriScheme             markdown:// addresses, both directions
