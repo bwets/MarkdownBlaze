@@ -1,0 +1,30 @@
+@implements IDisposable
+@inject ViewerState State
+
+@if (State.PrintBarOpen)
+{
+    <div class="print-bar" role="toolbar" aria-label="Print">
+        <span class="print-bar-label">Print theme</span>
+        @foreach (var theme in ContentThemes.All)
+        {
+            <button class="print-chip @(theme.Id == State.PrintTheme ? "active" : "")" aria-pressed="@(theme.Id == State.PrintTheme ? "true" : "false")"
+                    @onclick="@(() => OnPreview.InvokeAsync(theme.Id))">@theme.Label</button>
+        }
+        <FluentButton Appearance="ButtonAppearance.Primary" OnClick="@(() => OnPrint.InvokeAsync())">Print</FluentButton>
+        <span class="print-bar-hint">Ctrl+P to print · Esc to cancel</span>
+    </div>
+}
+
+@code {
+    /// <summary>A theme chip was pressed: show the document in it, as a preview of the printout.</summary>
+    [Parameter] public EventCallback<string> OnPreview { get; set; }
+
+    /// <summary>The Print button was pressed.</summary>
+    [Parameter] public EventCallback OnPrint { get; set; }
+
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+}

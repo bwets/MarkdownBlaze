@@ -1,20 +1,9 @@
+using System.Security;
+using MarkdownBlaze.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace MarkdownBlaze.Services;
-
-/// <summary>What a panel in the sidebar is.</summary>
-public enum TreeNodeKind { Folder, File }
-
-/// <summary>
-/// One folder or document in the sidebar, drawn as a collapsible panel. An open folder carries what
-/// is inside it in <paramref name="Children"/>; a document has none — when it is the one being read
-/// and <paramref name="Expanded"/>, its panel shows the document's own headings instead.
-/// </summary>
-public sealed record TreeNode(
-    TreeNodeKind Kind,
-    string Path,
-    string Label,
-    bool Expanded,
-    bool Current,
-    IReadOnlyList<TreeNode> Children);
 
 /// <summary>
 /// The folder the reader is working in, and the tree of documents inside it.
@@ -25,30 +14,44 @@ public sealed record TreeNode(
 /// stays shut until the reader opens it.
 /// </para>
 /// </summary>
-public sealed class FileTreeService
+internal sealed partial class FileTreeService
 {
-    // Folders that are never worth showing in a document tree.
+    private readonly ILogger _log;
+
+    public FileTreeService(ILogger<FileTreeService>? log = null)
+    {
+        _log = log ?? (ILogger)NullLogger.Instance;
+    }
+
+    /// <summary>
+    /// Folders that are never worth showing in a document tree.
+    /// </summary>
     private static readonly HashSet<string> SkippedFolders = new(StringComparer.OrdinalIgnoreCase)
     {
         ".git", ".svn", ".hg", ".vs", ".vscode", ".idea", "node_modules", "bin", "obj", "__pycache__",
     };
 
     private readonly HashSet<string> _expanded = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly Dictionary<string, (List<string> Folders, List<string> Files)> _children =
         new(StringComparer.OrdinalIgnoreCase);
 
-    // The document whose folders were last opened for it. Revealing happens once per document, not
-    // on every render — otherwise a folder holding the open document could never be shut.
+    /// <summary>
+    /// The document whose folders were last opened for it. Revealing happens once per document, not
+    /// on every render — otherwise a folder holding the open document could never be shut.
+    /// </summary>
     private string? _revealed;
 
-    // The document whose outline the reader has shut. Only the open document has one, so one is
-    // enough; moving to another document forgets it.
+    /// <summary>
+    /// The document whose outline the reader has shut. Only the open document has one, so one is
+    /// enough; moving to another document forgets it.
+    /// </summary>
     private string? _outlineShut;
 
     /// <summary>The folder at the top of the tree, or null before a document has been opened.</summary>
     public string? Root { get; private set; }
 
-    public event Action? Changed;
+    public event EventHandler? Changed;
 
     /// <summary>
     /// Points the tree at a folder. Re-reading is deliberate: <see cref="SetRoot"/> is called when the
@@ -63,9 +66,14 @@ public sealed class FileTreeService
 
         Root = full;
         _children.Clear();
-        if (rootChanged) { _expanded.Clear(); _revealed = null; }
-        _expanded.Add(full);
-        Changed?.Invoke();
+        if (rootChanged)
+        {
+            _expanded.Clear();
+            _revealed = null;
+        }
+
+        _ = _expanded.Add(full);
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Sets the root from a document — the folder that document lives in.</summary>
@@ -79,20 +87,20 @@ public sealed class FileTreeService
     public void Refresh()
     {
         _children.Clear();
-        Changed?.Invoke();
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     public void Toggle(string folder)
     {
-        if (!_expanded.Remove(folder)) _expanded.Add(folder);
-        Changed?.Invoke();
+        if (!_expanded.Remove(folder)) _ = _expanded.Add(folder);
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Shuts or reopens the outline of the document being read.</summary>
     public void ToggleOutline(string file)
     {
         _outlineShut = string.Equals(_outlineShut, file, StringComparison.OrdinalIgnoreCase) ? null : file;
-        Changed?.Invoke();
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -109,6 +117,7 @@ public sealed class FileTreeService
             _revealed = current;
             OpenPathTo(current);
         }
+
         return ChildNodes(Root, current);
     }
 
@@ -145,7 +154,7 @@ public sealed class FileTreeService
 
         for (var dir = Path.GetDirectoryName(file); dir is not null; dir = Path.GetDirectoryName(dir))
         {
-            _expanded.Add(dir);
+            _ = _expanded.Add(dir);
             if (string.Equals(dir, Root, StringComparison.OrdinalIgnoreCase)) break;
         }
     }
@@ -158,8 +167,13 @@ public sealed class FileTreeService
         foreach (var child in folders)
         {
             var open = _expanded.Contains(child);
-            nodes.Add(new TreeNode(TreeNodeKind.Folder, child, Path.GetFileName(child), open, false,
-                                   open ? ChildNodes(child, current) : []));
+            nodes.Add(new TreeNode(
+                TreeNodeKind.Folder,
+                child,
+                Path.GetFileName(child),
+                open,
+                Current: false,
+                open ? ChildNodes(child, current) : []));
         }
 
         foreach (var file in files) nodes.Add(FileNode(file, current));
@@ -181,20 +195,23 @@ public sealed class FileTreeService
         var files = new List<string>();
         try
         {
-            foreach (var dir in Directory.EnumerateDirectories(folder))
+            // DirectoryInfo carries each folder's attributes from the enumeration itself; asking the file
+            // system for them folder by folder afterwards (File.GetAttributes) was a second round trip each.
+            foreach (var dir in new DirectoryInfo(folder).EnumerateDirectories())
             {
-                var name = Path.GetFileName(dir);
+                var name = dir.Name;
                 if (name.StartsWith('.') || SkippedFolders.Contains(name)) continue;
-                if (File.GetAttributes(dir).HasFlag(FileAttributes.Hidden)) continue;
-                folders.Add(dir);
+                if (dir.Attributes.HasFlag(FileAttributes.Hidden)) continue;
+                folders.Add(dir.FullName);
             }
 
             foreach (var file in Directory.EnumerateFiles(folder))
                 if (MarkdownService.IsSupported(file)) files.Add(file);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
-            // A folder we may not read simply shows as empty.
+            // A folder we may not read simply shows as empty; the log says which one, at Debug.
+            LogUnreadableFolder(ex, folder);
         }
 
         folders.Sort((a, b) => string.Compare(Path.GetFileName(a), Path.GetFileName(b), StringComparison.OrdinalIgnoreCase));
@@ -204,4 +221,7 @@ public sealed class FileTreeService
         _children[folder] = result;
         return result;
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Could not list {Folder}; it is shown as empty")]
+    private partial void LogUnreadableFolder(Exception ex, string folder);
 }

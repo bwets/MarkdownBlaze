@@ -1,0 +1,26 @@
+@implements IDisposable
+@inject ViewerState State
+
+@if (State.RateBarOpen && !State.PrintBarOpen && State.MissingPath is null)
+{
+    @* Asked once and quietly. Either button is an answer, and so is the ×: none of them leads to
+       being asked again. Gives way to the print bar, which wants the same strip of the window, and to
+       the missing-file bar. *@
+    <div class="rate-bar" role="status">
+        <span>Enjoying MarkdownBlaze? A rating in the Microsoft Store helps other people find it.</span>
+        <button class="rate-bar-go" @onclick="@(() => OnRate.InvokeAsync())">Rate it</button>
+        <button class="rate-bar-close" title="No thanks — don't ask again" aria-label="No thanks — don't ask again" @onclick="@(() => OnDismiss.InvokeAsync())">×</button>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback OnRate { get; set; }
+
+    [Parameter] public EventCallback OnDismiss { get; set; }
+
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+}

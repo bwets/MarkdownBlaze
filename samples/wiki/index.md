@@ -1,0 +1,60 @@
+---
+title: Sci-Fi Library
+tags:
+  - sample
+  - home
+---
+
+# Sci-Fi Library
+
+Welcome to the **MarkdownBlaze** sample library — a small hand-built wiki celebrating a few
+landmark science-fiction sagas. It exists to show off what the viewer can do: linked
+pages, diagrams, callouts, syntax highlighting, and a live document outline.
+
+:::tip[How to use this]
+Use the **sidebar** on the left. The **Contents** tab shows this folder and, under the page you
+are reading, its outline; **History** is every page you've ever opened. Click any heading in the
+outline to jump to it.
+:::
+
+## The collections
+
+Each collection lives in its own folder with an `index.md`. The links below point at the
+*folders* — the viewer resolves them to each folder's `index.md` automatically.
+
+| Collection | Author | Start here |
+|---|---|---|
+| **Dune** | Frank Herbert | [Open the Dune wing](dune/) |
+| **The Foundation & Robot universe** | Isaac Asimov | [Open the Asimov wing](asimov/) |
+| **Ender's Game** | Orson Scott Card | [Open the Ender wing](enders-game/) |
+
+!!! note "About these notes"
+    These pages are deliberately light on spoilers in the summaries, but the **character
+    maps** and some collapsible sections do reveal relationships and fates. Tread carefully.
+
+## What you're looking at
+
+This very page demonstrates several features at once:
+
+- A **YAML front matter** block (the `title`/`tags` at the top) — parsed but not shown.
+- A **Docusaurus admonition** (the green *tip* above) and a **MkDocs admonition** (the *note*).
+- A **table** with **folder links** that resolve to `index.md`.
+- A document **outline** built from these headings — see the sidebar.
+
+```text
+Tip: edit this file in your favourite editor and save —
+MarkdownBlaze reloads the view automatically.
+```
+
+Happy reading. Pick a collection above, or jump straight to the
+[map of Great Houses](dune/houses) in the Dune wing.
+
+> 🔗 Testing link behaviour? Open the [Link Handling Test](link-test) page — it exercises browser,
+> email, and other external links alongside in-app navigation and inert local paths.
+>
+> 🛡️ Curious what a hostile document looks like? The [Hostile Documents](security/) folder holds harmless
+> but representative examples — script injection, dangerous links, file access, page hijack — and says what the
+> viewer must do with each. Every one of them should leave the app exactly as it was.
+>
+> ✨ Want the full syntax tour? The [Syntax Showcase](syntax-showcase) page demonstrates callouts,
+> `[[wiki links]]`, `#tags`, math, emoji, and hidden comments all on one page.

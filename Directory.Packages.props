@@ -1,0 +1,39 @@
+<Project>
+
+  <!--
+    Central package management (BUILD-1): every version lives here, project files carry none.
+    Dependabot (.github/dependabot.yml) bumps the numbers in this file.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- Application -->
+  <ItemGroup>
+    <PackageVersion Include="PhotinoX.Blazor" Version="5.3.5" />
+    <PackageVersion Include="Microsoft.FluentUI.AspNetCore.Components" Version="5.0.0" />
+    <PackageVersion Include="Markdig" Version="1.4.0" />
+    <PackageVersion Include="HtmlSanitizer" Version="9.2.1039" />
+    <!-- Referenced as a package by default and as a sibling project when LocalSources=true (see the app csproj). -->
+    <PackageVersion Include="bwets.Markdig.Extensions" Version="0.1.4" />
+  </ItemGroup>
+
+  <!-- Tests -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.61" />
+    <!-- Renders the app's Razor components in a test (the shortcuts overlay against the command registry). -->
+    <PackageVersion Include="bunit" Version="2.9.0" />
+  </ItemGroup>
+
+  <!-- Analyzers, installed into every project of the repository (tests included). Severities: .editorconfig -->
+  <ItemGroup>
+    <GlobalPackageReference Include="Roslynator.Analyzers" Version="5.0.1" />
+    <GlobalPackageReference Include="Roslynator.Formatting.Analyzers" Version="5.0.1" />
+    <GlobalPackageReference Include="Roslynator.CodeAnalysis.Analyzers" Version="5.0.1" />
+    <GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.294" />
+  </ItemGroup>
+
+</Project>

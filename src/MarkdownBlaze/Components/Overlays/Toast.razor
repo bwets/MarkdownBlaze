@@ -1,0 +1,33 @@
+@implements IDisposable
+@inject ViewerState State
+
+@* Cycling with the keyboard gives no other feedback: without this you press F9 and have to work
+   out from the page what you landed on. Sits above the print bar when that is open.
+
+   The host stays in the page whether or not there is a message, and says aria-live="polite": a live
+   region has to exist before its text changes for a screen reader to announce the change, so the toast
+   is the text that appears inside it, not the region itself. It takes no space of its own.
+
+   @key is what makes a second press show anything: without it Blazor reuses the element and only
+   swaps the text, so the fade animation never restarts and the toast stays at the invisible end
+   of its last run. A new key each time means a new element, and a new element starts fresh. *@
+<div class="toast-host" role="status" aria-live="polite">
+    @if (State.Toast is { } toast)
+    {
+        <div class="@Class" @key="State.ToastToken">@toast</div>
+    }
+</div>
+
+@code {
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+
+    // Clear of whichever bar is along the bottom of the window. How far that is belongs to the stylesheet
+    // (the bars' heights are CSS), so this only says which bar it is.
+    private string Class => State.PrintBarOpen ? "toast toast-over-print"
+        : (State.RateBarOpen || State.MissingPath is not null) ? "toast toast-over-bar"
+        : "toast";
+}

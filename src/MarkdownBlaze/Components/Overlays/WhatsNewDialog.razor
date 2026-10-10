@@ -1,0 +1,27 @@
+@implements IDisposable
+@inject ViewerState State
+
+@if (State.WhatsNewHtml is { } html)
+{
+    @* app-look sits on the dialog, not on the page inside it: it restates the app's own look for
+       everything beneath, so the page reads the same whichever document theme is on.
+
+       A modal dialog: aria-modal, labelled by its heading, the focus trapped inside it while it is open
+       and handed back to what opened it on close (FocusScope). Esc closes it (the Dismiss command). *@
+    <div class="menu-backdrop" aria-hidden="true" @onclick="State.CloseWhatsNew" @oncontextmenu="State.CloseWhatsNew" @oncontextmenu:preventDefault="true"></div>
+    <FocusScope Kind="dialog" class="whats-new app-look" role="dialog" aria-modal="true" aria-labelledby="whats-new-title">
+        <div class="whats-new-head">
+            <span id="whats-new-title">What's new</span>
+            <button class="whats-new-close" title="Close (Esc)" aria-label="Close" @onclick="State.CloseWhatsNew">×</button>
+        </div>
+        <div class="whats-new-body markdown-body">@((MarkupString)html)</div>
+    </FocusScope>
+}
+
+@code {
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+}

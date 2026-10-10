@@ -1,0 +1,323 @@
+# EditorConfig for the whole repository (http://editorconfig.org).
+# Text-file basics are at the top; the C# code-style and analyzer configuration (BUILD-1/BUILD-3)
+# is under [*.cs]. Tracked files are LF (.gitattributes pins that on every OS); `end_of_line = lf`
+# keeps `dotnet format` from rewriting a file on a CRLF checkout.
+
+root = true
+
+##########################################
+# Common settings
+##########################################
+
+[*]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+trim_trailing_whitespace = true
+insert_final_newline = true
+charset = utf-8
+
+##########################################
+# File-type settings
+##########################################
+
+[*.{yml,yaml,json,css,js,razor.css,webmanifest}]
+indent_size = 2
+
+[*.{csproj,props,targets,slnx,manifest,xml}]
+indent_size = 2
+
+[*.plist]
+indent_style = tab
+
+[*.sh]
+indent_size = 2
+
+[*.md]
+# Two trailing spaces are a hard line break in Markdown.
+trim_trailing_whitespace = false
+
+[*.razor]
+indent_size = 4
+
+[*.ps1]
+indent_size = 4
+
+[*.cs]
+tab_width = 4
+indent_size = 4
+
+# See https://github.com/dotnet/roslyn/issues/20356#issuecomment-310143926
+trim_trailing_whitespace = false
+
+##########################################
+# Code style (IDE*) - matches the code as it is written
+##########################################
+# The severity floor further down turns every IDE rule into a warning, and it also overrides the
+# ":silent"/":suggestion" suffixes of the options below - so each option here has to describe what the
+# code really does, or the rule fires on the existing code. Where the code uses both forms of a
+# preference, the rule is switched off in the suppression list instead.
+
+# Sort using and Import directives with System.* appearing first
+dotnet_sort_system_directives_first = true
+
+# Avoid "this." and "Me." if not necessary
+dotnet_style_qualification_for_field = false:warning
+dotnet_style_qualification_for_property = false:warning
+dotnet_style_qualification_for_method = false:warning
+dotnet_style_qualification_for_event = false:warning
+
+dotnet_style_operator_placement_when_wrapping = beginning_of_line
+dotnet_style_coalesce_expression = true:warning
+dotnet_style_null_propagation = true:warning
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:warning
+dotnet_style_prefer_auto_properties = true:warning
+dotnet_style_object_initializer = true:warning
+dotnet_style_collection_initializer = true:warning
+dotnet_style_prefer_simplified_boolean_expressions = true:warning
+dotnet_style_explicit_tuple_names = true:warning
+dotnet_style_prefer_inferred_tuple_names = true:warning
+# "x ? a : b" instead of an if/else that assigns or returns: not how this code is written, and it
+# produces conditionals that are harder to read than the statements they replace.
+dotnet_style_prefer_conditional_expression_over_assignment = false:warning
+dotnet_style_prefer_conditional_expression_over_return = false:warning
+
+csharp_indent_labels = one_less_than_current
+csharp_using_directive_placement = outside_namespace:warning
+csharp_prefer_simple_using_statement = true:warning
+# Braces only where the embedded statement spans several lines: the code writes guard clauses as
+# `if (x) return;`, and braces everywhere would rewrite ~100 lines of it.
+csharp_prefer_braces = when_multiline:warning
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_prefer_method_group_conversion = true:warning
+# Program.Main is [STAThread] (WebView2 needs it); top-level statements would run as MTA.
+csharp_style_prefer_top_level_statements = false:warning
+# Plain constructors with readonly fields, as everywhere in the code.
+csharp_style_prefer_primary_constructors = false:warning
+csharp_style_var_for_built_in_types = true:warning
+csharp_style_var_when_type_is_apparent = true:warning
+csharp_style_var_elsewhere = true:warning
+csharp_style_expression_bodied_properties = true:warning
+csharp_style_expression_bodied_indexers = true:warning
+csharp_style_expression_bodied_accessors = true:warning
+csharp_style_expression_bodied_lambdas = true:warning
+# A method that fits on one line is expression-bodied, anything longer is a block; constructors,
+# operators and local functions are written as blocks.
+csharp_style_expression_bodied_methods = when_on_single_line:warning
+csharp_style_expression_bodied_constructors = false:warning
+csharp_style_expression_bodied_operators = false:warning
+csharp_style_expression_bodied_local_functions = false:warning
+
+#### Naming ####
+
+dotnet_naming_rule.interface_should_be_begins_with_i.severity = warning
+dotnet_naming_rule.interface_should_be_begins_with_i.symbols = interface
+dotnet_naming_rule.interface_should_be_begins_with_i.style = begins_with_i
+
+dotnet_naming_rule.types_should_be_pascal_case.severity = warning
+dotnet_naming_rule.types_should_be_pascal_case.symbols = types
+dotnet_naming_rule.types_should_be_pascal_case.style = pascal_case
+
+dotnet_naming_rule.non_field_members_should_be_pascal_case.severity = warning
+dotnet_naming_rule.non_field_members_should_be_pascal_case.symbols = non_field_members
+dotnet_naming_rule.non_field_members_should_be_pascal_case.style = pascal_case
+
+dotnet_naming_symbols.interface.applicable_kinds = interface
+dotnet_naming_symbols.interface.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
+dotnet_naming_symbols.interface.required_modifiers =
+
+dotnet_naming_symbols.types.applicable_kinds = class, struct, interface, enum
+dotnet_naming_symbols.types.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
+dotnet_naming_symbols.types.required_modifiers =
+
+dotnet_naming_symbols.non_field_members.applicable_kinds = property, event, method
+dotnet_naming_symbols.non_field_members.applicable_accessibilities = public, internal, private, protected, protected_internal, private_protected
+dotnet_naming_symbols.non_field_members.required_modifiers =
+
+dotnet_naming_style.begins_with_i.required_prefix = I
+dotnet_naming_style.begins_with_i.required_suffix =
+dotnet_naming_style.begins_with_i.word_separator =
+dotnet_naming_style.begins_with_i.capitalization = pascal_case
+
+dotnet_naming_style.pascal_case.required_prefix =
+dotnet_naming_style.pascal_case.required_suffix =
+dotnet_naming_style.pascal_case.word_separator =
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+##########################################
+# Analyzers (BUILD-3)
+##########################################
+
+# Floor: every analyzer diagnostic that ships as info/"message" becomes a warning, which is an error
+# under TreatWarningsAsErrors. Rules the code deliberately does not follow are listed, one by one and
+# with a reason, under "Suppressions" at the end of this file.
+dotnet_analyzer_diagnostic.severity = warning
+
+# --- Roslynator.Formatting.Analyzers -------------------------------------------------------------
+# Its rules (RCS0001-RCS0063) ship switched off and a category-wide switch does not reach them, so
+# they are turned on one by one. The ones missing from this list are in the suppression list.
+dotnet_diagnostic.RCS0001.severity = warning
+dotnet_diagnostic.RCS0002.severity = warning
+dotnet_diagnostic.RCS0003.severity = warning
+dotnet_diagnostic.RCS0004.severity = warning
+dotnet_diagnostic.RCS0005.severity = warning
+dotnet_diagnostic.RCS0006.severity = warning
+dotnet_diagnostic.RCS0007.severity = warning
+dotnet_diagnostic.RCS0008.severity = warning
+dotnet_diagnostic.RCS0009.severity = warning
+dotnet_diagnostic.RCS0010.severity = warning
+dotnet_diagnostic.RCS0011.severity = warning
+dotnet_diagnostic.RCS0013.severity = warning
+dotnet_diagnostic.RCS0014.severity = warning
+dotnet_diagnostic.RCS0015.severity = warning
+dotnet_diagnostic.RCS0016.severity = warning
+dotnet_diagnostic.RCS0017.severity = warning
+dotnet_diagnostic.RCS0018.severity = warning
+dotnet_diagnostic.RCS0019.severity = warning
+dotnet_diagnostic.RCS0020.severity = warning
+dotnet_diagnostic.RCS0021.severity = warning
+dotnet_diagnostic.RCS0022.severity = warning
+dotnet_diagnostic.RCS0023.severity = warning
+dotnet_diagnostic.RCS0024.severity = warning
+dotnet_diagnostic.RCS0025.severity = warning
+dotnet_diagnostic.RCS0026.severity = warning
+dotnet_diagnostic.RCS0027.severity = warning
+dotnet_diagnostic.RCS0028.severity = warning
+dotnet_diagnostic.RCS0029.severity = warning
+dotnet_diagnostic.RCS0031.severity = warning
+dotnet_diagnostic.RCS0032.severity = warning
+dotnet_diagnostic.RCS0033.severity = warning
+dotnet_diagnostic.RCS0034.severity = warning
+dotnet_diagnostic.RCS0035.severity = warning
+dotnet_diagnostic.RCS0036.severity = warning
+dotnet_diagnostic.RCS0037.severity = warning
+dotnet_diagnostic.RCS0038.severity = warning
+dotnet_diagnostic.RCS0039.severity = warning
+dotnet_diagnostic.RCS0040.severity = warning
+dotnet_diagnostic.RCS0041.severity = warning
+dotnet_diagnostic.RCS0042.severity = warning
+dotnet_diagnostic.RCS0043.severity = warning
+dotnet_diagnostic.RCS0045.severity = warning
+dotnet_diagnostic.RCS0046.severity = warning
+dotnet_diagnostic.RCS0047.severity = warning
+dotnet_diagnostic.RCS0048.severity = warning
+dotnet_diagnostic.RCS0049.severity = warning
+dotnet_diagnostic.RCS0050.severity = warning
+dotnet_diagnostic.RCS0051.severity = warning
+dotnet_diagnostic.RCS0052.severity = warning
+dotnet_diagnostic.RCS0053.severity = warning
+dotnet_diagnostic.RCS0054.severity = warning
+dotnet_diagnostic.RCS0055.severity = warning
+dotnet_diagnostic.RCS0056.severity = warning
+dotnet_diagnostic.RCS0057.severity = warning
+dotnet_diagnostic.RCS0058.severity = warning
+dotnet_diagnostic.RCS0059.severity = warning
+dotnet_diagnostic.RCS0060.severity = warning
+dotnet_diagnostic.RCS0061.severity = warning
+dotnet_diagnostic.RCS0063.severity = warning
+
+# --- Roslynator options: the choices that change the fewest lines --------------------------------
+# Accessibility is written out, as everywhere in the code.
+roslynator_accessibility_modifiers = explicit
+# The longest line is a function-word list in DocumentLanguage.cs (167 characters, one language per
+# line); 170 keeps those tables readable instead of wrapping every word list.
+roslynator_max_line_length = 170
+# Operators and arrows start the continuation line, as dotnet_style_operator_placement_when_wrapping.
+roslynator_binary_operator_new_line = before
+roslynator_conditional_operator_new_line = before
+roslynator_null_conditional_operator_new_line = before
+roslynator_arrow_token_new_line = after
+roslynator_equals_token_new_line = after
+# An empty block (`catch { }`) is the only one that may sit on a single line.
+roslynator_block_braces_style = single_line_when_empty
+# Collection initializers keep the trailing comma the code puts after the last element.
+roslynator_trailing_comma_style = include
+
+# --- Analyzer options (these are rule options, not suppressions) ---------------------------------
+# CA1822 (member can be static): private members only. The public methods of the DI-registered
+# services (MarkdownService.Render, ...) are called through an instance on purpose, so that a test can
+# replace them, and they use instance state (the logger) as soon as ARCH-4 lands.
+dotnet_code_quality.CA1822.api_surface = private
+
+
+##########################################
+# Suppressions (BUILD-3, step 5)
+##########################################
+# Each entry: rule and title, why, how many places it silences, review state. "Reviewed by Fable:
+# pending" until the owner has read the justification and changed it to "approved <date>"; an entry that
+# is not approved is reverted and the code fixed instead. "(to be removed in WPn)" marks a suppression
+# whose cause a later work package removes (none are left). Nothing is suppressed in a csproj or with #pragma.
+
+# IDE0010 Add missing cases to switch
+#   The switches (a link kind, a dropped-file kind, a node type) handle the cases that exist and ignore
+#   the rest on purpose. IDE0010 answers with `default: break;`, which RCS1070 ("remove redundant
+#   default section") then reports, so the two cannot both be satisfied.
+#   Silences: 4 places. Reviewed by Fable: approved 2026-10-10
+dotnet_diagnostic.IDE0010.severity = none
+
+# MA0038 Make method static (deprecated, use CA1822 instead)
+#   Meziantou's own documentation marks the rule as deprecated in favour of CA1822, which is on and
+#   configured above. MA0038 does not honour that configuration, so it would report the public methods
+#   of the injected services (MarkdownService.Render, ...) that CA1822 is told to leave alone.
+#   Silences: 3 places. Reviewed by Fable: approved 2026-10-10
+dotnet_diagnostic.MA0038.severity = none
+
+# Roslynator formatting rules that contradict the way the code is laid out. The code is compact:
+# guard clauses are written on one line (`if (x) return y;`), a property or method that is one
+# expression has it on its own line (`public bool CanBack => _index > 0;`), and fields and constants
+# sit in tight groups. Following these rules would reformat several hundred lines for no gain in
+# clarity, so they are off rather than the code rewritten.
+#   RCS0030 Put embedded statement on its own line                silences 107 places
+#   RCS0062 Put expression body on its own line                   silences 44 places
+#   RCS0012 Add blank line between single-line declarations       silences 50 places
+#           (its opposite, RCS0036, stays on)
+#   Reviewed by Fable: approved 2026-10-10
+dotnet_diagnostic.RCS0030.severity = none
+dotnet_diagnostic.RCS0062.severity = none
+dotnet_diagnostic.RCS0012.severity = none
+
+# RCS0044 Use carriage return + linefeed as new line
+#   The opposite of RCS0045 (use linefeed), which is on: the repository is LF (.editorconfig, .gitattributes).
+#   Silences: every line of every file, if it were on. Reviewed by Fable: approved 2026-10-10
+dotnet_diagnostic.RCS0044.severity = none
+
+# RCS1141 Add 'param' element to documentation comment
+#   The documentation comments are prose written for the reader of the code; a <param> tag that repeats
+#   the parameter's name on every documented method adds noise, not information. A parameter that has
+#   something to say is documented (CS1573 still checks a partly documented member).
+#   Silences: 70 places. Reviewed by Fable: approved 2026-10-10
+dotnet_diagnostic.RCS1141.severity = none
+
+# MA0219 Set the language attribute in XML comment
+#   Wants a language attribute on every <c> element in a documentation comment; the comments only quote
+#   C#, file names and URLs inline, and no tool reads such an attribute.
+#   Silences: 73 places. Reviewed by Fable: approved 2026-10-10
+dotnet_diagnostic.MA0219.severity = none
+
+# MA0004 Use Task.ConfigureAwait(false) / CA2007 Consider calling ConfigureAwait on the awaited task
+#   Razor components, and anything called from them that must resume on the renderer's synchronization
+#   context, cannot use ConfigureAwait(false). The analyzers do not see .razor code today (generated
+#   files are skipped), so this scope is preventive; the pure services keep both rules and use
+#   ConfigureAwait(false) (NativeDialogs, ViewerInterop); the viewer's own classes, which go on changing state
+#   after an await, say so with ConfigureAwait(true) (ViewerActions, ViewerState).
+#   Silences: 0 places today. Reviewed by Fable: approved 2026-10-10
+[src/MarkdownBlaze/**/*.razor]
+dotnet_diagnostic.MA0004.severity = none
+dotnet_diagnostic.CA2007.severity = none
+
+# The test project. xunit needs public test classes and discovers methods by attribute.
+#   CA1707 Identifiers should not contain underscores: tests are named as sentences
+#     (`A_folder_that_cannot_be_read_shows_as_empty`), which read better than PascalCase.
+#     Silences: 128 places.
+#   CS1591 Missing XML comment for publicly visible type or member: the public test classes and methods
+#     are named for what they check. The rule only exists because GenerateDocumentationFile is on, which
+#     IDE0005 (unused usings) needs in order to run during the build. Silences: 135 places.
+#   CA1054 URI parameters should not be strings / CA1062 Validate arguments of public methods: theory
+#     methods receive their (deliberately malformed, URL-shaped) data from xunit as strings and are never
+#     called with null. Silences: 7 + 3 places.
+#   Reviewed by Fable: approved 2026-10-10
+[tests/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CS1591.severity = none
+dotnet_diagnostic.CA1054.severity = none
+dotnet_diagnostic.CA1062.severity = none

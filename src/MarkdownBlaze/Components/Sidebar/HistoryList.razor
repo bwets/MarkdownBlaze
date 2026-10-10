@@ -1,0 +1,30 @@
+@implements IDisposable
+@inject ViewerState State
+@inject NavigationService Nav
+@inject ViewerMenus Menus
+
+<div class="list" role="list" aria-label="History">
+    @if (Nav.GlobalHistory.Count == 0) { <div class="empty">No history.</div> }
+    @foreach (var entry in Nav.GlobalHistory)
+    {
+        <div class="row-wrap" role="listitem">
+            <button class="row" title="@entry.Path"
+                    @onclick="@(() => Nav.NavigateAsync(entry.Path, anyType: true))"
+                    @oncontextmenu="@(e => Menus.OpenRow(e, entry.Path))" @oncontextmenu:preventDefault="true">
+                @entry.Title
+            </button>
+            @* Deletes a single global-history entry (the hover ×). The store raises Changed, which
+               refreshes the list. *@
+            <button class="row-del" title="Remove from history" aria-label="@($"Remove {entry.Title} from history")"
+                    @onclick="@(() => Nav.RemoveFromHistory(entry.Path))">×</button>
+        </div>
+    }
+</div>
+
+@code {
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+}

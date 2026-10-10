@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 
 namespace MarkdownBlaze.Services;
 
@@ -12,16 +13,32 @@ namespace MarkdownBlaze.Services;
 /// plenty for the job: prose is a third function words, and they barely overlap between languages.
 /// </para>
 /// </summary>
-public static partial class DocumentLanguage
+internal static partial class DocumentLanguage
 {
+    private static readonly ILogger Logger = Log.For(nameof(DocumentLanguage));
+
     /// <summary>
     /// The tag for text that is clearly prose but in none of the languages below. The engine has no
     /// rules for it, so the text is left unhyphenated — better than breaking it by English rules.
     /// </summary>
     public const string Undetermined = "und";
 
-    // Each language's commonest function words. Single letters are left out on purpose: "a", "i",
-    // "o", "w" and "y" are each a word in several of these languages at once.
+    /// <summary>Enough of a document to know its language; a long one need not be read to the end.</summary>
+    private const int MaxWords = 3000;
+
+    /// <summary>Below this a document is too short to judge, and too short for hyphenation to matter.</summary>
+    private const int MinWords = 20;
+
+    /// <summary>
+    /// Both patterns below run over text the author controls, so they are bounded: a match that has not
+    /// finished in this long is treated as "no answer" rather than allowed to hold up the render.
+    /// </summary>
+    private const int RegexTimeoutMilliseconds = 1000;
+
+    /// <summary>
+    /// Each language's commonest function words. Single letters are left out on purpose: "a", "i",
+    /// "o", "w" and "y" are each a word in several of these languages at once.
+    /// </summary>
     private static readonly (string Tag, HashSet<string> Words)[] Languages =
     [
         ("en", Set("the and of to in is that it for with as was on are this be by not or from have an at which you but can will their has")),
@@ -38,20 +55,20 @@ public static partial class DocumentLanguage
         ("cs", Set("se na je že to do ve pro jako ale by jsou tak po nebo který která které při od být byl jeho jsem už jen podle")),
     ];
 
-    private static HashSet<string> Set(string words) => new(words.Split(' '), StringComparer.Ordinal);
+    /// <summary>
+    /// A set of lowercase words, matched without regard to case: a word is looked up as the text
+    /// spells it, so no lowercased copy of every word has to be made.
+    /// </summary>
+    private static HashSet<string> Set(string words) => new(words.Split(' '), StringComparer.OrdinalIgnoreCase);
 
-    // Enough of a document to know its language; a long one need not be read to the end.
-    private const int MaxWords = 3000;
+    [GeneratedRegex(
+        @"^\s*(?:lang|language|locale)\s*:\s*[""']?(?<tag>[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*)[""']?\s*$",
+        RegexOptions.IgnoreCase | RegexOptions.Multiline,
+        RegexTimeoutMilliseconds)]
+    private static partial Regex FrontMatterLanguage { get; }
 
-    // Below this a document is too short to judge, and too short for hyphenation to matter.
-    private const int MinWords = 20;
-
-    [GeneratedRegex(@"^\s*(?:lang|language|locale)\s*:\s*[""']?([A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*)[""']?\s*$",
-                    RegexOptions.IgnoreCase | RegexOptions.Multiline)]
-    private static partial Regex FrontMatterLanguage();
-
-    [GeneratedRegex(@"\p{L}{2,}")]
-    private static partial Regex Word();
+    [GeneratedRegex(@"\p{L}{2,}", RegexOptions.None, RegexTimeoutMilliseconds)]
+    private static partial Regex Word { get; }
 
     /// <summary>
     /// The language a document declares in its YAML front matter (<c>lang</c>, <c>language</c> or
@@ -60,8 +77,19 @@ public static partial class DocumentLanguage
     public static string? FromFrontMatter(string? yaml)
     {
         if (string.IsNullOrWhiteSpace(yaml)) return null;
-        var match = FrontMatterLanguage().Match(yaml);
-        return match.Success ? match.Groups[1].Value.Replace('_', '-') : null;
+
+        try
+        {
+            var match = FrontMatterLanguage.Match(yaml);
+            return match.Success ? match.Groups["tag"].Value.Replace('_', '-') : null;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            // Decided: a front matter that takes more than a second to scan is treated as declaring
+            // nothing, so that the document still renders (the analyzers insist on a regex timeout).
+            LogScanTimedOut(Logger, "front matter");
+            return null;
+        }
     }
 
     /// <summary>
@@ -74,14 +102,25 @@ public static partial class DocumentLanguage
 
         var hits = new int[Languages.Length];
         var total = 0;
-        foreach (var match in Word().EnumerateMatches(text))
+        try
         {
-            var word = text.Substring(match.Index, match.Length).ToLowerInvariant();
-            total++;
-            for (var i = 0; i < Languages.Length; i++)
-                if (Languages[i].Words.Contains(word)) hits[i]++;
-            if (total >= MaxWords) break;
+            foreach (var match in Word.EnumerateMatches(text))
+            {
+                var word = text.Substring(match.Index, match.Length);
+                total++;
+                for (var i = 0; i < Languages.Length; i++)
+                    if (Languages[i].Words.Contains(word)) hits[i]++;
+
+                if (total >= MaxWords) break;
+            }
         }
+        catch (RegexMatchTimeoutException)
+        {
+            // As above: a text that cannot be scanned in time has no language, which is the app's own.
+            LogScanTimedOut(Logger, "prose");
+            return null;
+        }
+
         if (total < MinWords) return null;
 
         var best = 0;
@@ -92,4 +131,7 @@ public static partial class DocumentLanguage
         // few that happen to be spelt alike stay well under a tenth.
         return hits[best] * 10 >= total ? Languages[best].Tag : Undetermined;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Scanning the document's {What} for its language took too long; it is treated as having none")]
+    private static partial void LogScanTimedOut(ILogger log, string what);
 }

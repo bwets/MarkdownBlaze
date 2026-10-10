@@ -1,0 +1,30 @@
+<Project>
+
+  <!--
+    Repository-wide build settings (BUILD-1). Every project under this folder - the app and the
+    tests - inherits them. The analyzer packages themselves are installed for every project from
+    Directory.Packages.props (GlobalPackageReference); their severities live in .editorconfig.
+  -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Zero warnings, zero errors: a new diagnostic fails the build locally and in CI. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <AnalysisMode>All</AnalysisMode>
+    <!-- Run the IDE*/style analyzers during `dotnet build`, not only inside the IDE. -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- IDE0005 (unused usings) only runs during the build when the compiler produces the XML documentation. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Same sources => same bytes. CI additionally normalises source paths (ContinuousIntegrationBuild). -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Fluent UI ships dozens of localised satellite assemblies the app never loads. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+</Project>

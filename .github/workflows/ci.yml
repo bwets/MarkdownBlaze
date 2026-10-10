@@ -1,0 +1,70 @@
+name: ci
+
+# Every push to main and every pull request is built, format-checked and tested on all three desktop
+# platforms the app ships for. Warnings are errors (Directory.Build.props), so a new analyzer
+# diagnostic fails the build here as it does locally.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOLUTION: src/MarkdownBlaze.slnx
+  APP_PROJECT: src/MarkdownBlaze/MarkdownBlaze.csproj
+  TEST_PROJECT: tests/MarkdownBlaze.Tests/MarkdownBlaze.Tests.csproj
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  build:
+    name: build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: "10.0.x"
+
+      # There is no .user file on a runner, so LocalSources is off and bwets.Markdig.Extensions comes
+      # from NuGet. src/MarkdownBlaze.slnx lists only this repository's projects (REPO-2); the
+      # two-repository solution for the owner, MarkdownBlaze.Dev.slnx, is never built here.
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION }}
+
+      - name: Build (Debug)
+        run: dotnet build ${{ env.SOLUTION }} --no-restore -warnaserror
+
+      - name: Format and analyzers
+        run: dotnet format ${{ env.SOLUTION }} --verify-no-changes --severity info --no-restore
+
+      - name: Test
+        run: dotnet test ${{ env.TEST_PROJECT }} --no-build
+
+      # Release is compiled differently (#if DEBUG, optimisations), so the analyzers are run on it too.
+      - name: Build (Release)
+        run: dotnet build ${{ env.APP_PROJECT }} -c Release -warnaserror
+
+      # The page's JavaScript (src/MarkdownBlaze/wwwroot/js) is plain ES modules with no build step; the
+      # pure parts of it are tested with vitest over jsdom. package.json is only that test harness.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: JavaScript tests
+        run: npm ci && npm test

@@ -1,0 +1,25 @@
+# Line endings: LF in the repository and in the working tree, on every OS (REPO-5).
+# .editorconfig says `end_of_line = lf`; this keeps a Windows checkout with core.autocrlf=true from
+# turning every file into CRLF and `dotnet format --verify-no-changes` from failing on it.
+* text=auto eol=lf
+
+# Shell scripts and desktop entries must be LF to run on Linux/macOS.
+*.sh text eol=lf
+*.desktop text eol=lf
+
+# SVG is XML text, so it is normalised like source. (branding/icon.svg wraps a raster, so its one long
+# line is not worth diffing.)
+*.svg text eol=lf
+branding/icon.svg -diff
+
+# Binary files: never touched by line-ending conversion.
+*.png binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.snk binary
+
+# Vendored third-party files are pinned by SHA-256 (src/MarkdownBlaze/wwwroot/vendor/SHA256SUMS), so
+# they must be byte-for-byte what upstream published, on every OS and with any autocrlf setting.
+src/MarkdownBlaze/wwwroot/vendor/** -text -diff

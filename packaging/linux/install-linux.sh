@@ -21,17 +21,20 @@ APPS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 mkdir -p "$APPS_DIR"
 DESKTOP_FILE="$APPS_DIR/MarkdownBlaze.desktop"
 
-cat > "$DESKTOP_FILE" <<EOF
-[Desktop Entry]
-Type=Application
-Name=MarkdownBlaze
-Comment=Markdown viewer
-Exec="$BIN" %f
-Icon=MarkdownBlaze
-Terminal=false
-Categories=Office;Viewer;TextTools;
-MimeType=text/markdown;text/x-markdown;
-EOF
+# The committed MarkdownBlaze.desktop is the one definition of the entry (the .deb and the Arch package
+# install it too). It sits next to this script in the repository, and next to the binary in a release
+# tarball. Only its Exec line is rewritten here, to the absolute path of the binary; everything else
+# (including %u and the markdown:// scheme handler) is installed exactly as committed.
+TEMPLATE="$SCRIPT_DIR/MarkdownBlaze.desktop"
+if [ ! -f "$TEMPLATE" ]; then TEMPLATE="$(dirname "$BIN")/MarkdownBlaze.desktop"; fi
+if [ ! -f "$TEMPLATE" ]; then
+    echo "Error: MarkdownBlaze.desktop not found next to this script or the executable." >&2
+    exit 1
+fi
+
+# Escape what sed treats specially in the replacement: backslash, the | delimiter, and &.
+BIN_ESCAPED="$(printf '%s' "$BIN" | sed -e 's/[\\|&]/\\&/g')"
+sed "s|^Exec=.*|Exec=\"$BIN_ESCAPED\" %u|" "$TEMPLATE" > "$DESKTOP_FILE"
 
 chmod 644 "$DESKTOP_FILE"
 

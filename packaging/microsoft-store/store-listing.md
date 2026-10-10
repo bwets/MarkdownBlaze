@@ -20,7 +20,7 @@ around it — and code, tables and diagrams are fitted to the sheet.
 Built for reading docs, READMEs, notes and wikis, it understands the Markdown you actually use:
 GitHub-flavored tables and task lists, footnotes, fenced code with syntax highlighting for ~190
 languages, Mermaid diagrams, KaTeX math, and callouts in the Docusaurus, MkDocs and GitHub/Obsidian
-styles. Obsidian wiki links, tags and comments work too, and local images are shown inline. Text is
+styles. Obsidian wiki links, tags and comments work too, and local images are shown with the text. Text is
 justified and hyphenated in the document's own language.
 
 It's a real viewer, not just a renderer. The sidebar shows the folder you are working in as
@@ -30,8 +30,10 @@ that file right inside the app, so a folder of linked notes behaves like a small
 history is kept between launches. Edit a file in your editor and the view refreshes automatically,
 keeping your place and your zoom.
 
-MarkdownBlaze runs completely offline. There are no accounts, no ads, and no tracking — it doesn't
-send your documents or any data anywhere. Everything it needs to render is built in.
+MarkdownBlaze makes no network requests of its own. There are no accounts, no ads, and no tracking — it doesn't
+send your documents or any data anywhere. Everything it needs to render is built in. The only time
+anything goes online is when a document you open references a resource on the web, such as a remote
+image, which is then fetched the way a browser would.
 
 ### Highlights
 - Open any `.md` / `.markdown` file or a whole folder (set it as your default Markdown handler if you like)
@@ -47,7 +49,7 @@ send your documents or any data anywhere. Everything it needs to render is built
 - Folder and document panels with a live outline, Back/Forward, and a persistent history
 - In-app navigation between linked Markdown files; folder links resolve to `index.md`
 - Auto-refresh on file changes
-- Explorer right-click menu and `markdown://` links
+- Opens Markdown files from Explorer's Open with and handles `markdown://` links
 - Light, Dark, and System appearance
 - A short guided tour on first start — skippable, and available again from Settings
 - Keyboard shortcuts for everything that matters

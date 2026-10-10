@@ -1,0 +1,74 @@
+@inject ViewerState State
+
+@* One folder or document, as a collapsible panel, and — recursively — the panels inside it. A folder's
+   panel holds the panels of what is inside it; the panel of the document being read holds its outline.
+
+   The component is handed a path, not a node: the rows are worked out once per change (ViewerState.Rows)
+   and each panel finds its own. Each panel head is a treeitem (aria-level; aria-expanded where it can open;
+   aria-selected on the document being read), and what a panel holds is a group. The <section> around a
+   panel is role="none" on purpose: left as a section it sits between the tree and its items, and the
+   browser then drops the treeitem role from the buttons inside it. *@
+@if (State.Rows.Find(Path) is { } node)
+{
+    @if (node.Kind == TreeNodeKind.Folder)
+    {
+        <section class="panel panel-folder @(node.Expanded ? "open" : "")" role="none">
+            <button class="panel-head" role="treeitem" aria-level="@Level" aria-expanded="@(node.Expanded ? "true" : "false")"
+                    title="@node.Path" @onclick="@(() => OnToggleFolder.InvokeAsync(node.Path))">
+                <span class="panel-icon"><Icon Name="@(node.Expanded ? "tree" : "folder")" Size="15" /></span>
+                <span class="panel-label">@node.Label</span>
+                <span class="panel-chevron"><Icon Name="chevron" Size="12" /></span>
+            </button>
+            @if (node.Expanded)
+            {
+                <div class="panel-body" role="group">
+                    @if (node.Children.Count == 0) { <div class="panel-empty">No documents</div> }
+                    @foreach (var child in node.Children)
+                    {
+                        <TreePanel @key="child.Path" Path="@child.Path" Level="@(Level + 1)" OnToggleFolder="OnToggleFolder"
+                                   OnOpenFile="OnOpenFile" OnMenu="OnMenu" OnHeading="OnHeading" />
+                    }
+                </div>
+            }
+        </section>
+    }
+    else
+    {
+        <section class="panel panel-file @(node.Current ? "current" : "") @(node.Expanded ? "open" : "")" role="none">
+            <button class="panel-head" id="@(node.Current ? CurrentPanelId : null)" role="treeitem" aria-level="@Level"
+                    aria-selected="@(node.Current ? "true" : "false")"
+                    aria-expanded="@(node.Current ? (node.Expanded ? "true" : "false") : null)"
+                    title="@node.Path"
+                    @onclick="@(() => OnOpenFile.InvokeAsync(node.Path))"
+                    @oncontextmenu="@(e => OnMenu.InvokeAsync((node.Path, e)))" @oncontextmenu:preventDefault="true">
+                <span class="panel-icon"><Icon Name="file" Size="15" /></span>
+                <span class="panel-label">@node.Label</span>
+                @if (node.Current) { <span class="panel-chevron"><Icon Name="chevron" Size="12" /></span> }
+            </button>
+            @if (node.Expanded)
+            {
+                <Outline Level="@(Level + 1)" OnHeading="OnHeading" />
+            }
+        </section>
+    }
+}
+
+@code {
+    /// <summary>Element id of the open document's panel, so it can be scrolled into view.</summary>
+    public const string CurrentPanelId = "md-current-doc";
+
+    /// <summary>The node's path — what the rows are looked up by.</summary>
+    [Parameter, EditorRequired] public string Path { get; set; } = "";
+
+    /// <summary>How deep the panel is: 1 for the panels directly in the root.</summary>
+    [Parameter] public int Level { get; set; } = 1;
+
+    [Parameter] public EventCallback<string> OnToggleFolder { get; set; }
+
+    [Parameter] public EventCallback<string> OnOpenFile { get; set; }
+
+    [Parameter] public EventCallback<(string Path, MouseEventArgs Args)> OnMenu { get; set; }
+
+    /// <summary>A heading of the open document was chosen (its slug).</summary>
+    [Parameter] public EventCallback<string> OnHeading { get; set; }
+}

@@ -3,29 +3,50 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Content-Security-Policy: a second line of defence behind the HTML sanitizer, for whatever it
+         gets wrong. Documents are untrusted, so the page may load code and styles only from itself, may
+         connect only back to itself (fetch/XHR/WebSocket — a script that slipped through cannot post
+         data out), may not embed frames or objects or submit forms, and may not point its base
+         address anywhere but itself.
+         - connect-src 'self', not 'none': Blazor fetches _framework/blazor.modules.json from the
+           app's own origin at startup and does not start without it.
+         - base-uri 'self', not 'none': 'none' also blocks the <base href="/"> below, which Blazor
+           needs. The sanitizer removes any <base> a document carries.
+         - style-src 'unsafe-inline': the app writes inline style= itself (zoom, sidebar width, page
+           layout) and KaTeX/Mermaid output carries inline styles. Styles cannot run code.
+         - img-src https: http: is deliberate: a document may show a picture from the web, and the
+           WebView then fetches it like a browser would (see PRIVACY.md). mdasset: is the app's own
+           scheme for the pictures of the open document, which the host serves from disk and only for
+           the render that is on the page (Security/AssetHandler.cs). data: is for the placeholders
+           the app draws for images it will not show, and for an author's own small inline images.
+         - No 'unsafe-eval': the bundled highlight.js, KaTeX and Mermaid 12 render under this policy
+           without it (checked against a document with code, math and diagrams). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' mdasset: data: https: http:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; connect-src 'self'" />
     <base href="/" />
     <title>MarkdownBlaze</title>
-    <link rel="icon" href="logo.png" />
+    <!-- No <link rel="icon">: a WebView has no tab to show it in. The window icon is set natively (Program.cs). -->
     <link href="_content/Microsoft.FluentUI.AspNetCore.Components/Microsoft.FluentUI.AspNetCore.Components.bundle.scp.css" rel="stylesheet" />
     <link href="_content/Microsoft.FluentUI.AspNetCore.Components/css/reboot.css" rel="stylesheet" />
-    <link href="lib/highlight-theme.css" rel="stylesheet" />
-    <link href="lib/highlight-content.css" rel="stylesheet" />
-    <link href="lib/content-themes.css" rel="stylesheet" />
-    <link href="app.css" rel="stylesheet" />
+    <link href="css/highlight-theme.css" rel="stylesheet" />
+    <link href="css/highlight-content.css" rel="stylesheet" />
+    <link href="css/content-themes.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
 </head>
 <body>
     <!-- Splash: shown until Blazor mounts the root component and replaces this content. -->
     <app>
         <div class="splash">
-            <img class="splash-logo" src="logo.png" alt="MarkdownBlaze" />
+            <img class="splash-logo" src="splash.png" alt="MarkdownBlaze" />
             <div class="splash-name">MarkdownBlaze</div>
             <div class="splash-bar"><span></span></div>
         </div>
     </app>
 
-    <!-- app.js lazy-loads the heavy render libs (highlight.js ~1.2MB, mermaid ~3.5MB, KaTeX) only
-         when a document actually needs them, so they never block startup. -->
-    <script src="app.js"></script>
+    <!-- No script of ours here: the page's JavaScript is the ES module js/main.js, which the viewer
+         imports once Blazor is up (Interop/ViewerInterop.cs) and hands a reference to itself and its
+         configuration. Nothing in it has to run before Blazor does. It lazy-loads the heavy render
+         libs (highlight.js ~1.2MB, mermaid ~3.5MB, KaTeX) only when a document actually needs them,
+         so they never block startup. -->
 
     <!-- Blazor (Photino WebView) bootstrap -->
     <script src="_framework/blazor.webview.js"></script>

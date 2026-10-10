@@ -1,0 +1,72 @@
+@inject PreferencesStore Prefs
+@inject ViewerInterop Interop
+@inject IThemeService Theme
+
+@* The viewer is created once and stays for the life of the window. Settings is drawn over it, not
+   instead of it: replacing the component threw its state away, so coming back from Settings lost the
+   reading position and zoom, counted the open document a second time towards the rating prompt, and
+   needed a flag to stop the tour being offered again. *@
+<ViewerView @ref="_viewer" Suspended="@(_view == AppView.Settings)" OnOpenSettings="@(() => Show(AppView.Settings))" />
+
+@if (_view == AppView.Settings)
+{
+    <div class="settings-overlay">
+        <SettingsView CurrentMode="_mode" OnModeChanged="SetMode" OnBack="@(() => Show(AppView.Viewer))" OnRestartTour="RestartTour" />
+    </div>
+}
+
+<FluentProviders />
+
+@code {
+    private enum AppView { Viewer, Settings }
+
+    private AppView _view = AppView.Viewer;
+    private ViewerView? _viewer;
+    private bool _tourPending;
+    private ThemeMode _mode = ThemeMode.System;
+
+    protected override void OnInitialized()
+    {
+        _mode = Prefs.Current.ThemeMode;
+    }
+
+    // The document's own theme belongs to the viewer, which owns the toolbar it is chosen from.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await ApplyMode();
+
+        // The tour points at the viewer's toolbar and sidebar, so it starts once Settings has gone from
+        // in front of them — which is only true after the render that removes it.
+        if (_tourPending && _view == AppView.Viewer && _viewer is not null)
+        {
+            _tourPending = false;
+            await _viewer.OfferTourAsync();
+        }
+    }
+
+    // Two things follow the appearance: Fluent's own components, through its theme service, and the
+    // app's stylesheets, through the theme class the page's theme module keeps on <html>.
+    private async Task ApplyMode()
+    {
+        await Theme.SetThemeAsync(_mode);
+        await Interop.SetThemeAsync(_mode.ToString());
+    }
+
+    private void Show(AppView view) => _view = view;
+
+    // Settings has cleared the tour's "seen" flag; going back to the viewer, with the offer pending, is what starts it.
+    private void RestartTour()
+    {
+        _tourPending = true;
+        Show(AppView.Viewer);
+    }
+
+    private async Task SetMode(ThemeMode mode)
+    {
+        _mode = mode;
+        Prefs.Current.ThemeMode = mode;
+        Prefs.Save();
+        await ApplyMode();
+    }
+
+}

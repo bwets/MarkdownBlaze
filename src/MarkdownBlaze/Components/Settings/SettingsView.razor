@@ -1,0 +1,149 @@
+@inject NavigationService Nav
+@inject PreferencesStore Prefs
+@inject ShellIntegrationActions Shell
+
+<div class="app-shell">
+    <header class="app-header">
+        <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => OnBack.InvokeAsync())" Title="Back" aria-label="Back to the viewer"><Icon Name="back" /></FluentButton>
+        <span class="title">Settings</span>
+    </header>
+
+    <div class="content-area">
+        <div class="settings">
+            <h2>Settings</h2>
+
+            <div class="setting-row">
+                <div class="setting-label">Appearance</div>
+                <FluentRadioGroup TValue="ThemeMode" Value="@CurrentMode" ValueChanged="OnRadioChanged"
+                                  Orientation="Orientation.Vertical">
+                    <FluentRadio Value="@ThemeMode.System">Use system theme</FluentRadio>
+                    <FluentRadio Value="@ThemeMode.Light">Light</FluentRadio>
+                    <FluentRadio Value="@ThemeMode.Dark">Dark</FluentRadio>
+                </FluentRadioGroup>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Global history</div>
+                @if (!_confirming)
+                {
+                    <FluentButton Appearance="ButtonAppearance.Outline" Disabled="@(_count == 0)"
+                                  OnClick="@(() => _confirming = true)">Clear global history</FluentButton>
+                    <span class="muted setting-after">
+                        @(_cleared ? "History cleared." : $"{_count} item{(_count == 1 ? "" : "s")}")
+                    </span>
+                }
+                else
+                {
+                    <span>Clear all @_count entries?</span>
+                    <FluentButton Appearance="ButtonAppearance.Primary" OnClick="ClearHistory" Class="setting-after">Clear</FluentButton>
+                    <FluentButton Appearance="ButtonAppearance.Subtle" OnClick="@(() => _confirming = false)">Cancel</FluentButton>
+                }
+            </div>
+
+            @* Only where it means something: Windows, outside the Store package (whose manifest does this
+               already). When the installer did it, it is the installer's to undo. *@
+            @if (Shell.IsAvailable)
+            {
+                <div class="setting-row">
+                    <div class="setting-label">Windows integration</div>
+                    @if (_shellState == ShellIntegrationState.InstalledByInstaller)
+                    {
+                        <span class="muted">Managed by the installer. Uninstalling MarkdownBlaze removes it.</span>
+                    }
+                    else
+                    {
+                        @if (_shellState == ShellIntegrationState.RegisteredByApp)
+                        {
+                            <FluentButton Appearance="ButtonAppearance.Outline" OnClick="RemoveFromWindows">Remove</FluentButton>
+                        }
+                        else
+                        {
+                            <FluentButton Appearance="ButtonAppearance.Outline" OnClick="AddToWindows">Add to Explorer and register markdown:// links</FluentButton>
+                        }
+                        <span class="muted setting-after">@ShellStatus</span>
+                    }
+                </div>
+            }
+
+            <div class="setting-row">
+                <div class="setting-label">Guided tour</div>
+                <FluentButton Appearance="ButtonAppearance.Outline" OnClick="RestartTour">Show the tour again</FluentButton>
+                <span class="muted setting-after">A few tooltips pointing at the main features. You can skip it at any step, or put it off until next time.</span>
+            </div>
+
+            <div class="setting-row">
+                <div class="setting-label">Diagnostics</div>
+                <span class="muted selectable">
+                    Anything that goes wrong quietly is written to a log in @AppPaths.LogFolder.
+                    Start the app with <code>--log-level debug</code> for more detail.
+                </span>
+            </div>
+
+            <div class="setting-row muted">
+                MarkdownBlaze@(MarkdownService.AppVersion is { } version ? " " + version : "") — offline Markdown viewer · Photino + Fluent UI
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public ThemeMode CurrentMode { get; set; }
+    [Parameter] public EventCallback<ThemeMode> OnModeChanged { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
+    [Parameter] public EventCallback OnRestartTour { get; set; }
+
+    private int _count;
+    private bool _confirming;
+    private bool _cleared;
+    private ShellIntegrationState _shellState;
+    private bool _shellRefused;
+
+    protected override void OnInitialized()
+    {
+        _count = Nav.GlobalHistory.Count;
+        _shellState = Shell.State;
+    }
+
+    // What the row says about the registration. Nothing is registered unless this button is pressed (or
+    // the installer did it): a portable copy that edited the registry on its own would be a surprise.
+    private string ShellStatus =>
+        _shellRefused ? "Windows refused the change."
+        : _shellState == ShellIntegrationState.RegisteredByApp
+            ? "Registered for your account: Explorer offers Open with MarkdownBlaze on Markdown files and folders, and markdown:// links open here."
+            : "Not registered. Adds Open with MarkdownBlaze for Markdown files and folders in Explorer, and opens markdown:// links here. Your account only; no administrator rights.";
+
+    private void AddToWindows()
+    {
+        _shellRefused = !Shell.Add();
+        _shellState = Shell.State;
+    }
+
+    private void RemoveFromWindows()
+    {
+        _shellRefused = !Shell.Remove();
+        _shellState = Shell.State;
+    }
+
+    private async Task OnRadioChanged(ThemeMode mode)
+    {
+        CurrentMode = mode;
+        await OnModeChanged.InvokeAsync(mode);
+    }
+
+    // The tour belongs to the viewer; the app starts it once Settings is out of the way.
+    private async Task RestartTour()
+    {
+        Prefs.Current.TourSeen = false;
+        Prefs.Current.TourDeferrals = 0;
+        Prefs.Save();
+        await OnRestartTour.InvokeAsync();
+    }
+
+    private void ClearHistory()
+    {
+        Nav.ClearHistory();
+        _count = 0;
+        _confirming = false;
+        _cleared = true;
+    }
+}

@@ -1,0 +1,22 @@
+@inject ViewerState State
+@inject NavigationService Nav
+
+@* The open document's headings, as the body of its panel. Indented from the shallowest heading, so a
+   document that starts at ## does not waste a level of the sidebar's width. *@
+<div class="panel-body outline" role="group">
+    @if (Nav.CurrentHeadings.Count == 0) { <div class="panel-empty">No headings</div> }
+    @foreach (var heading in Nav.CurrentHeadings)
+    {
+        @* data-slug is how js/position.js finds the row for the section being read. *@
+        <button class="outline-row" role="treeitem" aria-level="@(Level + heading.Level - State.Rows.TopHeadingLevel)"
+                data-level="@(heading.Level - State.Rows.TopHeadingLevel)" data-slug="@heading.Slug"
+                title="@heading.Text" @onclick="@(() => OnHeading.InvokeAsync(heading.Slug))">@heading.Text</button>
+    }
+</div>
+
+@code {
+    /// <summary>The aria-level of the first heading: one below the panel of the document.</summary>
+    [Parameter] public int Level { get; set; } = 2;
+
+    [Parameter] public EventCallback<string> OnHeading { get; set; }
+}

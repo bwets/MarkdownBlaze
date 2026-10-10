@@ -1,0 +1,29 @@
+# Keeps the build's moving parts current (BUILD-2). Weekly, grouped so one PR per ecosystem arrives
+# instead of one per package. Versions live in Directory.Packages.props (NuGet) and as commit SHAs
+# with a version comment in the workflows (GitHub Actions); Dependabot updates both.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      nuget:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # The test harness for the page's JavaScript (package.json at the root; nothing in it ships).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]

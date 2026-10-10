@@ -53,3 +53,10 @@ Desktop.ini
 
 # Local, untracked working files (screenshots and the like)
 .local/
+
+# Per-developer agent state: the OpenViking index and Claude Code's local settings
+.openviking/
+.claude/settings.local.json
+
+# JavaScript test harness (npm ci restores it)
+node_modules/

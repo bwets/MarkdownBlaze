@@ -1,0 +1,58 @@
+@implements IDisposable
+@inject ViewerState State
+@inject FileTreeService Tree
+@inject NavigationService Nav
+@inject ViewerActions Actions
+@inject ViewerMenus Menus
+
+@* The folder the reader is working in. Folders and documents are panels, so the two
+   cannot be mistaken for what is inside them; the open document's panel holds its
+   headings as a tree. One list covers both moving between files and within one.
+
+   It is a WAI-ARIA tree: role="tree", the panels' heads are treeitems with an aria-level, the
+   document being read is aria-selected, and what is inside a panel is a group (TreePanel). *@
+<div class="list tree" id="md-tree" role="@(Rows.Roots.Count > 0 || Rows.Detached is not null ? "tree" : null)" aria-label="Documents">
+    @if (Rows.Detached is { } detached)
+    {
+        <TreePanel Path="@detached.Path" Level="1" OnToggleFolder="ToggleFolder" OnOpenFile="OpenFile" OnMenu="OpenMenu" OnHeading="Jump" />
+    }
+    @if (Tree.Root is not null)
+    {
+        @foreach (var node in Rows.Roots)
+        {
+            <TreePanel @key="node.Path" Path="@node.Path" Level="1" OnToggleFolder="ToggleFolder" OnOpenFile="OpenFile" OnMenu="OpenMenu" OnHeading="Jump" />
+        }
+    }
+    else
+    {
+        <div class="empty">Open a file or a folder to see its documents here.</div>
+    }
+</div>
+
+@code {
+    private TreeRows Rows => State.Rows;
+
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+
+    private void ToggleFolder(string path) => Tree.Toggle(path);
+
+    /// <summary>A document's panel opens the document; on the one already open it folds the outline.</summary>
+    private Task OpenFile(string path)
+    {
+        if (Rows.Find(path)?.Current == true)
+        {
+            Tree.ToggleOutline(path);
+            return Task.CompletedTask;
+        }
+
+        return Nav.NavigateAsync(path);
+    }
+
+    private void OpenMenu((string Path, MouseEventArgs Args) request) => Menus.OpenRow(request.Args, request.Path);
+
+    private Task Jump(string slug) => Actions.ScrollToAsync(slug);
+}

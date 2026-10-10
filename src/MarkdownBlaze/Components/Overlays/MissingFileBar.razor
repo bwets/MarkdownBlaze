@@ -1,0 +1,26 @@
+@implements IDisposable
+@inject ViewerState State
+
+@if (State.MissingPath is { } path && !State.PrintBarOpen)
+{
+    @* A history row (or a link) led to a file that is not there any more. The toast says so for a
+       moment; this stays until it is answered, because the row is still in the history and will keep
+       leading nowhere unless the reader says to drop it. Drawn like the rating bar, which gives way to it. *@
+    <div class="rate-bar" role="status">
+        <span>“@Path.GetFileName(path)” no longer exists.</span>
+        <button class="rate-bar-go" @onclick="@(() => OnRemove.InvokeAsync())">Remove from history</button>
+        <button class="rate-bar-close" title="Keep it" aria-label="Keep it in the history" @onclick="@(() => OnKeep.InvokeAsync())">×</button>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback OnRemove { get; set; }
+
+    [Parameter] public EventCallback OnKeep { get; set; }
+
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+}

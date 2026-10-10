@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
-# Inno Setup installer — per-user install that registers the .md/.markdown association.
+# Inno Setup installer — per-user install that registers the .md/.markdown/.mdx types, the folder menu and markdown:// links.
 # No code signing required (unlike the MSIX).
 PackageIdentifier: GregoryKieffer.MarkdownBlaze
 PackageVersion: __VERSION__

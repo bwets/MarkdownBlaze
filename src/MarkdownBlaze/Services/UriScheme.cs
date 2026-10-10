@@ -1,3 +1,5 @@
+using MarkdownBlaze.Security;
+
 namespace MarkdownBlaze.Services;
 
 /// <summary>
@@ -9,7 +11,7 @@ namespace MarkdownBlaze.Services;
 /// lifetime of the window, so only the path can follow the document being read.
 /// </para>
 /// </summary>
-public static class UriScheme
+internal static class UriScheme
 {
     public const string Name = "markdown";
     private const string Host = "document";
@@ -27,14 +29,29 @@ public static class UriScheme
     /// <c>markdown://document/C:/notes/Dune.md</c> would 404 into a blank window. A fragment never
     /// reaches the resolver at all.
     /// </para>
+    /// <para>
+    /// Each segment of the path is percent-escaped, so a <c>#</c> or <c>%</c> in a file name survives the
+    /// round trip through <see cref="TryGetFilePath"/> instead of being read as the start of a
+    /// fragment or as an escape. The separators and the drive's colon are left as they are, which is
+    /// what keeps the footer readable.
+    /// </para>
     /// </summary>
-    public static string FragmentForFile(string? path) =>
-        string.IsNullOrEmpty(path) ? "#" : "#" + path.Replace('\\', '/');
+    public static string FragmentForFile(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return "#";
+
+        var segments = path.Replace('\\', '/')
+            .Split('/')
+            .Select(segment => Uri.EscapeDataString(segment).Replace("%3A", ":", StringComparison.Ordinal));
+        return "#" + string.Join('/', segments);
+    }
 
     /// <summary>
-    /// The file path inside a <c>markdown://</c> URL, or null when the argument is not one. Accepts
-    /// both the app's own form and the shorthand another application is likely to produce, where the
-    /// path lands in the host (<c>markdown://C:/notes/Dune.md</c>).
+    /// The file path inside a <c>markdown://</c> URL, or null when the argument is not one — or when it
+    /// names a UNC or device path, which a link from somewhere else has no business making this
+    /// application open (it would start a network session as the reader). Accepts both the app's own
+    /// form and the shorthand another application is likely to produce, where the path lands in the
+    /// host (<c>markdown://C:/notes/Dune.md</c>).
     /// </summary>
     public static string? TryGetFilePath(string? argument)
     {
@@ -43,11 +60,20 @@ public static class UriScheme
         if (!string.Equals(uri.Scheme, Name, StringComparison.OrdinalIgnoreCase)) return null;
 
         // markdown://document/<path>, or the window's own form where the path rides in the fragment.
-        var raw = string.Equals(uri.Host, Host, StringComparison.OrdinalIgnoreCase)
-            ? (uri.Fragment.Length > 1 ? uri.Fragment[1..] : uri.AbsolutePath)
-            : uri.Host + uri.AbsolutePath; // markdown://C:/notes/Dune.md — the drive parsed as the host
+        string raw;
+        if (!string.Equals(uri.Host, Host, StringComparison.OrdinalIgnoreCase))
+            raw = uri.Host + uri.AbsolutePath; // markdown://C:/notes/Dune.md — the drive parsed as the host
+        else if (uri.Fragment.Length > 1)
+            raw = uri.Fragment[1..];
+        else
+            raw = uri.AbsolutePath;
 
-        raw = Uri.UnescapeDataString(raw).TrimStart('/');
+        raw = Uri.UnescapeDataString(raw);
+        // One leading slash is the URL's own ("/C:/notes"); a second means a UNC path written with
+        // forward slashes, and trimming it away would quietly turn it into a relative one.
+        if (LocalPath.IsUncOrDevice(raw) || LocalPath.IsUncOrDevice(raw.TrimStart('/'))) return null;
+
+        raw = raw.TrimStart('/');
         return raw.Length == 0 ? null : raw.Replace('/', Path.DirectorySeparatorChar);
     }
 }

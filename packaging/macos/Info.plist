@@ -26,7 +26,9 @@
     <true/>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
-    <!-- Advertise that MarkdownBlaze can open Markdown/plain-text documents (Finder "Open With"). -->
+    <!-- Advertise that MarkdownBlaze can open Markdown documents (Finder "Open With"). Only the Markdown
+         type: public.plain-text would make it a candidate for every .txt, .log and .csv. Opening a
+         .txt is a convenience of the app's own file dialog, not something the system is told. -->
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
@@ -39,13 +41,12 @@
             <key>LSItemContentTypes</key>
             <array>
                 <string>net.daringfireball.markdown</string>
-                <string>public.plain-text</string>
             </array>
         </dict>
     </array>
     <!-- markdown:// links: the address the window shows and prints, so another application can hand
-         a document straight to the viewer. Windows registers this from Settings; macOS and Linux
-         take it from the bundle and the .desktop entry. -->
+         a document straight to the viewer. Windows registers it through the installer or on request
+         (ShellIntegration); macOS and Linux take it from the bundle and the .desktop entry. -->
     <key>CFBundleURLTypes</key>
     <array>
         <dict>

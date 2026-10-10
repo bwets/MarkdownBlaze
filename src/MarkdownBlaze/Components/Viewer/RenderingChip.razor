@@ -1,0 +1,11 @@
+@if (Active)
+{
+    @* Shown only when a render runs long (a big document, a slow share); the previous page stays
+       readable underneath until the new one is ready. *@
+    <div class="rendering" role="status">Rendering…</div>
+}
+
+@code {
+    /// <summary>True while a render has been running long enough for the page to say so (NavigationService.IsRendering).</summary>
+    [Parameter] public bool Active { get; set; }
+}

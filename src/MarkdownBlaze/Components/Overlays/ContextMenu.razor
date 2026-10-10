@@ -1,0 +1,55 @@
+@implements IDisposable
+@inject ViewerState State
+
+@if (State.Menu is { } menu)
+{
+    @* The backdrop is for the mouse: a click or a right click anywhere else puts the menu away. It is
+       not in the tab order and not part of the menu as far as a screen reader is concerned.
+
+       The menu is a WAI-ARIA menu: role="menu" with menuitem (or menuitemradio, for a choice) children,
+       arrow keys to walk it, Esc to close it, the focus moving into it on open and back to what opened
+       it on close (FocusScope). @key makes a new menu a new scope, so the focus moves again. *@
+    <div class="menu-backdrop" aria-hidden="true" @onclick="State.CloseMenu" @oncontextmenu="State.CloseMenu" @oncontextmenu:preventDefault="true"></div>
+    <FocusScope @key="menu" Kind="menu" class="@Class(menu)" role="menu" aria-label="@menu.Label" style="@Position(menu)" OnDismiss="State.CloseMenu">
+        @foreach (var item in menu.Items)
+        {
+            @if (item.Checked is { } on)
+            {
+                <button role="menuitemradio" aria-checked="@(on ? "true" : "false")" tabindex="-1" @onclick="@(() => Run(item))"><span aria-hidden="true">@(on ? "● " : "○ ")</span>@item.Label</button>
+            }
+            else
+            {
+                <button role="menuitem" tabindex="-1" @onclick="@(() => Run(item))">@item.Label</button>
+            }
+        }
+    </FocusScope>
+}
+
+@code {
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+
+    // Where the menu goes is the stylesheet's business (.ctx, .ctx-right: under the toolbar, at the right
+    // edge). The one thing C# knows is the point that was clicked, and it hands that over as custom
+    // properties — --menu-x, and --menu-y when the menu opens at the pointer rather than under the toolbar.
+    private static string Class(ContextMenuModel menu) => menu.Right ? "ctx ctx-right" : "ctx";
+
+    private static string? Position(ContextMenuModel menu)
+    {
+        if (menu.Right) return null;
+        return menu.Y is { } y
+            ? FormattableString.Invariant($"--menu-x:{menu.X}px; --menu-y:{y}px")
+            : FormattableString.Invariant($"--menu-x:{menu.X}px");
+    }
+
+    // The menu closes first, then the item runs: what it opens (a dialog) takes the focus from what
+    // opened the menu, not from the menu that is going away.
+    private async Task Run(MenuItem item)
+    {
+        State.CloseMenu();
+        await item.Run();
+    }
+}

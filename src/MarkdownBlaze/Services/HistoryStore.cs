@@ -1,36 +1,60 @@
-using System.Text.Json;
+using MarkdownBlaze.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MarkdownBlaze.Services;
 
-public sealed record HistoryEntry(string Path, string Title, DateTimeOffset LastOpenedUtc);
-
-/// <summary>Persists the global list of opened files to the local app-data folder.</summary>
-public sealed class HistoryStore
+/// <summary>
+/// Persists the global list of opened files to the local app-data folder.
+/// <para>
+/// Like <see cref="PreferencesStore"/> it writes a moment after a change rather than at once, and writes
+/// the file atomically; <see cref="Flush"/> (window closing) and <see cref="Dispose"/> write what is waiting.
+/// </para>
+/// </summary>
+internal sealed class HistoryStore : IDisposable
 {
     private const int MaxEntries = 200;
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
     private readonly string _filePath;
     private readonly List<HistoryEntry> _entries;
-    private readonly object _lock = new(); // guards _entries (a background prune can touch it)
+    private readonly ILogger _log;
+    private readonly SaveDebouncer _saver;
+
+    /// <summary>Guards <c>_entries</c> (a background prune can touch it).</summary>
+    private readonly Lock _lock = new();
+
+    /// <summary>
+    /// The list as the readers see it: replaced, never changed, each time <c>_entries</c> changes — so
+    /// reading it needs no lock and no copy, however often a render asks.
+    /// </summary>
+    private volatile IReadOnlyList<HistoryEntry> _snapshot;
 
     /// <summary>Raised (possibly from a background thread) when the entry list changes out-of-band.</summary>
-    public event Action? Changed;
+    public event EventHandler? Changed;
 
-    public HistoryStore()
+    public HistoryStore(ILogger<HistoryStore> log)
+        : this(AppPaths.DataFolder, log)
+    { }
+
+    /// <summary>The history lives in <paramref name="directory"/> — the tests point it at a scratch folder.</summary>
+    internal HistoryStore(string directory, ILogger? log = null, TimeSpan? debounce = null)
     {
-        var dir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MarkdownBlaze");
-        Directory.CreateDirectory(dir);
-        _filePath = Path.Combine(dir, "history.json");
-        _entries = Load();
+        _log = log ?? NullLogger.Instance;
+        _ = Directory.CreateDirectory(directory);
+        _filePath = Path.Combine(directory, "history.json");
+        _saver = new SaveDebouncer(Write, debounce ?? SaveDebouncer.DefaultDelay);
+        _entries = JsonFile.Load<List<HistoryEntry>>(_filePath, _log) ?? [];
+        _snapshot = [.. _entries];
     }
 
-    /// <summary>Opened files, most-recent first. Returns a snapshot so callers can enumerate safely.</summary>
-    public IReadOnlyList<HistoryEntry> Entries
-    {
-        get { lock (_lock) return _entries.ToList(); }
-    }
+    /// <summary>
+    /// Opened files, most-recent first. An immutable snapshot, replaced whenever the history changes:
+    /// callers can enumerate it safely and cheaply, and it never changes underneath them.
+    /// </summary>
+    public IReadOnlyList<HistoryEntry> Entries => _snapshot;
+
+    /// <summary>How many times the file has actually been written (the tests count them).</summary>
+    internal int WriteCount { get; private set; }
 
     public void Record(string path, string title)
     {
@@ -53,7 +77,8 @@ public sealed class HistoryStore
 
             if (_entries.Count > MaxEntries)
                 _entries.RemoveRange(MaxEntries, _entries.Count - MaxEntries);
-            Save();
+
+            Publish();
         }
     }
 
@@ -64,31 +89,28 @@ public sealed class HistoryStore
     /// </summary>
     public void PruneMissingInBackground()
     {
-        Task.Run(() =>
+        // File.Exists answers false for anything it cannot reach instead of throwing, so there is no
+        // failure to catch here.
+        var prune = Task.Run(() =>
         {
-            try
+            var snapshot = _snapshot;
+            var missing = new HashSet<string>(
+                snapshot.Where(e => !File.Exists(e.Path)).Select(e => e.Path),
+                StringComparer.OrdinalIgnoreCase);
+            if (missing.Count == 0) return;
+
+            bool removed;
+            lock (_lock)
             {
-                List<HistoryEntry> snapshot;
-                lock (_lock) snapshot = new List<HistoryEntry>(_entries);
-
-                var missing = new HashSet<string>(
-                    snapshot.Where(e => !File.Exists(e.Path)).Select(e => e.Path),
-                    StringComparer.OrdinalIgnoreCase);
-                if (missing.Count == 0) return;
-
-                bool removed;
-                lock (_lock)
-                {
-                    var before = _entries.Count;
-                    _entries.RemoveAll(e => missing.Contains(e.Path));
-                    removed = _entries.Count != before;
-                    if (removed) Save();
-                }
-
-                if (removed) Changed?.Invoke();
+                var before = _entries.Count;
+                _ = _entries.RemoveAll(e => missing.Contains(e.Path));
+                removed = _entries.Count != before;
+                if (removed) Publish();
             }
-            catch { /* best-effort cleanup */ }
+
+            if (removed) Changed?.Invoke(this, EventArgs.Empty);
         });
+        Background.Observe(prune, _log);
     }
 
     /// <summary>Removes a single history entry by path.</summary>
@@ -101,10 +123,10 @@ public sealed class HistoryStore
         lock (_lock)
         {
             removed = _entries.RemoveAll(e => string.Equals(e.Path, full, StringComparison.OrdinalIgnoreCase)) > 0;
-            if (removed) Save();
+            if (removed) Publish();
         }
 
-        if (removed) Changed?.Invoke();
+        if (removed) Changed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Removes all history entries and persists the empty list.</summary>
@@ -115,29 +137,26 @@ public sealed class HistoryStore
         {
             had = _entries.Count > 0;
             _entries.Clear();
-            Save();
+            Publish();
         }
 
-        if (had) Changed?.Invoke();
+        if (had) Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    private List<HistoryEntry> Load()
+    /// <summary>Writes the history now, if a save is waiting.</summary>
+    public void Flush() => _saver.Flush();
+    public void Dispose() => _saver.Dispose();
+
+    /// <summary>Publishes the new snapshot and asks for a save. Call with <c>_lock</c> held.</summary>
+    private void Publish()
     {
-        try
-        {
-            if (File.Exists(_filePath))
-            {
-                var list = JsonSerializer.Deserialize<List<HistoryEntry>>(File.ReadAllText(_filePath));
-                if (list is not null) return list;
-            }
-        }
-        catch { /* corrupt history is non-fatal */ }
-        return [];
+        _snapshot = [.. _entries];
+        _saver.Request();
     }
 
-    private void Save()
+    private void Write()
     {
-        try { File.WriteAllText(_filePath, JsonSerializer.Serialize(_entries, JsonOptions)); }
-        catch { /* best-effort */ }
+        _ = JsonFile.Save(_filePath, _snapshot, _log);
+        WriteCount++;
     }
 }

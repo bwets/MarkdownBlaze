@@ -1,0 +1,35 @@
+@implements IDisposable
+@inject ViewerState State
+
+<aside class="sidebar">
+    @* Fluent's tabs are used for the strip only. What each tab shows is rendered below by this
+       component, as before, so the tabs themselves are left empty. *@
+    <div class="tabstrip">
+        <FluentTabs ActiveTabId="@TabIds[State.SidebarTab]" ActiveTabIdChanged="OnTabChanged">
+            <FluentTab Id="@TabIds[0]" Header="Contents" />
+            <FluentTab Id="@TabIds[1]" Header="History" />
+        </FluentTabs>
+    </div>
+    <div class="tab-panels">
+        @if (State.SidebarTab == 0)
+        {
+            <FolderTree />
+        }
+        else
+        {
+            <HistoryList />
+        }
+    </div>
+</aside>
+
+@code {
+    private static readonly string[] TabIds = ["tab-contents", "tab-history"];
+
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+
+    private void OnTabChanged(string? id) => State.SelectTab(Math.Max(0, Array.IndexOf(TabIds, id)));
+}

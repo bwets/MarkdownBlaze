@@ -2,7 +2,7 @@
   "profiles": {
     "Sample Wiki": {
       "commandName": "Project",
-      "commandLineArgs": "docs/index.md"
+      "commandLineArgs": "../../samples/wiki/index.md"
     },
     "No file (welcome)": {
       "commandName": "Project"

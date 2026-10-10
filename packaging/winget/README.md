@@ -2,7 +2,7 @@
 
 MarkdownBlaze is published to [winget](https://github.com/microsoft/winget-pkgs) using the
 **Inno Setup installer** (`MarkdownBlaze-<v>-win-x64-setup.exe`) from each release. That installer
-does a per-user install and **registers the `.md` / `.markdown` file association** — something the
+does a per-user install and **registers the `.md` / `.markdown` / `.mdx` file types, the folder menu and the `markdown://` handler** (and removes them again on uninstall) — something the
 portable zip and the (self-signed) MSIX can't provide through winget. No code signing is required.
 
 > Tip: once the app is in the **Microsoft Store**, it's also installable with

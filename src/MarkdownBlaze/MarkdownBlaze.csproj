@@ -4,50 +4,63 @@
     <!-- WinExe = Windows GUI subsystem, so launching never opens a console window. -->
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>MarkdownBlaze</RootNamespace>
+    <!-- The [LibraryImport] source generator (WindowIcon) emits unsafe marshalling stubs; no hand-written unsafe code exists. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Embedded exe icon → Explorer, Start-menu/pinned shortcuts, file associations. -->
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <!-- Opt out of the solution's central package management + warnings-as-errors. -->
-    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <!-- Faster startup: precompile to native (ReadyToRun) when publishing for a specific runtime,
          and enable tiered PGO so hot paths optimize sooner. R2R needs a RID, so it only kicks in for
          the published `-r <rid>` release build, not plain `dotnet build`. -->
     <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
     <TieredPGO>true</TieredPGO>
+
+    <!-- What a build made on a developer's machine calls itself. The release workflow passes
+         -p:Version=<the real one>, and a property given on the command line wins over this line. The
+         app treats any version that ends in -dev as "no version" (MarkdownService.VersionOf): there is
+         no number to show for a build nobody released. -->
+    <Version>0.0.0-dev</Version>
+
+    <!-- GenerateDocumentationFile (Directory.Build.props) exists for the analyzers; the XML it makes is
+         of no use to anyone who runs the app, so it is not published. -->
+    <PublishDocumentationFile>false</PublishDocumentationFile>
   </PropertyGroup>
 
+  <!-- Versions live in Directory.Packages.props (central package management). -->
   <ItemGroup>
-    <PackageReference Include="PhotinoX.Blazor" Version="5.3.5" />
-    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="5.0.0" />
-    <PackageReference Include="Markdig" Version="1.4.0" />
+    <PackageReference Include="PhotinoX.Blazor" />
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" />
+    <PackageReference Include="Markdig" />
+    <!-- Allow-list HTML sanitizer: the rendered document is untrusted input (see Security/HtmlSanitizer.cs). -->
+    <PackageReference Include="HtmlSanitizer" />
   </ItemGroup>
 
   <!--
     bwets.Markdig.Extensions: the published NuGet package by default. Set LocalSources=true (e.g. in
     MarkdownBlaze.csproj.user, or -p:LocalSources=true) to reference the sibling source checkout
-    instead, so both projects can be edited in one loop. The Configuration guard forces the package
-    in Release regardless of LocalSources — a local project reference must never ship in a release.
-
-    The condition lives on the ItemGroups (not a derived property) on purpose: the .user file is
-    auto-imported after the project body, but item conditions are evaluated after all properties, so
-    they see the final LocalSources value whichever way it was set.
+    instead, so both projects can be edited in one loop. Directory.Build.targets turns
+    LocalSources=true in a Release build into an error, so a local project reference can never ship.
   -->
-  <ItemGroup Condition="'$(LocalSources)' == 'true' and '$(Configuration)' != 'Release'">
-    <ProjectReference Include="..\..\..\bwets.Markdig.Extensions\src\bwets.Markdig.Extensions\bwets.Markdig.Extensions.csproj" />
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\bwets.Markdig.Extensions\src\bwets.Markdig.Extensions\bwets.Markdig.Extensions.csproj" Condition="'$(LocalSources)' == 'true'" />
+    <PackageReference Include="bwets.Markdig.Extensions" Condition="'$(LocalSources)' != 'true'" />
   </ItemGroup>
 
-  <ItemGroup Condition="!('$(LocalSources)' == 'true' and '$(Configuration)' != 'Release')">
-    <PackageReference Include="bwets.Markdig.Extensions" Version="0.1.4" />
+  <ItemGroup>
+    <!-- The unit tests exercise the security helpers directly. -->
+    <InternalsVisibleTo Include="MarkdownBlaze.Tests" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="UserManual.md" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="WhatsNew.md" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The manual and the change log live in Content/ in the source tree but are copied flat into the
+         output root (Link), which is where MarkdownService looks for them and where the installer
+         finds them. -->
+    <Content Include="Content\UserManual.md" Link="UserManual.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Content\WhatsNew.md" Link="WhatsNew.md" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The notices for the libraries and fonts that ship inside the app (their licences require it). -->
+    <Content Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
     <!-- Shipped so the runtime can set the window icon (Windows loads the .ico via WM_SETICON; Linux uses the .png). -->
     <Content Include="Assets\icon.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\icon.png" CopyToOutputDirectory="PreserveNewest" />

@@ -9,3 +9,8 @@ Icon=MarkdownBlaze
 Terminal=false
 Categories=Office;Viewer;TextTools;
 MimeType=text/markdown;text/x-markdown;x-scheme-handler/markdown;
+# Lets the taskbar group the window with this launcher. GTK takes the window class from the program
+# name, which is the executable's: MarkdownBlaze. (PhotinoX's native library sets no class of its own;
+# This follows from reading the library, not from a running desktop: check the grouping on the first
+# install.)
+StartupWMClass=MarkdownBlaze

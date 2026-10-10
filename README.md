@@ -2,29 +2,29 @@
 
 A fast, **offline Markdown viewer** — and the rare one that **prints properly**. Point it at a `.md`
 file and it renders a clean, navigable document, lays it onto paper the way it will actually print,
-and lets you pick how that paper should look. No Electron, no network access, no telemetry: a native
+and lets you pick how that paper should look. No Electron, no telemetry, and no network requests of its own — the only time anything leaves your machine is when a document you open references a resource on the web, such as a remote image, and the WebView fetches it like a browser would: a native
 OS WebView driven by **[Photino](https://www.tryphotino.io/) + Blazor** and
 **[Microsoft Fluent UI](https://www.fluentui-blazor.net/)** on **.NET 10**.
 
 <p align="center">
-  <img src="resources/screenshots/slideshow.gif" width="900"
+  <img src="branding/screenshots/slideshow.gif" width="900"
        alt="A slideshow of MarkdownBlaze: a document with its folder and outline, the document themes, the print bar, page view, code, math and diagrams">
 </p>
 
-> 📖 The [`docs/`](docs/index.md) folder is a self-contained sample wiki that doubles as a feature
-> tour. Open it with `MarkdownBlaze docs/`.
+> 📖 The [`samples/wiki/`](samples/wiki/index.md) folder is a self-contained sample wiki that doubles as a
+> feature tour. Open it with `MarkdownBlaze samples/wiki/`.
 
 ## Screenshots
 
 | | |
 |:---:|:---:|
-| <img src="resources/screenshots/document-themes.png" alt="The document theme menu" width="430"><br>**Eleven document themes**, from the toolbar or `F9` | <img src="resources/screenshots/print-bar.png" alt="The print bar with the Book theme previewed" width="430"><br>**Print bar** — pick the look for this one print |
-| <img src="resources/screenshots/page-view.png" alt="Page view showing a whole A4 sheet" width="430"><br>**Page view** — the document on paper, before you print | <img src="resources/screenshots/theme-academic.png" alt="A document in the Academic theme" width="430"><br>**Academic** — the look of a typeset paper |
-| <img src="resources/screenshots/code.png" alt="Tables, a callout and highlighted code" width="430"><br>**Code**, tables and callouts | <img src="resources/screenshots/math.png" alt="Tags and KaTeX math in the light appearance" width="430"><br>**Math**, tags and Obsidian syntax |
+| <img src="branding/screenshots/document-themes.png" alt="The document theme menu" width="430"><br>**Eleven document themes**, from the toolbar or `F9` | <img src="branding/screenshots/print-bar.png" alt="The print bar with the Book theme previewed" width="430"><br>**Print bar** — pick the look for this one print |
+| <img src="branding/screenshots/page-view.png" alt="Page view showing a whole A4 sheet" width="430"><br>**Page view** — the document on paper, before you print | <img src="branding/screenshots/theme-academic.png" alt="A document in the Academic theme" width="430"><br>**Academic** — the look of a typeset paper |
+| <img src="branding/screenshots/code.png" alt="Tables, a callout and highlighted code" width="430"><br>**Code**, tables and callouts | <img src="branding/screenshots/math.png" alt="Tags and KaTeX math in the light appearance" width="430"><br>**Math**, tags and Obsidian syntax |
 
 <details>
 <summary>Tables and diagrams, light appearance</summary>
-<p align="center"><img src="resources/screenshots/tables-and-diagrams.png" alt="A table and a Mermaid diagram in the light appearance" width="900"></p>
+<p align="center"><img src="branding/screenshots/tables-and-diagrams.png" alt="A table and a Mermaid diagram in the light appearance" width="900"></p>
 </details>
 
 ---
@@ -90,7 +90,8 @@ OS WebView driven by **[Photino](https://www.tryphotino.io/) + Blazor** and
   light page.
 - **Admonitions / callouts** in Docusaurus (`:::tip`), MkDocs (`!!! note`) **and** GitHub/Obsidian
   (`> [!note]`, collapsible `> [!tip]-`) syntaxes.
-- **Emoji shortcodes**, **YAML front matter** parsed and hidden, local **images inlined** as data URIs.
+- **Emoji shortcodes**, **YAML front matter** parsed and hidden, local **images** served straight from disk
+  by the app.
 
 #### Obsidian / GitHub flavour
 
@@ -102,15 +103,37 @@ OS WebView driven by **[Photino](https://www.tryphotino.io/) + Blazor** and
 Rendering comes from the standalone
 [`bwets.Markdig.Extensions`](https://github.com/bwets/bwets.Markdig.Extensions) package.
 
+#### Safe with documents you did not write
+
+A Markdown file can come from anywhere, so the app treats it as untrusted. Raw HTML is cleaned by an
+allow-list (no scripts, frames, forms or event handlers), a Content-Security-Policy confines the page, only
+web, mail, phone and FTP links are handed to the system (nothing that starts a program or reaches a network
+share), only real image files are shown, and the web view's developer tools and menus are off. The
+`samples/wiki/security/` pages try each of these attacks; [docs/architecture.md](docs/architecture.md) explains
+the layers.
+
 ### Fitting into the desktop
 
-- **Explorer right-click** — *Open with MarkdownBlaze* on Markdown files **and on folders**.
+- **Explorer** — MarkdownBlaze is offered under *Open with* for `.md`, `.markdown` and `.mdx` files (and
+  can be made the default in *Settings → Default apps*), and *Open with MarkdownBlaze* is on **folders**.
 - **`markdown://` links** — the address of the document you are reading is a working link, so
   anything that can open a URL can hand a document over: `markdown://C:/notes/Report.md`.
-- Both register themselves on first run under `HKEY_CURRENT_USER` — no elevation, nothing to switch
-  on — and repair themselves if the app moves. Linux and macOS packages register the handler through
-  the `.desktop` entry and `Info.plist`.
+- **Who registers it** (Windows; all under `HKEY_CURRENT_USER`, so no elevation):
+  - The **installer** registers all of it, and removes all of it again when uninstalled.
+  - The **portable zip** registers nothing until you ask: *Settings → Windows integration → Add to
+    Explorer and register markdown:// links*, or from a script `MarkdownBlaze.exe --register`. *Remove*
+    in the same place, or `MarkdownBlaze.exe --unregister`, takes it away again. (Both switches do their
+    work without opening a window; the exit code is 0 when done, 1 if the registry refused, 2 if they do
+    not apply.)
+  - The **Microsoft Store** package declares the file types and the `markdown` link in its manifest;
+    the app leaves the registry alone.
+
+  The app never registers itself on its own at startup. Linux and macOS packages register the handler
+  through the `.desktop` entry and `Info.plist`.
 - **Remembers** window size, position, maximized state, sidebar width, view, theme and zoom.
+- **A log** of what goes wrong quietly (a file that could not be read, a link that did not open) in
+  `%LOCALAPPDATA%\MarkdownBlaze\logs` (under `~/.local/share` on Linux), kept small and
+  local; *Settings* shows where it is. It never leaves your machine — see [PRIVACY.md](PRIVACY.md).
 
 ### Getting to know it
 
@@ -149,9 +172,18 @@ Rendering comes from the standalone
 ### Build & run
 
 ```bash
-dotnet run --project src/MarkdownBlaze -- "docs/index.md"   # a file
-dotnet run --project src/MarkdownBlaze -- "docs"            # or a whole folder
+dotnet run --project src/MarkdownBlaze -- "samples/wiki/index.md"   # a file
+dotnet run --project src/MarkdownBlaze -- "samples/wiki"            # or a whole folder
 ```
+
+### Command line
+
+| Argument | Effect |
+|---|---|
+| `<file>` or `<folder>` | Open it (a folder opens its `index`, `main` or `readme`, else the first document). A `markdown://` address is accepted too. |
+| `--log-level <level>` | `trace`, `debug`, `information` (default), `warning`, `error`, `critical` or `none`. |
+| `--devtools` | Turn the web view's developer tools on (`F12`) in a release build; a debug build always has them. |
+| `--register` / `--unregister` | Windows only: add or remove the Explorer and `markdown://` registration and exit without opening a window. Exit code 0 done, 1 the registry refused, 2 not applicable (not Windows, or the Store package). |
 
 ### Releases & packaging
 
@@ -171,20 +203,36 @@ macOS `.dmg`) come from the manual [`release` workflow](packaging/README.md). On
 ## Project layout
 
 ```
-docs/                       Sample wiki / feature showcase
-resources/                  Logo artwork, and the screenshots this README shows
-scripts/
-  build-highlight-content.sh  Rebuilds the highlight.js palette keyed to the document's theme
+branding/                   The icon (icon-1024.png is the master; icon-32 … icon-512.png and icon.svg
+                            are derived from it), and the screenshots this README shows
+docs/                       Project documentation: architecture.md (the invariants and the trust boundary)
+samples/wiki/               The sample wiki / feature showcase, with the hostile-but-harmless pages in security/
+scripts/                    Maintenance scripts (see scripts/README.md): vendor update, highlight palette
+packaging/                  Windows installer/MSIX, winget, Microsoft Store listing,
+                            Linux .desktop/.deb, Arch PKGBUILD, macOS .app/.dmg
+tests/
+  MarkdownBlaze.Tests/      xUnit tests (sanitizer, links, paths, services, the sample pages)
+  fixtures/                 Documents the tests render
+.github/workflows/          ci.yml (build, format, test on every push) and the manual release workflow
 src/
+  MarkdownBlaze.slnx        What `dotnet build src` loads: the app and the tests, nothing outside this repository
+  MarkdownBlaze.Dev.slnx    The same plus the sibling bwets.Markdig.Extensions checkout (needs LocalSources=true)
   MarkdownBlaze/
-    Program.cs              Photino + Blazor host, markdown:// scheme, shell integration
-    App.razor               Root (app appearance, view switch)
-    ViewerView.razor        Toolbars, sidebar panels and outline, print bar, view modes, zoom,
-                            What's new, rating bar
-    SettingsView.razor      Settings page
-    Ico.razor               The toolbar and sidebar icons
-    UserManual.md           The manual shown when no file is given
-    WhatsNew.md             What changed, one section per app version (⋮ → What's new)
+    Program.cs              Photino + Blazor host, markdown:// scheme, startup
+    Assets/                 icon.ico and icon.png, shipped next to the executable for the window icon
+    Content/                UserManual.md (shown when no file is given), WhatsNew.md (⋮ → What's new);
+                            copied flat into the output folder
+    Components/
+      App.razor             Root: app appearance, the viewer, Settings drawn over it
+      Viewer/               ViewerView (layout only), Toolbar, and what they run on: ViewerState (zoom, view,
+                            theme, open popups), Commands (the registry the keyboard and the shortcuts
+                            overlay are both drawn from), ViewerActions, ViewerMenus
+      Sidebar/              Sidebar, FolderTree, TreePanel (recursive), Outline, HistoryList
+      Overlays/             ContextMenu, WhatsNewDialog, ShortcutsDialog, PrintBar, Toast, RateBar, MissingFileBar
+      Settings/SettingsView The settings page
+      Shared/               Icon, FocusScope (keyboard focus for popups)
+    Models/                 Preferences (with ThemeMode, ViewMode, PageFit kept as the strings the file has always
+                            held), HistoryEntry, Heading, RenderResult, TreeNode, ContentTheme, …
     Services/
       MarkdownService       Markdown → HTML, startup file/folder resolution, app version
       NavigationService     Current document, back/forward, links, file watching
@@ -192,25 +240,39 @@ src/
       FileTreeService       The folder being read, as lazily-read folder and document panels
       ContentThemes         The document themes and their light/dark character
       DocumentLanguage      The language a document is written in, for hyphenation
-      ViewModes             Continuous vs page view
+      ViewModes, EnumText   Continuous vs page view: the names the page and the preferences file use for the enums
       PreferencesStore      Settings kept between launches
       HistoryStore          Persisted history, order preserved
-      RatingPrompt          The one-time request to rate the app in the Microsoft Store
-      ShellIntegration      Explorer verbs and the markdown:// handler
-      UriScheme             markdown:// addresses, both directions
-      WindowHost            The native window, for the OS file and folder dialogs
       WindowStateService    Window size, position and fullscreen
-      JsBridge              Calls coming back from the page's JavaScript
+      RatingPrompt          The one-time request to rate the app in the Microsoft Store
+      UriScheme             markdown:// addresses, both directions
+      AppPaths, JsonFile, SaveDebouncer, Log, FileLoggerProvider, IUiDispatcher, Background …
+                            Where data lives, atomic debounced saves, the local log, UI-thread marshalling,
+                            logging the failure of work nobody awaits
+    Security/               HtmlSanitizer, ExternalLinks (link allow-list), LocalPath (which files may be read),
+                            AssetHandler (serves the open document's pictures over mdasset://)
+    Interop/                ViewerInterop (the connection to the page's JavaScript, both ways), PageEvents, NativeDialogs (the OS
+                            file and folder dialogs)
+    Platform/               IShellLauncher / ShellLauncher (the one place that starts a browser, a new window or
+                            the file manager)
+    Platform/Windows/       ShellIntegration (Explorer verbs and the markdown:// handler), PackageIdentity, WindowIcon
     wwwroot/
-      app.css               App chrome, page view, print rules
-      app.js                Rendering, pagination, zoom, printing, guided tour
-      lib/                  Offline highlight.js, Mermaid and KaTeX; the document themes
-                            (content-themes.css) and the one bundled typeface
-packaging/                  Windows installer/MSIX, winget, Microsoft Store listing,
-                            Linux .desktop/.deb/PKGBUILD, macOS .app/.dmg
-.github/workflows/          The manual release workflow
+      index.html            The page: splash, Content-Security-Policy, stylesheets, scripts
+      css/                  app.css (chrome, page view, print), content-themes.css (the document themes),
+                            highlight-theme.css, highlight-content.css (generated)
+      js/                   ES modules (main.js, render, pagination, zoom, print, tour, …) with their tests in tests/js
+      fonts/latin-modern/   The one bundled typeface (Academic theme)
+      vendor/               highlight.js, Mermaid and KaTeX for offline use, with VERSIONS.md and SHA256SUMS
 ```
+
+## Contributing and security
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers building, testing and the code rules; [SECURITY.md](SECURITY.md)
+says how to report a vulnerability; [docs/architecture.md](docs/architecture.md) explains the design
+decisions the code relies on. [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists the libraries and
+fonts the app ships, with their licences.
 
 ## License
 
-Personal project — all rights reserved unless stated otherwise.
+[MIT](LICENSE). The bundled libraries and fonts keep their own licences, listed in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

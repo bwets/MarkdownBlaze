@@ -1,0 +1,14 @@
+<Project>
+
+  <!--
+    BUILD-2: LocalSources=true swaps the bwets.Markdig.Extensions NuGet package for a project
+    reference to a sibling checkout. That is a developer convenience (usually switched on in the
+    git-ignored MarkdownBlaze.csproj.user) and must never end up in a shipped build. Fail loudly
+    instead of silently switching back to the package, so nobody ships something they did not test.
+    Pass -p:LocalSources=false (or delete the .user file) to build Release.
+  -->
+  <Target Name="RejectLocalSourcesInRelease" BeforeTargets="BeforeBuild;BeforeResolveReferences" Condition="'$(LocalSources)' == 'true' and '$(Configuration)' == 'Release'">
+    <Error Code="MDB001" Text="LocalSources=true is not allowed in a Release build: it references the sibling bwets.Markdig.Extensions checkout instead of the published package. Build with -p:LocalSources=false (or remove MarkdownBlaze.csproj.user)." />
+  </Target>
+
+</Project>

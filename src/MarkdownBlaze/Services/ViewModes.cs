@@ -1,28 +1,24 @@
+using MarkdownBlaze.Models;
+
 namespace MarkdownBlaze.Services;
 
 /// <summary>
-/// How the document is laid out on screen.
-/// <para>
-/// <b>Continuous</b> is the reading view: one column that scrolls without end, which is what a
-/// document on a screen wants to be. <b>Page</b> lays the same document onto sheets of paper, with
-/// the margins and breaks it will have when printed — the view to check a document in before sending
-/// it, and the one people expect from a PDF reader.
-/// </para>
+/// Turning the layout enums (<see cref="ViewMode"/>, <see cref="PageFit"/>) into the text the page knows
+/// them by and back, with the fallback for a value nobody recognises.
 /// </summary>
-public static class ViewModes
+internal static class ViewModes
 {
-    public const string Continuous = "continuous";
-    public const string Page = "page";
+    /// <summary>The view mode a name stands for, in any capitalisation; continuous for one nobody knows.</summary>
+    /// <param name="value">"continuous", "page", or whatever the file or the page held.</param>
+    public static ViewMode ResolveMode(string? value) => EnumText.Parse(value, ViewMode.Continuous);
 
-    /// <summary>Sheet as wide as the pane — reading size.</summary>
-    public const string FitWidth = "width";
+    /// <summary>The page fit a name stands for, in any capitalisation; width for one nobody knows.</summary>
+    /// <param name="value">"width", "page", or whatever the file or the page held.</param>
+    public static PageFit ResolveFit(string? value) => EnumText.Parse(value, PageFit.Width);
 
-    /// <summary>Whole sheet visible at once — the layout at a glance.</summary>
-    public const string FitPage = "page";
+    /// <summary>The name the page's script and the preferences file use: "continuous" or "page".</summary>
+    public static string Name(ViewMode mode) => EnumText.Name(mode, camelCase: true);
 
-    public static string ResolveMode(string? value) =>
-        string.Equals(value, Page, StringComparison.OrdinalIgnoreCase) ? Page : Continuous;
-
-    public static string ResolveFit(string? value) =>
-        string.Equals(value, FitPage, StringComparison.OrdinalIgnoreCase) ? FitPage : FitWidth;
+    /// <summary>The name the page's script and the preferences file use: "width" or "page".</summary>
+    public static string Name(PageFit fit) => EnumText.Name(fit, camelCase: true);
 }

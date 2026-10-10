@@ -1,0 +1,47 @@
+@implements IDisposable
+@inject ViewerState State
+@inject Commands Commands
+
+@if (State.ShortcutsOpen)
+{
+    @* The table is drawn from the command registry: the same list the keyboard handler runs commands from,
+       so this help cannot describe a key that does nothing or leave out one that does. A modal dialog, like
+       What's new: aria-modal, the focus kept inside it, and handed back on close. *@
+    <div class="menu-backdrop" aria-hidden="true" @onclick="Close" @oncontextmenu="Close" @oncontextmenu:preventDefault="true"></div>
+    <FocusScope Kind="dialog" class="shortcuts" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+        <div class="shortcuts-head" id="shortcuts-title">Keyboard shortcuts</div>
+        <table class="shortcuts-table">
+            @foreach (var command in Commands.WithShortcuts)
+            {
+                <tr>
+                    <td class="sc-action">@command.Label</td>
+                    <td class="sc-keys">
+                        @{ var firstAlt = true; }
+                        @foreach (var alt in command.Keys.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            @if (!firstAlt) { <span class="sc-or">/</span> }
+                            firstAlt = false;
+                            var keys = alt.Split('+');
+                            @for (var i = 0; i < keys.Length; i++)
+                            {
+                                @if (i > 0) { <span class="sc-plus">+</span> }
+                                <kbd>@keys[i]</kbd>
+                            }
+                        }
+                    </td>
+                </tr>
+            }
+        </table>
+        <div class="shortcuts-foot">Press <kbd>?</kbd> or <kbd>Esc</kbd> to close</div>
+    </FocusScope>
+}
+
+@code {
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+
+    private void Close() => State.SetShortcutsOpen(false);
+}

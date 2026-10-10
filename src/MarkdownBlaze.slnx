@@ -1,8 +1,13 @@
 <Solution>
   <Folder Name="/Solution Items/">
-    <File Path=".gitignore" />
-    <File Path="global.json" />
+    <File Path="../.gitignore" />
+    <File Path="../.editorconfig" />
+    <File Path="../.gitattributes" />
+    <File Path="../global.json" />
+    <File Path="../Directory.Build.props" />
+    <File Path="../Directory.Build.targets" />
+    <File Path="../Directory.Packages.props" />
   </Folder>
-  <Project Path="../../bwets.Markdig.Extensions/src/bwets.Markdig.Extensions/bwets.Markdig.Extensions.csproj" />
   <Project Path="MarkdownBlaze/MarkdownBlaze.csproj" />
+  <Project Path="../tests/MarkdownBlaze.Tests/MarkdownBlaze.Tests.csproj" />
 </Solution>

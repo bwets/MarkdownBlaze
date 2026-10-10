@@ -1,0 +1,73 @@
+@implements IDisposable
+@inject ViewerState State
+@inject NavigationService Nav
+
+@* Three toolbars. Left: what you do with files — it sits over the sidebar and is as wide as
+   it. Middle: the sidebar toggle, the way back and forth, and the title — it starts exactly
+   where the document does and moves with the splitter. Right: how the document is shown.
+
+   Every button names its command (Commands.cs) — the keyboard runs the same ones. They are icon-only,
+   so each carries an aria-label as well as the tooltip that Title gives sighted users.
+
+   The tour (js/tour.js) points at these by their position — the first button of the right-hand
+   toolbar, the last, the zoom group — so the order of the children matters. *@
+<span class="toolbar-left">
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.OpenFile))" Title="Open file (Ctrl+O)" aria-label="Open file"><Icon Name="open" /></FluentButton>
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.OpenFolder))" Title="Open folder (Ctrl+Shift+O)" aria-label="Open folder"><Icon Name="tree" /></FluentButton>
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.Refresh))" Title="Refresh (F5)" aria-label="Refresh"><Icon Name="refresh" /></FluentButton>
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.PrintBar))" Title="Print (Ctrl+P)" aria-label="Print"><Icon Name="print" /></FluentButton>
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.ContainingFolder))" Title="Open containing folder" aria-label="Open containing folder"><Icon Name="folder" /></FluentButton>
+</span>
+
+<span class="toolbar-middle">
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.ToggleSidebar))" Title="Toggle sidebar (Ctrl+B)" aria-label="Toggle sidebar"><Icon Name="menu" /></FluentButton>
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.Back))" Disabled="@(!Nav.CanBack)" Title="Back (Alt+Left)" aria-label="Back"><Icon Name="back" /></FluentButton>
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.Forward))" Disabled="@(!Nav.CanForward)" Title="Forward (Alt+Right)" aria-label="Forward"><Icon Name="forward" /></FluentButton>
+
+    <span class="title @(Nav.CurrentFileMissing ? "missing" : "")">@Nav.CurrentTitle@(Nav.CurrentFileMissing ? " (file deleted)" : "")</span>
+</span>
+
+<span class="toolbar-right">
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="OnViewMenu" Title="@ViewMenuTitle" aria-label="@ViewMenuTitle" aria-haspopup="menu"><Icon Name="view" /></FluentButton>
+    <span class="zoom-group" role="group" aria-label="Zoom">
+        <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.ZoomOut))"
+                      Disabled="@(State.Zoom <= Limits.Min + 0.001)" Title="Zoom out (Ctrl+-)" aria-label="Zoom out"><Icon Name="minus" Size="14" /></FluentButton>
+        <span class="zoom-label" title="Document zoom">@ZoomText</span>
+        <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.ZoomIn))"
+                      Disabled="@(State.Zoom >= Limits.Max - 0.001)" Title="Zoom in (Ctrl++)" aria-label="Zoom in"><Icon Name="plus" Size="14" /></FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Run(Commands.ZoomReset))"
+                      Disabled="@(Math.Abs(State.Zoom - 1) < 0.005)" Title="Reset zoom (Ctrl+0)" aria-label="Reset zoom"><Icon Name="undo" Size="14" /></FluentButton>
+    </span>
+
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="OnThemeMenu" Title="@ThemeMenuTitle" aria-label="@ThemeMenuTitle" aria-haspopup="menu"><Icon Name="theme" /></FluentButton>
+    <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="OnMoreMenu" Title="More" aria-label="More" aria-haspopup="menu"><Icon Name="more" /></FluentButton>
+</span>
+
+@code {
+    /// <summary>A button asked for a command, by the id the registry knows it by.</summary>
+    [Parameter] public EventCallback<string> OnCommand { get; set; }
+
+    [Parameter] public EventCallback<MouseEventArgs> OnViewMenu { get; set; }
+
+    [Parameter] public EventCallback<MouseEventArgs> OnThemeMenu { get; set; }
+
+    [Parameter] public EventCallback<MouseEventArgs> OnMoreMenu { get; set; }
+
+    private static ZoomLimits Limits => ZoomLimits.Default;
+
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+
+    private Task Run(string id) => OnCommand.InvokeAsync(id);
+
+    private string ZoomText => Math.Round(State.Zoom * 100) + "%";
+
+    private string ViewMenuTitle => State.ViewMode == ViewMode.Page
+        ? $"View: pages, {(State.PageFit == PageFit.Page ? "whole page" : "full width")}"
+        : "View: continuous";
+
+    private string ThemeMenuTitle => "Document theme: " + ContentThemes.Resolve(State.ContentTheme).Label;
+}
