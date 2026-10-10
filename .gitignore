@@ -50,3 +50,6 @@ Desktop.ini
 # Misc
 *.log
 *.tmp
+
+# Local, untracked working files (screenshots and the like)
+.local/
