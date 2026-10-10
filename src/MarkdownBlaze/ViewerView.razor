@@ -1,5 +1,6 @@
 @implements IDisposable
 @inject NavigationService Nav
+@inject MarkdownService Markdown
 @inject FileTreeService Tree
 @inject PreferencesStore Prefs
 @inject WindowHost Window
@@ -7,79 +8,68 @@
 @inject IJSRuntime JS
 
 <div class="app-shell">
-    <header class="app-header">
-        <FluentButton Appearance="Appearance.Stealth" OnClick="ToggleSidebar" Title="Toggle sidebar (Ctrl+B)"><Ico Name="menu" /></FluentButton>
-        <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => Nav.Back())" Disabled="@(!Nav.CanBack)" Title="Back (Alt+Left)"><Ico Name="back" /></FluentButton>
-        <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => Nav.Forward())" Disabled="@(!Nav.CanForward)" Title="Forward (Alt+Right)"><Ico Name="forward" /></FluentButton>
-        <FluentButton Appearance="Appearance.Stealth" OnClick="OpenFile" Title="Open file (Ctrl+O)"><Ico Name="open" /></FluentButton>
-        <FluentButton Appearance="Appearance.Stealth" OnClick="PickFolder" Title="Open folder (Ctrl+Shift+O)"><Ico Name="tree" /></FluentButton>
-        <FluentButton Appearance="Appearance.Stealth" OnClick="OpenViewMenu" Title="@ViewMenuTitle"><Ico Name="view" /></FluentButton>
-        <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => Nav.Reload())" Title="Refresh (F5)"><Ico Name="refresh" /></FluentButton>
-        <FluentButton Appearance="Appearance.Stealth" OnClick="OpenPrintBar" Title="Print (Ctrl+P)"><Ico Name="print" /></FluentButton>
-        <FluentButton Appearance="Appearance.Stealth" OnClick="OpenFolder" Title="Open containing folder"><Ico Name="folder" /></FluentButton>
-
-        <span class="title">@Nav.CurrentTitle</span>
-
-        <span class="zoom-group">
-            <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => ZoomBy(1 / ZoomStep))"
-                          Disabled="@(_zoom <= MinZoom + 0.001)" Title="Zoom out (Ctrl+-)"><Ico Name="minus" Size="14" /></FluentButton>
-            <span class="zoom-label" title="Document zoom">@ZoomText</span>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => ZoomBy(ZoomStep))"
-                          Disabled="@(_zoom >= MaxZoom - 0.001)" Title="Zoom in (Ctrl++)"><Ico Name="plus" Size="14" /></FluentButton>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="ResetZoom"
-                          Disabled="@(Math.Abs(_zoom - 1) < 0.005)" Title="Reset zoom (Ctrl+0)"><Ico Name="undo" Size="14" /></FluentButton>
+    <header class="app-header @(_pinned ? "" : "no-sidebar")">
+        @* Three toolbars. Left: what you do with files — it sits over the sidebar and is as wide as
+           it. Middle: the sidebar toggle, the way back and forth, and the title — it starts exactly
+           where the document does and moves with the splitter. Right: how the document is shown. *@
+        <span class="toolbar-left">
+            <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="OpenFile" Title="Open file (Ctrl+O)"><Ico Name="open" /></FluentButton>
+            <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="PickFolder" Title="Open folder (Ctrl+Shift+O)"><Ico Name="tree" /></FluentButton>
+            <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Nav.Reload())" Title="Refresh (F5)"><Ico Name="refresh" /></FluentButton>
+            <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="OpenPrintBar" Title="Print (Ctrl+P)"><Ico Name="print" /></FluentButton>
+            <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="OpenFolder" Title="Open containing folder"><Ico Name="folder" /></FluentButton>
         </span>
 
-        <FluentButton Appearance="Appearance.Stealth" OnClick="OpenThemeMenu" Title="@ThemeMenuTitle"><Ico Name="theme" /></FluentButton>
-        <FluentButton Appearance="Appearance.Stealth" OnClick="OpenMoreMenu" Title="More"><Ico Name="more" /></FluentButton>
+        <span class="toolbar-middle">
+            <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="ToggleSidebar" Title="Toggle sidebar (Ctrl+B)"><Ico Name="menu" /></FluentButton>
+            <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Nav.Back())" Disabled="@(!Nav.CanBack)" Title="Back (Alt+Left)"><Ico Name="back" /></FluentButton>
+            <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => Nav.Forward())" Disabled="@(!Nav.CanForward)" Title="Forward (Alt+Right)"><Ico Name="forward" /></FluentButton>
+
+            <span class="title">@Nav.CurrentTitle</span>
+        </span>
+
+        <span class="toolbar-right">
+            <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="OpenViewMenu" Title="@ViewMenuTitle"><Ico Name="view" /></FluentButton>
+            <span class="zoom-group">
+                <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => ZoomBy(1 / ZoomStep))"
+                              Disabled="@(_zoom <= MinZoom + 0.001)" Title="Zoom out (Ctrl+-)"><Ico Name="minus" Size="14" /></FluentButton>
+                <span class="zoom-label" title="Document zoom">@ZoomText</span>
+                <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => ZoomBy(ZoomStep))"
+                              Disabled="@(_zoom >= MaxZoom - 0.001)" Title="Zoom in (Ctrl++)"><Ico Name="plus" Size="14" /></FluentButton>
+                <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="ResetZoom"
+                              Disabled="@(Math.Abs(_zoom - 1) < 0.005)" Title="Reset zoom (Ctrl+0)"><Ico Name="undo" Size="14" /></FluentButton>
+        </span>
+
+        <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="OpenThemeMenu" Title="@ThemeMenuTitle"><Ico Name="theme" /></FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="OpenMoreMenu" Title="More"><Ico Name="more" /></FluentButton>
+        </span>
     </header>
 
     <div class="app-body @(_pinned ? "" : "no-sidebar") @(_printBarOpen ? "printing" : "")">
         <aside class="sidebar">
+            @* Fluent's tabs are used for the strip only. What each tab shows is rendered below by this
+               component, as before, so the tabs themselves are left empty. *@
             <div class="tabstrip">
-                <button class="tab @(_tab == 0 ? "active" : "")" @onclick="@(() => SelectTab(0))">Headers</button>
-                <button class="tab @(_tab == 1 ? "active" : "")" @onclick="@(() => SelectTab(1))">History</button>
+                <FluentTabs ActiveTabId="@TabIds[_tab]" ActiveTabIdChanged="OnTabChanged">
+                    <FluentTab Id="@TabIds[0]" Header="Contents" />
+                    <FluentTab Id="@TabIds[1]" Header="History" />
+                </FluentTabs>
             </div>
             <div class="tab-panels">
                 @if (_tab == 0)
                 {
-                    @* The folder the reader is working in. Folders and other documents stay shut; the
-                       open document is expanded to its own headings, so one tree covers both moving
-                       between files and moving within one. *@
-                    <div class="list" id="md-tree">
-                        @if (Tree.Root is null)
+                    @* The folder the reader is working in. Folders and documents are panels, so the two
+                       cannot be mistaken for what is inside them; the open document's panel holds its
+                       headings as a tree. One list covers both moving between files and within one. *@
+                    <div class="list tree" id="md-tree">
+                        @if (_detached is not null) { @RenderPanels([_detached]) }
+                        @if (Tree.Root is not null)
                         {
-                            <div class="empty">Open a file or a folder to see its documents here.</div>
+                            @RenderPanels(_nodes)
                         }
                         else
                         {
-                            <div class="tree-root" title="@Tree.Root">@System.IO.Path.GetFileName(Tree.Root)</div>
-                        }
-                        @foreach (var row in _rows)
-                        {
-                            @* Files and headings line up past the twisty that folder rows occupy. *@
-                            var indent = 10 + row.Depth * 14 + (row.Kind == TreeRowKind.Folder ? 0 : 14);
-                            @if (row.Kind == TreeRowKind.Folder)
-                            {
-                                <button class="row tree-folder" style="@($"padding-left:{indent}px")" title="@row.Path"
-                                        @onclick="@(() => Tree.Toggle(row.Key))">
-                                    <span class="twisty">@(row.Expanded ? "▾" : "▸")</span>@row.Label
-                                </button>
-                            }
-                            else if (row.Kind == TreeRowKind.File)
-                            {
-                                <button class="row tree-file @(row.Current ? "current" : "")" id="@RowId(row)"
-                                        style="@($"padding-left:{indent}px")" title="@row.Path"
-                                        @onclick="@(() => Nav.Navigate(row.Path!))"
-                                        @oncontextmenu="@(e => OpenRowMenu(e, row.Path!))" @oncontextmenu:preventDefault="true">
-                                    @row.Label
-                                </button>
-                            }
-                            else
-                            {
-                                <button class="row toc-link" style="@($"padding-left:{indent}px")"
-                                        @onclick="@(() => ScrollTo(row.Slug!))">@row.Label</button>
-                            }
+                            <div class="empty">Open a file or a folder to see its documents here.</div>
                         }
                     </div>
                 }
@@ -111,8 +101,10 @@
         <main class="content-area document-pane">
             @* @key forces Blazor to discard and rebuild this subtree on every navigation instead of
                diffing it. The rendered markdown is mutated in place by highlight.js / mermaid / KaTeX,
-               so diffing against Blazor's virtual DOM would corrupt the render tree. *@
-            <div class="content markdown-body" @key="Nav.RenderToken">@((MarkupString)Nav.CurrentHtml)</div>
+               so diffing against Blazor's virtual DOM would corrupt the render tree.
+
+               lang is the document's own language, which is what the text is hyphenated by. *@
+            <div class="content markdown-body" lang="@Nav.CurrentLanguage" @key="Nav.RenderToken">@((MarkupString)Nav.CurrentHtml)</div>
         </main>
     </div>
 </div>
@@ -125,7 +117,18 @@
        @key is what makes a second press show anything: without it Blazor reuses the element and only
        swaps the text, so the fade animation never restarts and the toast stays at the invisible end
        of its last run. A new key each time means a new element, and a new element starts fresh. *@
-    <div class="toast" @key="_toastToken" style="@($"bottom:{(_printBarOpen ? 76 : 28)}px")">@_toast</div>
+    <div class="toast" @key="_toastToken" style="@($"bottom:{(_printBarOpen ? 76 : _rateBarOpen ? 62 : 28)}px")">@_toast</div>
+}
+
+@if (_rateBarOpen && !_printBarOpen)
+{
+    @* Asked once and quietly. Either button is an answer, and so is the ×: none of them leads to
+       being asked again. Gives way to the print bar, which wants the same strip of the window. *@
+    <div class="rate-bar" role="status">
+        <span>Enjoying MarkdownBlaze? A rating in the Microsoft Store helps other people find it.</span>
+        <button class="rate-bar-go" @onclick="RateApp">Rate it</button>
+        <button class="rate-bar-close" title="No thanks — don't ask again" @onclick="DismissRating">×</button>
+    </div>
 }
 
 @if (_printBarOpen)
@@ -137,7 +140,7 @@
             <button class="print-chip @(theme.Id == _printTheme ? "active" : "")"
                     @onclick="@(() => PreviewPrintTheme(theme.Id))">@theme.Label</button>
         }
-        <FluentButton Appearance="Appearance.Accent" OnClick="DoPrint">Print</FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Primary" OnClick="DoPrint">Print</FluentButton>
         <span class="print-bar-hint">Ctrl+P to print · Esc to cancel</span>
     </div>
 }
@@ -150,6 +153,20 @@
         {
             <button @onclick="@(() => RunItem(item.OnClick))">@item.Label</button>
         }
+    </div>
+}
+
+@if (_whatsNewHtml is not null)
+{
+    @* app-look sits on the dialog, not on the page inside it: it restates the app's own look for
+       everything beneath, so the page reads the same whichever document theme is on. *@
+    <div class="menu-backdrop" @onclick="CloseWhatsNew" @oncontextmenu="CloseWhatsNew" @oncontextmenu:preventDefault="true"></div>
+    <div class="whats-new app-look" role="dialog" aria-label="What's new">
+        <div class="whats-new-head">
+            <span>What's new</span>
+            <button class="whats-new-close" title="Close (Esc)" @onclick="CloseWhatsNew">×</button>
+        </div>
+        <div class="whats-new-body markdown-body">@((MarkupString)_whatsNewHtml)</div>
     </div>
 }
 
@@ -189,7 +206,9 @@
 
     private bool _pinned = true;
     private bool _shortcutsOpen;
+    private string? _whatsNewHtml; // the rendered "what's new" page while its popup is open
     private bool _printBarOpen;
+    private bool _rateBarOpen;
     private string _printTheme = ContentThemes.Auto;
     private int _tab;
 
@@ -212,10 +231,76 @@
     ];
     private int _lastRenderToken = -1;
     private string? _lastPath;
-    private IReadOnlyList<TreeRow> _rows = [];
+    private IReadOnlyList<TreeNode> _nodes = [];
+    private TreeNode? _detached; // the open document, when it is not inside the tree's folder
 
-    /// <summary>Element id for a tree row, so the current file can be scrolled into view.</summary>
-    private static string RowId(TreeRow row) => "tr" + row.Key.GetHashCode().ToString("x");
+    /// <summary>Element id of the open document's panel, so it can be scrolled into view.</summary>
+    private const string CurrentPanelId = "md-current-doc";
+
+    /// <summary>
+    /// Folders and documents as nested panels. A folder's panel holds the panels of what is inside
+    /// it; the panel of the document being read holds its outline.
+    /// </summary>
+    private RenderFragment RenderPanels(IReadOnlyList<TreeNode> nodes) => __builder =>
+    {
+        foreach (var node in nodes)
+        {
+            if (node.Kind == TreeNodeKind.Folder)
+            {
+                <section class="panel panel-folder @(node.Expanded ? "open" : "")" @key="node.Path">
+                    <button class="panel-head" title="@node.Path" aria-expanded="@(node.Expanded ? "true" : "false")"
+                            @onclick="@(() => Tree.Toggle(node.Path))">
+                        <span class="panel-icon"><Ico Name="@(node.Expanded ? "tree" : "folder")" Size="15" /></span>
+                        <span class="panel-label">@node.Label</span>
+                        <span class="panel-chevron"><Ico Name="chevron" Size="12" /></span>
+                    </button>
+                    @if (node.Expanded)
+                    {
+                        <div class="panel-body">
+                            @if (node.Children.Count == 0) { <div class="panel-empty">No documents</div> }
+                            @RenderPanels(node.Children)
+                        </div>
+                    }
+                </section>
+            }
+            else
+            {
+                <section class="panel panel-file @(node.Current ? "current" : "") @(node.Expanded ? "open" : "")" @key="node.Path">
+                    <button class="panel-head" id="@(node.Current ? CurrentPanelId : null)" title="@node.Path"
+                            aria-expanded="@(node.Current ? (node.Expanded ? "true" : "false") : null)"
+                            @onclick="@(() => OnFilePanel(node))"
+                            @oncontextmenu="@(e => OpenRowMenu(e, node.Path))" @oncontextmenu:preventDefault="true">
+                        <span class="panel-icon"><Ico Name="file" Size="15" /></span>
+                        <span class="panel-label">@node.Label</span>
+                        @if (node.Current) { <span class="panel-chevron"><Ico Name="chevron" Size="12" /></span> }
+                    </button>
+                    @if (node.Expanded)
+                    {
+                        <div class="panel-body outline">
+                            @if (Nav.CurrentHeadings.Count == 0) { <div class="panel-empty">No headings</div> }
+                            @foreach (var heading in Nav.CurrentHeadings)
+                            {
+                                @* data-slug is how app.js finds the row for the section being read. *@
+                                <button class="outline-row" style="@($"--level:{heading.Level - _topHeadingLevel}")" data-slug="@heading.Slug"
+                                        title="@heading.Text" @onclick="@(() => ScrollTo(heading.Slug))">@heading.Text</button>
+                            }
+                        </div>
+                    }
+                </section>
+            }
+        }
+    };
+
+    // The outline is indented from its shallowest heading, so a document that starts at ## does not
+    // waste a level of the sidebar's width.
+    private int _topHeadingLevel = 1;
+
+    /// <summary>A document's panel opens the document; on the one already open it folds the outline.</summary>
+    private void OnFilePanel(TreeNode node)
+    {
+        if (node.Current) Tree.ToggleOutline(node.Path);
+        else Nav.Navigate(node.Path);
+    }
 
     // Unified popup menu (More button + row context menu).
     private bool _menuOpen;
@@ -241,12 +326,16 @@
         JsBridge.Key += OnKey;
         JsBridge.SidebarResized += OnSidebarResized;
         JsBridge.DocumentZoomed += OnDocumentZoomed;
+        JsBridge.TourEnded += OnTourEnded;
+        JsBridge.TourPrintBar += OnTourPrintBar;
 
         Nav.Initialize();
 
         // Whatever the app was pointed at is the folder the reader is working in — unless that is the
-        // bundled manual, which lives in the install directory and is nobody's working folder.
-        if (Nav.CurrentPath is not null && !MarkdownService.IsUserManual(Nav.CurrentPath))
+        // bundled manual, which lives in the install directory and is nobody's working folder. Only
+        // when no folder has been set yet: the viewer is created again on the way back from Settings,
+        // and that must not move the tree to the folder of whatever document is open by then.
+        if (Tree.Root is null && Nav.CurrentPath is not null && !MarkdownService.IsUserManual(Nav.CurrentPath))
             Tree.SetRootFromFile(Nav.CurrentPath);
 
         RefreshRows();
@@ -256,13 +345,22 @@
     {
         if (firstRender)
         {
-            await JS.InvokeVoidAsync("mdSetSidebarWidth", (int)Prefs.Current.SidebarWidth);
+            // No remembered width → null, and app.js picks the default against the left toolbar.
+            await JS.InvokeVoidAsync("mdSetSidebarWidth", (int?)Prefs.Current.SidebarWidth);
             await JS.InvokeVoidAsync("mdInitResizer", "md-splitter");
             // Theme first (it decides the paper colour), then zoom, then the view mode: pagination
             // reads both of the others.
             await ApplyContentTheme(_contentTheme);
             await JS.InvokeVoidAsync("mdSetDocumentZoom", Prefs.Current.DocumentZoom, false);
             await JS.InvokeVoidAsync("mdSetViewMode", _viewMode, _pageFit);
+            // Offered on first run — and again whenever Settings asks for it, which brings the reader
+            // back to a freshly created viewer and so back through here. Once per run of the app: put
+            // off with Later, it waits for the next launch.
+            if (!Prefs.Current.TourSeen && !Prefs.Current.TourOfferedThisRun)
+            {
+                Prefs.Current.TourOfferedThisRun = true;
+                await JS.InvokeVoidAsync("mdStartTour", Prefs.Current.TourDeferrals < Preferences.MaxTourDeferrals);
+            }
         }
         if (Nav.RenderToken != _lastRenderToken)
         {
@@ -279,19 +377,27 @@
                                      UriScheme.FragmentForFile(Nav.CurrentPath));
             if (documentChanged)
             {
+                CountDocumentForRating();
                 await JS.InvokeVoidAsync("mdScrollTop");
                 // Put the open document at the top of the tree: after following a link it is often
-                // far down a long folder, and a highlighted row you cannot see is no help.
-                var currentRow = _rows.FirstOrDefault(r => r.Kind == TreeRowKind.File && r.Current);
-                if (currentRow is not null)
-                    await JS.InvokeVoidAsync("mdScrollTreeTo", "md-tree", RowId(currentRow));
+                // far down a long folder, and a highlighted panel you cannot see is no help.
+                await JS.InvokeVoidAsync("mdScrollTreeTo", "md-tree", CurrentPanelId);
             }
         }
     }
 
     private void OnNavChanged() { RefreshRows(); InvokeAsync(StateHasChanged); }
     private void OnTreeChanged() { RefreshRows(); InvokeAsync(StateHasChanged); }
-    private void RefreshRows() => _rows = Tree.Rows(Nav.CurrentPath, Nav.CurrentHeadings);
+    private void RefreshRows()
+    {
+        _nodes = Tree.Nodes(Nav.CurrentPath);
+        _detached = Tree.Detached(Nav.CurrentPath);
+        _topHeadingLevel = Nav.CurrentHeadings.Count == 0 ? 1 : Nav.CurrentHeadings.Min(h => h.Level);
+    }
+
+    private static readonly string[] TabIds = ["tab-contents", "tab-history"];
+
+    private void OnTabChanged(string? id) => SelectTab(Math.Max(0, Array.IndexOf(TabIds, id)));
 
     private void SelectTab(int index)
     {
@@ -468,8 +574,8 @@
         ? $"View: pages, {(_pageFit == ViewModes.FitPage ? "whole page" : "full width")}"
         : "View: continuous";
 
-    // Anchored under the button that opened it: this one lives on the left of the toolbar, and the
-    // right-hand placement the More menu uses would put it half a window away from its icon.
+    // Anchored under the button that opened it rather than to the right edge like the More menu:
+    // the zoom control and two more buttons sit between this one and the edge of the window.
     private void OpenViewMenu(MouseEventArgs e)
     {
         _menuRight = false;
@@ -528,6 +634,7 @@
         _menuItems =
         [
             ("Keyboard shortcuts", () => _shortcutsOpen = true),
+            ("What's new", OpenWhatsNew),
             ("Settings", () => _ = OnOpenSettings.InvokeAsync()),
         ];
         _menuOpen = true;
@@ -547,6 +654,61 @@
         ];
         _menuOpen = true;
     }
+
+    private void OpenWhatsNew() => _whatsNewHtml = Markdown.RenderWhatsNew() ?? "<p><em>Nothing to show.</em></p>";
+    private void CloseWhatsNew() => _whatsNewHtml = null;
+
+    // ---- Rating request ------------------------------------------------------------------------
+    // Documents are counted until the request is due, and not at all once it has been answered.
+    // The bundled manual does not count: reading it is not yet using the app.
+
+    private void CountDocumentForRating()
+    {
+        if (!RatingPrompt.IsPending(Prefs.Current)) return;
+        if (Nav.CurrentPath is null || MarkdownService.IsUserManual(Nav.CurrentPath)) return;
+
+        Prefs.Current.DocumentsOpened++;
+        Prefs.Save();
+        if (!_rateBarOpen && RatingPrompt.IsDue(Prefs.Current))
+        {
+            _rateBarOpen = true;
+            StateHasChanged();
+        }
+    }
+
+    private void RateApp()
+    {
+        AnswerRating();
+        RatingPrompt.OpenStore();
+    }
+
+    private void DismissRating() => AnswerRating();
+
+    /// <summary>Rated or waved away, the request has been answered and is not made again.</summary>
+    private void AnswerRating()
+    {
+        _rateBarOpen = false;
+        Prefs.Current.RatingAnswered = RatingPrompt.Campaign;
+        Prefs.Save();
+    }
+
+    // Finished or skipped, the tour has had its turn; only Settings brings it back. Put off, it is
+    // offered again at the next launch.
+    private void OnTourEnded(bool deferred)
+    {
+        if (deferred) Prefs.Current.TourDeferrals++;
+        else Prefs.Current.TourSeen = true;
+        Prefs.Save();
+    }
+
+    // The tour shows the print bar for the length of one step, then puts everything back the way
+    // Esc would: bar closed, the document in its own theme again.
+    private void OnTourPrintBar(bool open) => InvokeAsync(async () =>
+    {
+        if (open) OpenPrintBar();
+        else if (_printBarOpen) await CancelPrintBar();
+        StateHasChanged();
+    });
 
     private void CloseMenu() => _menuOpen = false;
     private void CloseShortcuts() => _shortcutsOpen = false;
@@ -576,7 +738,11 @@
             case "f11": WindowState.ToggleFullScreen(); break;
             case "help": _shortcutsOpen = !_shortcutsOpen; InvokeAsync(StateHasChanged); break;
             case "escape":
-                if (_shortcutsOpen || _menuOpen) { _shortcutsOpen = false; _menuOpen = false; InvokeAsync(StateHasChanged); }
+                if (_shortcutsOpen || _menuOpen || _whatsNewHtml is not null)
+                {
+                    _shortcutsOpen = false; _menuOpen = false; _whatsNewHtml = null;
+                    InvokeAsync(StateHasChanged);
+                }
                 else if (_printBarOpen) { _ = CancelPrintBar(); InvokeAsync(StateHasChanged); }
                 else WindowState.ExitFullScreen(); // nothing open → Esc leaves fullscreen, as everywhere else
                 break;
@@ -604,5 +770,7 @@
         JsBridge.Key -= OnKey;
         JsBridge.SidebarResized -= OnSidebarResized;
         JsBridge.DocumentZoomed -= OnDocumentZoomed;
+        JsBridge.TourEnded -= OnTourEnded;
+        JsBridge.TourPrintBar -= OnTourPrintBar;
     }
 }

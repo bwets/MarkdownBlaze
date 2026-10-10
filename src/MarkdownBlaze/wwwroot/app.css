@@ -1,3 +1,20 @@
+/* The app chrome's colours. Fluent UI supplies them as theme tokens on <html>, light or dark; they
+   are given the app's own names here, once, so the rest of this file does not depend on how Fluent
+   happens to spell them in a given version. */
+:root {
+    --ui-layer-1: var(--colorNeutralBackground1);   /* cards */
+    --ui-layer-2: var(--colorNeutralBackground2);   /* the sidebar */
+    --ui-layer-3: var(--colorNeutralBackground3);   /* the toolbars, folder headers */
+    --ui-layer-4: var(--colorNeutralBackground4);
+    --ui-fg: var(--colorNeutralForeground1);
+    --ui-fg-hint: var(--colorNeutralForeground3);
+    --ui-divider: var(--colorNeutralStroke2);
+    --ui-hover: var(--colorSubtleBackgroundHover);
+    --ui-accent: var(--colorBrandForeground1);      /* accent as text or an edge */
+    --ui-accent-fill: var(--colorBrandBackground);  /* accent as a filled surface… */
+    --ui-on-accent: var(--colorNeutralForegroundOnBrand); /* …and the text on it */
+}
+
 :root {
     color-scheme: light dark;
     --sidebar-w: 280px;
@@ -108,8 +125,8 @@ app { display: block; height: 100%; }
     gap: 4px;
     flex: 0 0 48px;
     padding: 0 8px;
-    background: var(--neutral-layer-3);
-    border-bottom: 1px solid var(--neutral-stroke-divider-rest);
+    background: var(--ui-layer-3);
+    border-bottom: 1px solid var(--ui-divider);
 }
 .app-header .title {
     margin-left: 8px;
@@ -121,6 +138,23 @@ app { display: block; height: 100%; }
     min-width: 0;
 }
 .app-header .spacer { flex: 1 1 auto; }
+/* The header is three toolbars: left (files), middle (sidebar toggle, back/forward, title) and
+   right (view, zoom, theme, more).
+
+   The left toolbar spans the sidebar below it. The header's own left padding (8px) and the gap
+   after the toolbar (4px) are taken off, and the splitter (6px) added, so the middle toolbar starts
+   on the document's left edge. app.js keeps the sidebar from being dragged narrower than the left
+   toolbar's buttons; max-content is the backstop if it ever is. With the sidebar hidden there is
+   nothing to line up with, and the left toolbar is just its buttons. */
+.toolbar-left, .toolbar-middle, .toolbar-right { display: flex; align-items: center; gap: 4px; }
+.toolbar-left {
+    flex: 0 0 auto;
+    width: calc(var(--sidebar-w) - 6px);
+    min-width: max-content;
+}
+.app-header.no-sidebar .toolbar-left { width: auto; }
+.toolbar-middle { flex: 1 1 auto; min-width: 0; } /* takes the slack; the title inside it truncates */
+.toolbar-right { flex: 0 0 auto; }
 
 /* Zoom control: −, the current percentage, +, reset. Grouped so it reads as one instrument, and the
    label has a fixed width so the toolbar does not shuffle as the number changes. */
@@ -130,14 +164,14 @@ app { display: block; height: 100%; }
     gap: 2px;
     padding: 0 2px;
     border-radius: 6px;
-    background: var(--neutral-fill-stealth-hover, rgba(255, 255, 255, .05));
+    background: var(--ui-layer-1); /* a step off the toolbar behind it, so the group reads as one control */
 }
 .zoom-label {
     min-width: 46px;
     text-align: center;
     font-size: .8rem;
     font-variant-numeric: tabular-nums;
-    color: var(--neutral-foreground-rest);
+    color: var(--ui-fg);
     user-select: none;
 }
 .gly { font-size: 16px; line-height: 1; font-family: "Segoe UI Symbol", "Noto Color Emoji", sans-serif; }
@@ -151,8 +185,8 @@ app { display: block; height: 100%; }
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
-    background: var(--neutral-layer-2);
-    border-right: 1px solid var(--neutral-stroke-divider-rest);
+    background: var(--ui-layer-2);
+    border-right: 1px solid var(--ui-divider);
 }
 .sidebar-tabs { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .splitter {
@@ -161,25 +195,15 @@ app { display: block; height: 100%; }
     background: transparent;
     transition: background .12s;
 }
-.splitter:hover, .splitter.dragging { background: var(--accent-fill-rest); }
+.splitter:hover, .splitter.dragging { background: var(--ui-accent); }
 .app-body.no-sidebar .sidebar,
 .app-body.no-sidebar .splitter { display: none; }
 
-.tabstrip { display: flex; flex: 0 0 auto; border-bottom: 1px solid var(--neutral-stroke-divider-rest); padding: 0 4px; }
-.tab {
-    flex: 1 1 0;
-    padding: 9px 4px 7px;
-    text-align: center;
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--neutral-foreground-rest);
-    font-size: .82rem;
-    font-family: inherit;
-}
-.tab:hover { background: var(--neutral-fill-stealth-hover); }
-.tab.active { color: var(--accent-fill-rest); border-bottom-color: var(--accent-fill-rest); font-weight: 600; }
+/* The strip of tabs is Fluent's own; this is just the line it sits on. */
+.tabstrip { flex: 0 0 auto; border-bottom: 1px solid var(--ui-divider); padding: 0 4px; }
+/* Fluent gives every tab a panel of its own. Ours are empty — the app renders what a tab shows,
+   underneath — and would only leave a gap under the strip. */
+.tabstrip [id$="-panel"] { display: none; }
 .tab-panels { flex: 1 1 auto; min-height: 0; }
 
 .list { overflow: auto; padding: 6px; height: 100%; box-sizing: border-box; }
@@ -190,7 +214,7 @@ app { display: block; height: 100%; }
     padding: 6px 10px;
     border-radius: 5px;
     cursor: pointer;
-    color: var(--neutral-foreground-rest);
+    color: var(--ui-fg);
     font-size: .9rem;
     white-space: nowrap;
     overflow: hidden;
@@ -198,9 +222,9 @@ app { display: block; height: 100%; }
     border: none;
     background: transparent;
 }
-.row:hover { background: var(--neutral-fill-stealth-hover); }
-.row.current { color: var(--accent-fill-rest); font-weight: 600; }
-.row .dot { color: var(--accent-fill-rest); margin-right: 4px; }
+.row:hover { background: var(--ui-hover); }
+.row.current { color: var(--ui-accent); font-weight: 600; }
+.row .dot { color: var(--ui-accent); margin-right: 4px; }
 
 /* Global-history rows carry a delete button that slides in from the right on hover. Flex keeps a
    fixed right-hand slot (so the row width never jumps); overflow:hidden clips the button while it is
@@ -218,8 +242,8 @@ app { display: block; height: 100%; }
     padding: 0;
     border: none;
     border-radius: 0 5px 5px 0;  /* right corners only — flat where it meets the row */
-    background: var(--neutral-fill-stealth-hover); /* blends into the row's hover pill */
-    color: var(--neutral-foreground-rest);
+    background: var(--ui-hover); /* blends into the row's hover pill */
+    color: var(--ui-fg);
     font-size: 15px;
     font-weight: 600;
     line-height: 1;
@@ -232,71 +256,118 @@ app { display: block; height: 100%; }
 .row-wrap:hover .row-del { opacity: 1; transform: translateX(0); pointer-events: auto; }
 /* Turns red only when the × itself is hovered. */
 .row-del:hover { background: #ff3b30; color: #fff; }
-.toc-link { padding-left: 10px; }
 
-/* ---- Folder tree (Headers tab) ---- */
-.tree-root {
-    padding: 6px 10px;
-    font-size: .78rem;
-    font-weight: 600;
-    letter-spacing: .3px;
-    text-transform: uppercase;
-    color: var(--neutral-foreground-hint);
+/* ---- Folder tree (Contents tab) ---- */
+/* Folders and documents are panels — a header you click and a body that folds away — so neither
+   can be mistaken for the headings, which stay a plain indented tree inside the open document.
+   A folder is a tinted header over whatever it holds; a document is a card. Panels nest, and each
+   level costs only a few pixels of the sidebar's width. */
+.tree { display: flex; flex-direction: column; gap: 4px; }
+.tree > * { flex: 0 0 auto; }
+.panel {
+    border: 1px solid var(--ui-divider);
+    border-radius: 6px;
+    overflow: hidden; /* the header's tint follows the rounded corners */
+}
+.panel-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    color: var(--ui-fg);
+    font-family: inherit;
+    font-size: .88rem;
+    text-align: left;
+    cursor: pointer;
+}
+.panel-head:hover { background: var(--ui-hover); }
+.panel-icon { display: flex; flex: 0 0 auto; color: var(--ui-fg-hint); }
+.panel-label { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Points right when shut, down when open. */
+.panel-chevron { display: flex; flex: 0 0 auto; color: var(--ui-fg-hint); transition: transform .12s ease; }
+.panel.open > .panel-head .panel-chevron { transform: rotate(90deg); }
+.panel-body { display: flex; flex-direction: column; gap: 4px; }
+.panel-empty { padding: 4px 8px; color: var(--ui-fg-hint); font-size: .8rem; }
+
+.panel-folder > .panel-head { background: var(--ui-layer-3); font-weight: 600; }
+.panel-folder > .panel-head:hover { background: var(--ui-layer-4); }
+.panel-folder > .panel-body { padding: 4px; border-top: 1px solid var(--ui-divider); }
+
+.panel-file { background: var(--ui-layer-1); }
+/* The document being read: picked out in the accent colour, edge and name alike. */
+.panel-file.current { border-color: var(--ui-accent); }
+.panel-file.current > .panel-head { font-weight: 600; }
+.panel-file.current > .panel-head .panel-label,
+.panel-file.current > .panel-head .panel-icon { color: var(--ui-accent); }
+
+/* The outline: one row per heading, indented by its level below the document's shallowest. */
+.outline { gap: 0; padding: 3px; border-top: 1px solid var(--ui-divider); }
+.outline-row {
+    display: block;
+    width: 100%;
+    padding: 4px 8px 4px calc(8px + var(--level, 0) * 12px);
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ui-fg);
+    font-family: inherit;
+    font-size: .84rem;
+    text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
 }
-.tree-folder { font-weight: 600; }
-.twisty {
-    display: inline-block;
-    width: 12px;
-    margin-right: 2px;
-    color: var(--neutral-foreground-hint);
-}
-.tree-file.current { color: var(--accent-fill-rest); font-weight: 600; }
-.empty { padding: 12px; color: var(--neutral-foreground-hint); font-size: .85rem; }
+.outline-row:hover { background: var(--ui-hover); }
+/* Where the reader is: the heading of the section at the top of the pane. Kept slight — a tint and
+   a hairline of accent — because it moves as the document scrolls. app.js sets the attribute. */
+.outline-row[data-here] { background: var(--ui-hover); box-shadow: inset 2px 0 0 var(--ui-accent); }
+.empty { padding: 12px; color: var(--ui-fg-hint); font-size: .85rem; }
 
 /* ---- Content ---- */
 .content-area { flex: 1 1 auto; overflow: auto; }
-.content {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 1.5rem 2.2rem 4rem;
-    line-height: 1.6;
-    color: var(--md-fg);
-}
-.content h1, .content h2 { border-bottom: 1px solid var(--md-border); padding-bottom: .3em; }
-.content h1, .content h2, .content h3, .content h4 { font-weight: 600; line-height: 1.25; margin-top: 1.5em; }
-.content a { color: var(--md-link); text-decoration: none; }
-.content a:hover { text-decoration: underline; }
-.content code { font-family: "Cascadia Code", Consolas, monospace; background: var(--md-code-bg); padding: .2em .4em; border-radius: 6px; font-size: 85%; }
-.content pre { margin: 1em 0; overflow: auto; }
-.content pre code { background: transparent; padding: 0; font-size: 100%; }
-.content blockquote { margin: 0 0 1em; padding: 0 1em; color: var(--md-quote); border-left: .25em solid var(--md-border); }
-.content table { border-collapse: collapse; }
-.content th, .content td { border: 1px solid var(--md-border); padding: 6px 13px; }
-.content tr:nth-child(2n) { background: var(--md-row); }
-.content img { max-width: 100%; }
+/* The reader's zoom — and in page view the fit — is held on the pane by app.js, not on the document:
+   the document element is rebuilt whenever the file is re-read, and the pane is not. */
+.content-area > .content { zoom: var(--doc-zoom, 1); }
+
+/* The document's own box. Everything about how the document *reads* — typeface, sizes, spacing,
+   lists, tables, code — is in lib/content-themes.css, for the app's own look and for every content
+   theme alike. What is left here is what belongs to the app: wrapping, callouts, page view, print. */
+.content { padding: 1.5rem 2.2rem 4rem; }
 
 /* code blocks + mermaid */
 pre code.hljs { padding: 1rem; border-radius: 6px; display: block; }
 
-/* ---- Nothing in the document scrolls sideways --------------------------------------------------
-   The reading column is the width of the running text, and every block stays inside it: long code
-   wraps, diagrams scale, and wide tables shrink. Without this a code block gets its own horizontal
-   scrollbar — the highlight.js sheet puts overflow-x:auto on the inner <code>, and it bites hardest
-   under a content theme, where the column is narrower than the pane.
+/* ---- Blocks stay inside the reading column -----------------------------------------------------
+   The column is the width of the running text. Diagrams scale to it and wide tables shrink to it.
+   Code is never justified or hyphenated, and what a long line does depends on the look, through
+   --ct-code-space (lib/content-themes.css): in the app's own look a line of code is a line, kept
+   exactly as written, and the block scrolls sideways when one runs past the column; under a
+   content theme the document is a page for printing, so long lines wrap instead. The <pre> is
+   what scrolls, because it is the <pre> that draws the box; the highlight.js sheet would
+   otherwise put the scrollbar on the <code> inside it.
 
-   The `.content.markdown-body` compound is deliberate: content-theme rules land one class deeper
-   than a plain `.content`, so a single class would lose to them. Two classes ties, and app.css is
-   the last stylesheet, so these win. */
-.content.markdown-body pre,
-.content.markdown-body pre code {
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
-    overflow-x: visible;
+   The `.content.markdown-body` compound is deliberate: it outranks the shared document structure
+   in lib/content-themes.css, which lands on `.markdown-body` alone. */
+.content.markdown-body pre {
+    white-space: var(--ct-code-space, pre);
+    overflow-x: auto;           /* nothing to scroll once the lines wrap */
+    overflow-wrap: break-word;  /* only bites when wrapping: a long token breaks rather than overflows */
+    hyphens: manual;
+    text-align: start;
+    /* A slim bar in the document's own border colour, rather than the system's chunky one. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--md-border) transparent;
 }
-.content.markdown-body pre.mermaid { overflow: visible; text-align: center; }
+.content.markdown-body pre code {
+    white-space: inherit;
+    overflow: visible;
+    overflow-wrap: inherit;
+}
+.content.markdown-body pre.mermaid { overflow: visible; text-align: center; font-family: inherit; font-size: 1em; }
 .content.markdown-body pre.mermaid svg { max-width: 100%; height: auto; }
 /* A table keeps its natural width, capped at the column so it can never scroll. It is data, not
    prose: forced into a book measure a seven-column table breaks its headings mid-word, which is
@@ -306,9 +377,11 @@ pre code.hljs { padding: 1rem; border-radius: 6px; display: block; }
 .content.markdown-body td { overflow-wrap: break-word; }
 
 pre.mermaid { background: transparent; text-align: center; line-height: normal; }
+/* A diagram's labels are HTML inside the drawing; they are words in boxes, not running text. */
+svg[id^="mermaid"] { hyphens: manual; text-align: start; }
 
 /* ---- Admonitions (mirrors bwets.Markdig.Extensions AdmonitionFeature) ---- */
-.admonition { margin: 1em 0; border: 1px solid var(--md-border); border-left: 4px solid var(--adm, #448aff); border-radius: 6px; overflow: hidden; background: var(--neutral-layer-1); }
+.admonition { margin: 1em 0; border: 1px solid var(--md-border); border-left: 4px solid var(--adm, #448aff); border-radius: 6px; overflow: hidden; background: var(--ui-layer-1); }
 .admonition-title { display: flex; align-items: center; gap: .5em; font-weight: 600; padding: .5em .9em; background: var(--adm-bg, rgba(68,138,255,.1)); }
 .admonition-icon { font-style: normal; line-height: 1; }
 .admonition-body { padding: .2em .9em; }
@@ -347,7 +420,7 @@ details.admonition > summary.admonition-title { cursor: pointer; list-style: non
 /* KaTeX display math: allow wide equations to scroll instead of overflowing the page. */
 .markdown-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: .3em 0; }
 /* A ```math fence is rendered in place into its <pre>; strip the code-block chrome. */
-.markdown-body pre.math-block { background: transparent; padding: .3em 0; border: 0; }
+.markdown-body pre.math-block { background: transparent; padding: .3em 0; border: 0; font-size: 1em; }
 
 /* ---- Popup menu (More button + history context menu) ---- */
 .menu-backdrop { position: fixed; inset: 0; z-index: 1000; }
@@ -356,8 +429,8 @@ details.admonition > summary.admonition-title { cursor: pointer; list-style: non
     z-index: 1001;
     min-width: 200px;
     max-width: 320px;
-    background: var(--neutral-layer-1);
-    border: 1px solid var(--neutral-stroke-divider-rest);
+    background: var(--ui-layer-1);
+    border: 1px solid var(--ui-divider);
     border-radius: 6px;
     padding: 4px;
     box-shadow: 0 6px 20px rgba(0,0,0,.28);
@@ -370,13 +443,13 @@ details.admonition > summary.admonition-title { cursor: pointer; list-style: non
     background: transparent;
     border: none;
     border-radius: 4px;
-    color: var(--neutral-foreground-rest);
+    color: var(--ui-fg);
     cursor: pointer;
     font-size: .9rem;
     font-family: inherit;
     white-space: nowrap;
 }
-.ctx button:hover { background: var(--neutral-fill-stealth-hover); }
+.ctx button:hover { background: var(--ui-hover); }
 
 /* ---- Keyboard shortcuts overlay (?) ---- */
 .shortcuts {
@@ -387,8 +460,8 @@ details.admonition > summary.admonition-title { cursor: pointer; list-style: non
     transform: translate(-50%, -50%);
     min-width: 340px;
     max-width: 90vw;
-    background: var(--neutral-layer-1);
-    border: 1px solid var(--neutral-stroke-divider-rest);
+    background: var(--ui-layer-1);
+    border: 1px solid var(--ui-divider);
     border-radius: 10px;
     padding: 18px 24px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
@@ -396,9 +469,9 @@ details.admonition > summary.admonition-title { cursor: pointer; list-style: non
 .shortcuts-head { font-weight: 600; font-size: 1.05rem; margin-bottom: .8em; }
 .shortcuts-table { border-collapse: collapse; width: 100%; }
 .shortcuts-table td { padding: .35em .3em; vertical-align: middle; }
-.sc-action { color: var(--neutral-foreground-rest); padding-right: 2.5em !important; }
+.sc-action { color: var(--ui-fg); padding-right: 2.5em !important; }
 .sc-keys { text-align: right; white-space: nowrap; }
-.sc-or, .sc-plus { color: var(--neutral-foreground-hint); margin: 0 .3em; }
+.sc-or, .sc-plus { color: var(--ui-fg-hint); margin: 0 .3em; }
 .shortcuts kbd {
     display: inline-block;
     min-width: 1.3em;
@@ -411,7 +484,110 @@ details.admonition > summary.admonition-title { cursor: pointer; list-style: non
     border-bottom-width: 2px;
     border-radius: 5px;
 }
-.shortcuts-foot { margin-top: 1.1em; font-size: .82rem; color: var(--neutral-foreground-hint); text-align: center; }
+.shortcuts-foot { margin-top: 1.1em; font-size: .82rem; color: var(--ui-fg-hint); text-align: center; }
+
+/* ---- What's new ----
+   A page of the app's own, shown over the document: one section per version. Always in the app's
+   look (.app-look, see lib/content-themes.css), not in the document's theme. */
+.whats-new {
+    position: fixed;
+    z-index: 1001;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    width: min(680px, 92vw);
+    max-height: 82vh;
+    background: var(--ui-layer-1);
+    border: 1px solid var(--ui-divider);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+    overflow: hidden;
+}
+.whats-new-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    padding: 12px 12px 12px 22px;
+    border-bottom: 1px solid var(--ui-divider);
+    font-weight: 600;
+    font-size: 1.05rem;
+}
+.whats-new-close {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ui-fg);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+.whats-new-close:hover { background: var(--ui-hover); }
+/* The page fills the dialog rather than keeping a document's reading column. */
+.whats-new .whats-new-body {
+    flex: 1 1 auto;
+    max-width: none;
+    margin: 0;
+    padding: 18px 22px 22px;
+    overflow: auto;
+    user-select: text;
+}
+.whats-new .whats-new-body * { user-select: text; }
+
+/* ---- Guided tour ----
+   Small blue tooltips, one at a time, each pointing at one part of the window. Built by app.js
+   outside the app's own element, so nothing here is ever in the way of rendering. */
+.tour-tip {
+    position: fixed;
+    z-index: 2001;
+    width: 300px;
+    max-width: calc(100vw - 16px);
+    padding: 12px 14px 10px;
+    border-radius: 8px;
+    background: var(--ui-accent-fill, #0f6cbd);
+    color: var(--ui-on-accent, #fff);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+    font-size: .88rem;
+    line-height: 1.45;
+}
+.tour-arrow {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: inherit;
+    transform: rotate(45deg);
+}
+.tour-title { font-weight: 600; font-size: .95rem; margin-bottom: 3px; }
+.tour-foot { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.tour-count { margin-right: auto; opacity: .8; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.tour-tip button {
+    padding: 4px 10px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: .84rem;
+    cursor: pointer;
+}
+.tour-tip button:hover { background: rgba(255, 255, 255, .16); }
+.tour-tip .tour-skip { opacity: .85; }
+/* The way forward is the one filled button. */
+.tour-tip .tour-next { background: var(--ui-on-accent, #fff); color: var(--ui-accent-fill, #0f6cbd); font-weight: 600; }
+.tour-tip .tour-next:hover { background: var(--ui-on-accent, #fff); opacity: .9; }
+/* What the tooltip is pointing at. */
+.tour-ring {
+    position: fixed;
+    z-index: 2000;
+    border: 2px solid var(--ui-accent, #0f6cbd);
+    border-radius: 8px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-accent, #0f6cbd) 25%, transparent);
+    pointer-events: none;
+}
 
 /* ---- Page view ----
    The document keeps its own element and is simply given the width of a sheet; a repeating gradient
@@ -441,10 +617,11 @@ body .content-area.document-pane.paged {
     /* Follows the gradient's alpha, so every sheet gets its own shadow rather than one for the lot. */
     filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .5));
 }
-/* A sheet has hard edges, so a wide table has to fit it — the same concession printing makes, for
-   the same reason: there is nothing past the edge of the paper. */
+/* A sheet has hard edges, so a wide table has to fit it and long code has to wrap — the same
+   concessions printing makes, for the same reason: there is nothing past the edge of the paper. */
 .content-area.paged .content th,
 .content-area.paged .content td { overflow-wrap: anywhere; }
+.content-area.paged .content pre { white-space: pre-wrap; overflow-wrap: break-word; overflow-x: visible; }
 
 /* ---- Toast ----
    A word about what just changed, for the keyboard shortcuts that have no other feedback. */
@@ -457,9 +634,9 @@ body .content-area.document-pane.paged {
     border-radius: 999px;
     /* Fallbacks matter here: this floats over the document, which a content theme may have painted
        any colour, so it must never come out as bare text on the page. */
-    background: var(--neutral-layer-3, #26262b);
-    color: var(--neutral-foreground-rest, #f2f2f2);
-    border: 1px solid var(--neutral-stroke-divider-rest, rgba(255, 255, 255, .18));
+    background: var(--ui-layer-3, #26262b);
+    color: var(--ui-fg, #f2f2f2);
+    border: 1px solid var(--ui-divider, rgba(255, 255, 255, .18));
     box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
     font-size: .85rem;
     white-space: nowrap;
@@ -490,38 +667,83 @@ body .content-area.document-pane.paged {
     flex-wrap: wrap;
     gap: 6px;
     padding: 8px 12px;
-    background: var(--neutral-layer-3);
-    border-top: 1px solid var(--neutral-stroke-divider-rest);
+    background: var(--ui-layer-3);
+    border-top: 1px solid var(--ui-divider);
     box-shadow: 0 -2px 10px rgba(0, 0, 0, .18);
 }
 .print-bar-label { font-weight: 600; font-size: .85rem; margin-right: 4px; }
 .print-chip {
     padding: 5px 11px;
     border-radius: 999px;
-    border: 1px solid var(--neutral-stroke-divider-rest);
+    border: 1px solid var(--ui-divider);
     background: transparent;
-    color: var(--neutral-foreground-rest);
+    color: var(--ui-fg);
     font-family: inherit;
     font-size: .82rem;
     cursor: pointer;
 }
-.print-chip:hover { background: var(--neutral-fill-stealth-hover); }
+.print-chip:hover { background: var(--ui-hover); }
 .print-chip.active {
-    background: var(--accent-fill-rest);
-    border-color: var(--accent-fill-rest);
-    color: var(--neutral-fill-rest);
+    background: var(--ui-accent-fill);
+    border-color: var(--ui-accent-fill);
+    color: var(--ui-on-accent);
     font-weight: 600;
 }
-.print-bar-hint { margin-left: auto; font-size: .8rem; color: var(--neutral-foreground-hint); }
+.print-bar-hint { margin-left: auto; font-size: .8rem; color: var(--ui-fg-hint); }
 /* Keep the last lines of the document reachable while the bar covers them. */
 .app-body.printing .content { padding-bottom: 5rem; }
+
+/* ---- Rating bar ----
+   One quiet line along the bottom, where the print bar goes: hint-coloured text, one outlined
+   button, one ×. Shown once (see RatingPrompt.cs); it is furniture, not a dialog. */
+.rate-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 49;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 6px 12px;
+    background: var(--ui-layer-3);
+    border-top: 1px solid var(--ui-divider);
+    color: var(--ui-fg-hint);
+    font-size: .84rem;
+}
+.rate-bar-go {
+    padding: 3px 12px;
+    border: 1px solid var(--ui-accent);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+.rate-bar-go:hover { background: var(--ui-hover); }
+.rate-bar-close {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--ui-fg-hint);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+}
+.rate-bar-close:hover { background: var(--ui-hover); color: var(--ui-fg); }
 
 /* ---- Settings ---- */
 .settings { max-width: 720px; margin: 0 auto; padding: 2rem; }
 .settings h2 { margin-top: 0; }
 .setting-row { margin: 1.2rem 0; }
 .setting-label { font-weight: 600; margin-bottom: .4rem; }
-.muted { color: var(--neutral-foreground-hint); }
+/* Fluent spaces each radio as a form field of its own; these three are one short list. */
+.setting-row fluent-field { margin-block: 0; }
+.muted { color: var(--ui-fg-hint); }
 
 /* ---- Printing ---------------------------------------------------------------------------------
    Print the document, not the app: the toolbar, sidebar, splitter and every overlay are dropped, and
@@ -571,10 +793,11 @@ body .content-area.document-pane.paged {
     .menu-backdrop,
     .ctx,
     .shortcuts,
-    fluent-toast-provider,
-    fluent-dialog-provider,
-    fluent-tooltip-provider,
-    fluent-menu-provider { display: none !important; }
+    .whats-new,
+    .rate-bar,
+    .tour-tip,
+    .tour-ring,
+    .fluent-providers { display: none !important; }
 
     /* Unclamp the shell: flex + fixed viewport height would print a single cropped page. */
     .app-shell, .app-body, .content-area { display: block; height: auto; overflow: visible; }
@@ -582,7 +805,7 @@ body .content-area.document-pane.paged {
     /* The document itself takes the full page width — the on-screen reading measure is too narrow
        once the sidebar is gone, and the margins come from @page. The second rule outranks the
        content themes, which set their own on-screen measure on the same element. */
-    .content { max-width: none; margin: 0; padding: 0; color: #000; }
+    .content { max-width: none; margin: 0; padding: 0; }
     .content.markdown-body { max-width: none; margin: 0; padding: 0; }
 
     /* On screen a wide table may run past the reading column — the pane simply scrolls. Paper has no
@@ -596,11 +819,14 @@ body .content-area.document-pane.paged {
        wrap long code lines (a print sheet cannot be scrolled sideways). */
     pre, blockquote, table, figure, img, .admonition, .katex-display { break-inside: avoid; }
     h1, h2, h3, h4 { break-after: avoid; }
-    .content pre { overflow: visible; white-space: pre-wrap; word-wrap: break-word; }
+    .content.markdown-body pre { overflow: visible; white-space: pre-wrap; overflow-wrap: break-word; }
     .content img, pre.mermaid svg { max-width: 100%; height: auto; }
 
-    /* Links stay underlined but lose the blue — it prints as washed-out grey on a mono printer. */
-    .content a { color: #000; text-decoration: underline; }
+    /* Links stay underlined but lose the blue — it prints as washed-out grey on a mono printer.
+       A content theme keeps its own link colour: its palette is what was picked, and black would
+       vanish on a dark page. */
+    html:not(.ctl):not(.ctd) .content a { color: #000; }
+    .content a { text-decoration: underline; }
 }
 
 /* Keep this at or above ~9mm. The browser draws its own header and footer inside the page margin —

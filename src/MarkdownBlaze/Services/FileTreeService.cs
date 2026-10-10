@@ -1,29 +1,28 @@
 namespace MarkdownBlaze.Services;
 
-/// <summary>What a row in the sidebar tree is.</summary>
-public enum TreeRowKind { Folder, File, Heading }
+/// <summary>What a panel in the sidebar is.</summary>
+public enum TreeNodeKind { Folder, File }
 
 /// <summary>
-/// One rendered line of the tree. <paramref name="Depth"/> is the indent level, <paramref name="Key"/>
-/// is a stable id for the row (a path, or a path plus heading slug).
+/// One folder or document in the sidebar, drawn as a collapsible panel. An open folder carries what
+/// is inside it in <paramref name="Children"/>; a document has none — when it is the one being read
+/// and <paramref name="Expanded"/>, its panel shows the document's own headings instead.
 /// </summary>
-public sealed record TreeRow(
-    TreeRowKind Kind,
-    string Key,
+public sealed record TreeNode(
+    TreeNodeKind Kind,
+    string Path,
     string Label,
-    int Depth,
     bool Expanded,
     bool Current,
-    string? Path = null,
-    string? Slug = null);
+    IReadOnlyList<TreeNode> Children);
 
 /// <summary>
 /// The folder the reader is working in, and the tree of documents inside it.
 /// <para>
 /// Folders are read only when they are opened, so pointing the app at a large tree costs nothing
 /// until it is explored. The chain of folders leading to the current document is opened
-/// automatically, and the current document shows its own headings as children — everything else
-/// stays shut.
+/// automatically, and the current document's panel is open on its own headings — everything else
+/// stays shut until the reader opens it.
 /// </para>
 /// </summary>
 public sealed class FileTreeService
@@ -37,6 +36,14 @@ public sealed class FileTreeService
     private readonly HashSet<string> _expanded = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (List<string> Folders, List<string> Files)> _children =
         new(StringComparer.OrdinalIgnoreCase);
+
+    // The document whose folders were last opened for it. Revealing happens once per document, not
+    // on every render — otherwise a folder holding the open document could never be shut.
+    private string? _revealed;
+
+    // The document whose outline the reader has shut. Only the open document has one, so one is
+    // enough; moving to another document forgets it.
+    private string? _outlineShut;
 
     /// <summary>The folder at the top of the tree, or null before a document has been opened.</summary>
     public string? Root { get; private set; }
@@ -56,7 +63,7 @@ public sealed class FileTreeService
 
         Root = full;
         _children.Clear();
-        if (rootChanged) _expanded.Clear();
+        if (rootChanged) { _expanded.Clear(); _revealed = null; }
         _expanded.Add(full);
         Changed?.Invoke();
     }
@@ -81,19 +88,46 @@ public sealed class FileTreeService
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// The visible rows, in display order: the root's contents, opened folders expanded, and the
-    /// current document followed by its headings.
-    /// </summary>
-    public IReadOnlyList<TreeRow> Rows(string? currentFile, IReadOnlyList<Heading> headings)
+    /// <summary>Shuts or reopens the outline of the document being read.</summary>
+    public void ToggleOutline(string file)
     {
-        var rows = new List<TreeRow>();
-        if (Root is null) return rows;
+        _outlineShut = string.Equals(_outlineShut, file, StringComparison.OrdinalIgnoreCase) ? null : file;
+        Changed?.Invoke();
+    }
 
+    /// <summary>
+    /// The panels inside the root, in display order: its folders, then its documents, each open
+    /// folder carrying its own.
+    /// </summary>
+    public IReadOnlyList<TreeNode> Nodes(string? currentFile)
+    {
+        var current = Track(currentFile);
+        if (Root is null) return [];
+
+        if (!string.Equals(current, _revealed, StringComparison.OrdinalIgnoreCase))
+        {
+            _revealed = current;
+            OpenPathTo(current);
+        }
+        return ChildNodes(Root, current);
+    }
+
+    /// <summary>
+    /// The document being read when it lies outside the root — the bundled manual, or one reached by
+    /// a link. It gets a panel of its own above the tree, so its outline is never out of reach.
+    /// </summary>
+    public TreeNode? Detached(string? currentFile)
+    {
+        var current = Track(currentFile);
+        return current is null || Contains(current) ? null : FileNode(current, current);
+    }
+
+    /// <summary>Normalises the open document's path; a shut outline is forgotten once it changes.</summary>
+    private string? Track(string? currentFile)
+    {
         var current = string.IsNullOrEmpty(currentFile) ? null : Path.GetFullPath(currentFile);
-        OpenPathTo(current);
-        Append(rows, Root, 0, current, headings);
-        return rows;
+        if (!string.Equals(current, _outlineShut, StringComparison.OrdinalIgnoreCase)) _outlineShut = null;
+        return current;
     }
 
     /// <summary>True when the document sits inside the current root, so the tree can point at it.</summary>
@@ -116,29 +150,27 @@ public sealed class FileTreeService
         }
     }
 
-    private void Append(List<TreeRow> rows, string folder, int depth, string? current,
-                        IReadOnlyList<Heading> headings)
+    private List<TreeNode> ChildNodes(string folder, string? current)
     {
         var (folders, files) = ChildrenOf(folder);
+        var nodes = new List<TreeNode>(folders.Count + files.Count);
 
         foreach (var child in folders)
         {
             var open = _expanded.Contains(child);
-            rows.Add(new TreeRow(TreeRowKind.Folder, child, Path.GetFileName(child), depth, open, false, child));
-            if (open) Append(rows, child, depth + 1, current, headings);
+            nodes.Add(new TreeNode(TreeNodeKind.Folder, child, Path.GetFileName(child), open, false,
+                                   open ? ChildNodes(child, current) : []));
         }
 
-        foreach (var file in files)
-        {
-            var isCurrent = current is not null && string.Equals(file, current, StringComparison.OrdinalIgnoreCase);
-            rows.Add(new TreeRow(TreeRowKind.File, file, Path.GetFileName(file), depth, isCurrent, isCurrent, file));
+        foreach (var file in files) nodes.Add(FileNode(file, current));
+        return nodes;
+    }
 
-            // The open document carries its own outline as children.
-            if (!isCurrent) continue;
-            foreach (var heading in headings)
-                rows.Add(new TreeRow(TreeRowKind.Heading, file + "#" + heading.Slug, heading.Text,
-                                     depth + heading.Level, false, false, file, heading.Slug));
-        }
+    private TreeNode FileNode(string file, string? current)
+    {
+        var isCurrent = current is not null && string.Equals(file, current, StringComparison.OrdinalIgnoreCase);
+        var open = isCurrent && !string.Equals(file, _outlineShut, StringComparison.OrdinalIgnoreCase);
+        return new TreeNode(TreeNodeKind.File, file, Path.GetFileName(file), open, isCurrent, []);
     }
 
     private (List<string> Folders, List<string> Files) ChildrenOf(string folder)

@@ -1,12 +1,46 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MarkdownBlaze.Services;
 
 public sealed class Preferences
 {
     public bool SidebarPinned { get; set; } = true;
-    public double SidebarWidth { get; set; } = 280;
+    /// <summary>
+    /// The width the reader dragged the sidebar to; null until they have. The default is not a
+    /// number kept here: app.js works it out, so that it is always wider than the left toolbar.
+    /// </summary>
+    public double? SidebarWidth { get; set; }
     public int SidebarTab { get; set; }
+
+    /// <summary>
+    /// Whether the guided tour has been through — finished or skipped, it is the same thing: the
+    /// tour is offered once and never forced. Settings clears this to run it again.
+    /// </summary>
+    public bool TourSeen { get; set; }
+
+    /// <summary>How many times the tour has been put off with <em>Later</em>.</summary>
+    public int TourDeferrals { get; set; }
+
+    /// <summary>
+    /// How often the tour may be put off. After that it is still offered once more, but only to be
+    /// taken or skipped — an offer that can be postponed for ever is a nag.
+    /// </summary>
+    public const int MaxTourDeferrals = 2;
+
+    /// <summary>
+    /// Set once the tour has been offered in this run of the app, so that putting it off really
+    /// does put it off until the next launch. Not saved.
+    /// </summary>
+    [JsonIgnore] public bool TourOfferedThisRun { get; set; }
+
+    /// <summary>Documents opened so far — counted only until the rating request has had its answer.</summary>
+    public int DocumentsOpened { get; set; }
+
+    /// <summary>
+    /// The round of <see cref="RatingPrompt"/> the reader has answered or dismissed; 0 for none.
+    /// </summary>
+    public int RatingAnswered { get; set; }
     public string ThemeMode { get; set; } = "Dark"; // System | Light | Dark
 
     /// <summary>Default skin for the rendered document — an id from <see cref="ContentThemes"/>.</summary>

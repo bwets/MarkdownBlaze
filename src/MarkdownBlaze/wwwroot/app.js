@@ -76,10 +76,56 @@ function mdContentIsDark() {
 
 function mdMermaidTheme() { return mdContentIsDark() ? 'dark' : 'default'; }
 
+// Diagrams are part of the document, so their labels are set in the document's typeface rather
+// than mermaid's own default — otherwise every diagram brings a second font onto the page.
+function mdDocumentFont() {
+    const flow = document.querySelector('.content.markdown-body');
+    return flow ? getComputedStyle(flow).fontFamily : undefined;
+}
+
+// Mermaid lays a diagram out from what it measures in the page, and two things about this page
+// throw those measurements off:
+//
+//   - It decides that a label has reached its maximum width — and must wrap — by testing the
+//     measured width for *equality* with that maximum. Measured through the drawing's transforms
+//     on a display scaled to, say, 175%, 120 comes back as 120.0000076; the test fails, and the
+//     label stays on one line and is clipped by its box.
+//   - The document may be zoomed, and a measurement taken inside a zoomed element comes back
+//     zoomed, while the drawing is laid out in unzoomed units.
+//
+// So while a diagram is being drawn, measurements of its labels are taken back to unzoomed pixels
+// and rounded to a thousandth of one. Nothing else is touched, and the browser's own function is
+// put back as soon as the last drawing in progress has finished.
+let mdSteadyDepth = 0;
+let mdTrueRect = null;
+function mdWithSteadyMeasures(draw) {
+    if (mdSteadyDepth++ === 0) {
+        mdTrueRect = Element.prototype.getBoundingClientRect;
+        const measure = mdTrueRect;
+        const round = v => Math.round(v * 1000) / 1000;
+        Element.prototype.getBoundingClientRect = function () {
+            const r = measure.call(this);
+            if (!this.closest || !this.closest('foreignObject')) return r;
+            const zoom = this.currentCSSZoom || 1;
+            return new DOMRect(r.x, r.y, round(r.width / zoom), round(r.height / zoom));
+        };
+    }
+    const done = () => { if (--mdSteadyDepth === 0) Element.prototype.getBoundingClientRect = mdTrueRect; };
+    let result;
+    try { result = Promise.resolve(draw()); } catch (e) { done(); throw e; }
+    return result.finally(done);
+}
+
 function mdRunMermaid(theme) {
     try {
-        window.mermaid.initialize({ startOnLoad: false, theme: theme || mdMermaidTheme() });
-        return Promise.resolve(window.mermaid.run());
+        const fontFamily = mdDocumentFont();
+        window.mermaid.initialize({
+            startOnLoad: false,
+            theme: theme || mdMermaidTheme(),
+            fontFamily,
+            themeVariables: { fontFamily },
+        });
+        return mdWithSteadyMeasures(() => window.mermaid.run());
     } catch (e) { console.error('mermaid', e); return Promise.resolve(); }
 }
 
@@ -121,6 +167,7 @@ window.mdInit = function () {
     mdWatchPane();
     window.mdRepaginate();
     setTimeout(() => window.mdRepaginate(), 400);
+    mdQueuePosition();
 };
 
 window.mdSetTheme = function (mode) {
@@ -165,6 +212,8 @@ window.mdSetDocumentTitle = function (name, fragment) {
 };
 
 window.mdScrollTo = function (id) {
+    mdJumpedTo = id;
+    mdQueuePosition();
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
@@ -242,12 +291,16 @@ window.mdSetDocumentZoom = function (zoom, remember) {
     }
 };
 
+// The zoom is kept on the pane, as --doc-zoom, and app.css hands it to whichever document element
+// the pane holds. It cannot live on the document itself: Blazor rebuilds that element every time
+// the file is re-read, and a zoom set on the old one is gone with it — which is how an edit made
+// in another program used to snap the page back to 100% while the toolbar still said otherwise.
 function mdApplyZoom() {
-    const { flow } = mdPageParts();
-    if (!flow) return;
+    const { flow, pane } = mdPageParts();
+    if (!pane) return;
     const zoom = mdView.mode === 'page' ? mdFitScale * mdDocZoom : mdDocZoom;
-    if (Math.abs(zoom - 1) < 0.0001) flow.style.removeProperty('zoom');
-    else flow.style.zoom = zoom;
+    pane.style.setProperty('--doc-zoom', zoom);
+    if (flow) flow.style.removeProperty('zoom'); // a measuring pass pins it at 1; hand it back
 }
 
 function mdNudgeZoom(factor) {
@@ -273,8 +326,10 @@ function mdPaginate() {
     if (!flow || !pane) return;
 
     // Always start from a clean flow: breaks and zoom from a previous pass would corrupt measuring.
+    // The zoom is pinned at 1 on the element for the length of this pass (it outranks the pane's
+    // --doc-zoom) and released by mdApplyZoom at the end; nothing is painted in between.
     for (const block of flow.children) block.style.removeProperty('margin-top');
-    flow.style.removeProperty('zoom');
+    flow.style.zoom = '1';
     flow.style.removeProperty('padding-bottom');
 
     // Read the document's own colours with page styling switched off. Our own paper is painted with
@@ -292,17 +347,18 @@ function mdPaginate() {
 
     const w = mdMm(MD_PAGE.width), h = mdMm(MD_PAGE.height), m = mdMm(MD_PAGE.margin), gap = MD_PAGE.gap;
     const sheet = h + gap;              // one sheet plus the gap below it
-    flow.style.setProperty('--page-w', w + 'px');
-    flow.style.setProperty('--page-h', h + 'px');
-    flow.style.setProperty('--page-margin', m + 'px');
-    flow.style.setProperty('--page-gap', gap + 'px');
+    // On the pane, like the zoom and for the same reason: a rebuilt document inherits its sheets.
+    pane.style.setProperty('--page-w', w + 'px');
+    pane.style.setProperty('--page-h', h + 'px');
+    pane.style.setProperty('--page-margin', m + 'px');
+    pane.style.setProperty('--page-gap', gap + 'px');
     // Paper and desk. A content theme paints the document, but in "follow app theme" the document
     // has no background of its own — so walk up until something opaque is found, or the paper would
     // come out transparent and the sheets would disappear into the desk. The desk then goes the
     // other way from the paper, so there is always an edge between the two.
     const dark = mdIsDark(paper);
-    flow.style.setProperty('--page-paper', paper);
-    flow.style.setProperty('--page-edge', dark ? mdShift(paper, 0.28) : mdShift(paper, -0.25));
+    pane.style.setProperty('--page-paper', paper);
+    pane.style.setProperty('--page-edge', dark ? mdShift(paper, 0.28) : mdShift(paper, -0.25));
     pane.style.setProperty('--page-desk', dark ? mdShift(paper, 0.14) : mdShift(paper, -0.45));
 
     // Sheet k holds content between k*sheet + margin and k*sheet + height - margin. Walk the blocks
@@ -333,7 +389,7 @@ function mdPaginate() {
 
     // Fill out the last sheet so the paper does not stop mid-page.
     const pages = page + 1;
-    const used = flow.getBoundingClientRect().height / (parseFloat(flow.style.zoom) || 1);
+    const used = flow.getBoundingClientRect().height; // zoom is pinned at 1 for this pass
     const wanted = pages * sheet - gap;
     if (wanted > used) flow.style.paddingBottom = (wanted - used + m) + 'px';
 
@@ -347,6 +403,54 @@ function mdPaginate() {
     mdApplyZoom();
 }
 
+// ---- Where you are ----------------------------------------------------------------------------
+// The outline marks the heading of the section being read: the last heading to have passed the top
+// of the pane. The mark is a data attribute rather than a class, because Blazor owns the rows'
+// class and would be entitled to write it back.
+let mdPositionFrame = 0;
+// The heading the reader jumped to from the outline. It keeps the mark until they scroll for
+// themselves: near the end of a document a heading cannot be brought to the top of the pane, and
+// working the position out from the scroll offset would mark some other section than the one asked for.
+let mdJumpedTo = null;
+for (const type of ['wheel', 'keydown', 'pointerdown', 'touchstart'])
+    window.addEventListener(type, e => { if (e.target.closest && e.target.closest('.content-area')) mdJumpedTo = null; }, { passive: true, capture: true });
+
+function mdQueuePosition() {
+    if (!mdPositionFrame) mdPositionFrame = requestAnimationFrame(mdMarkPosition);
+}
+
+function mdMarkPosition() {
+    mdPositionFrame = 0;
+    const { flow, pane } = mdPageParts();
+    const rows = [...document.querySelectorAll('#md-tree .outline-row[data-slug]')];
+    if (!flow || !pane || !rows.length) return;
+
+    // A heading counts as passed once it crosses a line a little below the top of the pane. Over the
+    // last screenful of scrolling that line slides down to the bottom of the pane: the headings at
+    // the end of a document can never reach the top, and this way each still gets its turn.
+    const lead = 96;
+    const most = pane.scrollHeight - pane.clientHeight;
+    const tail = Math.min(pane.clientHeight, most);
+    const progress = tail > 0 ? Math.max(0, (pane.scrollTop - (most - tail)) / tail) : 0;
+    const line = pane.getBoundingClientRect().top + lead + progress * (pane.clientHeight - lead);
+    let here = null;
+    for (const row of rows) {
+        const slug = row.dataset.slug;
+        const heading = slug && flow.querySelector('[id="' + CSS.escape(slug) + '"]');
+        if (!heading) continue;
+        if (heading.getBoundingClientRect().top <= line) here = row; else break;
+    }
+    if (mdJumpedTo) here = rows.find(row => row.dataset.slug === mdJumpedTo) || here;
+
+    for (const row of rows) {
+        if (row === here) {
+            if (row.hasAttribute('data-here')) continue;
+            row.setAttribute('data-here', '');
+            row.scrollIntoView({ block: 'nearest' }); // keep it in sight in a long outline
+        } else row.removeAttribute('data-here');
+    }
+}
+
 // The pane changes size when the sidebar is dragged or the window is resized. Only a *different*
 // size is worth acting on: zooming the document can itself nudge the pane, and repaginating on that
 // would chase its own tail.
@@ -355,11 +459,28 @@ function mdPaginate() {
 let mdPaneObserver = null;
 let mdWatchedPane = null;
 let mdPaneSize = '';
+let mdDocObserver = null;
+let mdSidebarObserver = null;
 function mdWatchPane() {
     const { pane } = mdPageParts();
     if (!pane || pane === mdWatchedPane) return;
     if (mdPaneObserver) mdPaneObserver.disconnect();
+    if (mdDocObserver) mdDocObserver.disconnect();
     mdWatchedPane = pane;
+    // A re-read file arrives as a brand new document element. Its page breaks are worked out here,
+    // the moment it lands and before it is painted, instead of a frame later when .NET gets round
+    // to calling mdInit — so the sheets do not jump when another program saves the file.
+    mdDocObserver = new MutationObserver(() => mdPaginate());
+    mdDocObserver.observe(pane, { childList: true });
+    pane.addEventListener('scroll', mdQueuePosition, { passive: true });
+    // The outline's rows are rebuilt whenever the sidebar renders — a panel opened, another document
+    // — and the new rows have to be marked afresh.
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) {
+        if (mdSidebarObserver) mdSidebarObserver.disconnect();
+        mdSidebarObserver = new MutationObserver(mdQueuePosition);
+        mdSidebarObserver.observe(sidebar, { childList: true, subtree: true });
+    }
     mdPaneObserver = new ResizeObserver(() => {
         const size = pane.clientWidth + 'x' + pane.clientHeight;
         if (size === mdPaneSize) return;
@@ -374,7 +495,9 @@ window.mdScrollTreeTo = function (containerId, rowId) {
     const container = document.getElementById(containerId);
     const row = document.getElementById(rowId);
     if (!container || !row) return;
-    container.scrollTop = row.offsetTop - container.offsetTop;
+    // Measured on screen rather than by offsetTop: the row sits inside nested panels, and offsets are
+    // only relative to whichever ancestor happens to be positioned.
+    container.scrollTop += row.getBoundingClientRect().top - container.getBoundingClientRect().top - 6;
 };
 
 // Reset the content viewport to the top (used when navigating to a new document).
@@ -484,7 +607,182 @@ document.addEventListener('click', function (e) {
 });
 
 // Keyboard shortcuts -> .NET.
+// ---- Guided tour ------------------------------------------------------------------------------
+// A handful of tooltips, one at a time, each pointing at one part of the window. Offered on first
+// run and from Settings; never forced — every step can skip the rest, and so can Esc, and the first
+// step can put the whole thing off until the app is next started. The tooltip
+// and the ring around its target are added to <body>, outside the element Blazor renders into.
+//
+// `target` may match several elements; the step points at all of them together. A step with
+// `opens` is about something that is not normally on screen: the tour has it shown for that step
+// and put away again afterwards.
+const MD_TOUR = [
+    { target: '.toolbar-left > *', place: 'bottom', title: 'Files',
+      text: 'Open a file or a whole folder, reload the document, print it, or show it in your file manager.' },
+    { target: '.print-bar', place: 'top', opens: 'print', title: 'Printing',
+      text: 'Ctrl + P opens this bar first. Pick a look for this one print — the document changes as you choose — then press Print. Esc puts it away.' },
+    { target: '#md-tree', place: 'right', title: 'Your folder',
+      text: 'Every folder and document is a panel you can open and close. The document you are reading shows its headings — click one to jump to it.' },
+    { target: '#tab-history', place: 'bottom', title: 'History',
+      text: 'Everything you have opened, kept between launches. Contents, beside it, brings the folder back.' },
+    { target: '.toolbar-middle > fluent-button', place: 'bottom', title: 'Sidebar and navigation',
+      text: 'Hide or show the sidebar, and step back and forward through the documents you have read.' },
+    { target: '.toolbar-right > fluent-button:first-child', place: 'bottom', title: 'View',
+      text: 'Read as one continuous column, or as pages laid out the way they will print. F2 switches.' },
+    { target: '.zoom-group', place: 'bottom', title: 'Zoom',
+      text: 'Make the document larger or smaller without scaling the app. Ctrl + wheel does the same.' },
+    { target: '.toolbar-right > fluent-button:nth-last-child(2)', place: 'bottom', title: 'Document theme',
+      text: 'Give the document another look — paper, typeface and spacing. F9 steps through them.' },
+    { target: '.toolbar-right > fluent-button:last-child', place: 'bottom', title: 'More',
+      text: 'Keyboard shortcuts, what is new in this version, and Settings — where this tour can be started again.' },
+];
+
+let mdTour = null; // { steps, index, tip, ring, opened, canDefer } while the tour is running
+
+/// Shows or puts away what a step asked to have opened. Only the print bar, so far.
+function mdTourOpen(what, open) {
+    if (what !== 'print') return;
+    try { DotNet.invokeMethodAsync(ASM, 'OnTourPrintBar', open); } catch (e) { /* not ready yet */ }
+}
+
+/// The box around everything a step points at, or null when none of it is on screen (the sidebar
+/// may be hidden, for one).
+function mdTourRect(step) {
+    let box = null;
+    for (const el of document.querySelectorAll(step.target)) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) continue;
+        box = box ? { left: Math.min(box.left, r.left), top: Math.min(box.top, r.top),
+                      right: Math.max(box.right, r.right), bottom: Math.max(box.bottom, r.bottom) }
+                  : { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    }
+    return box;
+}
+
+/// `canDefer`: whether the first step offers Later. .NET stops allowing it after a couple of times.
+window.mdStartTour = function (canDefer) {
+    if (mdTour) return;
+    const steps = MD_TOUR.filter(step => step.opens || mdTourRect(step));
+    if (!steps.length) return;
+
+    const tip = document.createElement('div');
+    tip.className = 'tour-tip';
+    tip.setAttribute('role', 'dialog');
+    tip.setAttribute('aria-label', 'Guided tour');
+    tip.innerHTML = '<div class="tour-arrow"></div><div class="tour-title"></div><div class="tour-text"></div>' +
+        '<div class="tour-foot"><span class="tour-count"></span>' +
+        '<button type="button" class="tour-skip">Skip tour</button>' +
+        '<button type="button" class="tour-back">Back</button>' +
+        '<button type="button" class="tour-next">Next</button></div>';
+    const ring = document.createElement('div');
+    ring.className = 'tour-ring';
+    document.body.append(ring, tip);
+
+    tip.querySelector('.tour-skip').addEventListener('click', () => mdEndTour(false));
+    // On the first step there is nothing to go back to, and the button offers Later instead.
+    tip.querySelector('.tour-back').addEventListener('click', () => {
+        if (mdTour && mdTour.index === 0) { if (mdTour.canDefer) mdEndTour(true); }
+        else mdTourGo(-1);
+    });
+    tip.querySelector('.tour-next').addEventListener('click', () => mdTourGo(1));
+
+    mdTour = { steps, index: 0, tip, ring, opened: null, canDefer: !!canDefer };
+    window.addEventListener('resize', mdTourResize);
+    mdTourShow();
+};
+function mdTourResize() { mdTourShow(); }
+
+function mdTourGo(step) {
+    if (!mdTour) return;
+    const next = mdTour.index + step;
+    if (next >= mdTour.steps.length) { mdEndTour(false); return; }
+    mdTour.index = Math.max(0, next);
+    mdTourShow();
+}
+
+/// Lays the tooltip and the ring against the current step's target.
+function mdTourShow(waited) {
+    if (!mdTour) return;
+    const { steps, index, tip, ring } = mdTour;
+    const step = steps[index];
+
+    // Put away whatever an earlier step had opened, and have this step's own thing shown. That goes
+    // through .NET and a render, so the target is not there yet: look again shortly, and give up on
+    // the step — not on the tour — if it never turns up.
+    if (mdTour.opened && mdTour.opened !== step.opens) { mdTourOpen(mdTour.opened, false); mdTour.opened = null; }
+    if (step.opens && !mdTour.opened) { mdTour.opened = step.opens; mdTourOpen(step.opens, true); }
+    const box = mdTourRect(step);
+    if (!box) {
+        const tries = typeof waited === 'number' ? waited : 0;
+        if (step.opens && tries < 40) { tip.style.visibility = ring.style.visibility = 'hidden'; setTimeout(() => mdTourShow(tries + 1), 50); }
+        else mdTourGo(1); // its target is not on screen
+        return;
+    }
+    tip.style.visibility = ring.style.visibility = 'visible';
+
+    tip.querySelector('.tour-title').textContent = step.title;
+    tip.querySelector('.tour-text').textContent = step.text;
+    tip.querySelector('.tour-count').textContent = (index + 1) + ' of ' + steps.length;
+    const back = tip.querySelector('.tour-back');
+    back.textContent = index === 0 ? 'Later' : 'Back';
+    back.title = index === 0 ? 'Show the tour the next time the app starts' : '';
+    back.style.visibility = index === 0 && !mdTour.canDefer ? 'hidden' : 'visible';
+    tip.querySelector('.tour-skip').style.visibility = index === steps.length - 1 ? 'hidden' : 'visible';
+    tip.querySelector('.tour-next').textContent = index === steps.length - 1 ? 'Done' : 'Next';
+
+    const pad = 4, gap = 12, edge = 8;
+    ring.style.left = (box.left - pad) + 'px';
+    ring.style.top = (box.top - pad) + 'px';
+    ring.style.width = (box.right - box.left + 2 * pad) + 'px';
+    ring.style.height = (box.bottom - box.top + 2 * pad) + 'px';
+
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    const arrow = tip.querySelector('.tour-arrow');
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
+    // Above or beside the target when asked and there is room; otherwise underneath it.
+    if (step.place === 'top' && box.top - pad - gap - h >= edge) {
+        const centre = (box.left + box.right) / 2;
+        const left = clamp(centre - w / 2, edge, window.innerWidth - w - edge);
+        tip.style.left = left + 'px';
+        tip.style.top = (box.top - pad - gap - h) + 'px';
+        arrow.style.top = (h - 6) + 'px';
+        arrow.style.left = clamp(centre - left - 6, 14, w - 26) + 'px';
+    } else if (step.place === 'right' && box.right + gap + w + edge <= window.innerWidth) {
+        const top = clamp(box.top + 8, edge, window.innerHeight - h - edge);
+        tip.style.left = (box.right + pad + gap) + 'px';
+        tip.style.top = top + 'px';
+        arrow.style.left = '-6px';
+        arrow.style.top = clamp(box.top + 28 - top, 14, h - 26) + 'px';
+    } else {
+        const centre = (box.left + box.right) / 2;
+        const left = clamp(centre - w / 2, edge, window.innerWidth - w - edge);
+        tip.style.left = left + 'px';
+        tip.style.top = (box.bottom + pad + gap) + 'px';
+        arrow.style.top = '-6px';
+        arrow.style.left = clamp(centre - left - 6, 14, w - 26) + 'px';
+    }
+    tip.querySelector('.tour-next').focus({ preventScroll: true });
+}
+
+/// Ends the tour. Finished or skipped, .NET is told the same thing — it has been seen; `deferred`
+/// says it was put off instead, to be offered again at the next launch.
+function mdEndTour(deferred) {
+    if (!mdTour) return;
+    if (mdTour.opened) mdTourOpen(mdTour.opened, false);
+    mdTour.tip.remove();
+    mdTour.ring.remove();
+    mdTour = null;
+    window.removeEventListener('resize', mdTourResize);
+    try { DotNet.invokeMethodAsync(ASM, 'OnTourEnded', deferred === true); } catch (e) { /* not ready yet */ }
+}
+
 window.addEventListener('keydown', function (e) {
+    // While the tour is up, Esc leaves it and the arrows walk it; nothing else is taken over.
+    if (mdTour && !e.ctrlKey && !e.altKey) {
+        if (e.key === 'Escape') { e.preventDefault(); mdEndTour(false); return; }
+        if (e.key === 'ArrowRight') { e.preventDefault(); mdTourGo(1); return; }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); mdTourGo(-1); return; }
+    }
     let combo = '';
     // Zoom keys are handled here rather than round-tripping: they only move the document.
     if (e.ctrlKey && ['0', '+', '=', '-', '_'].includes(e.key)) {
@@ -577,6 +875,26 @@ window.addEventListener('drop', function (e) {
     reader.readAsText(file);
 });
 
+// The narrowest the sidebar may be: just wide enough that the left toolbar's buttons, which sit
+// over it, still fit — so the middle toolbar beside them never drifts off the sidebar's edge.
+// That is the buttons plus the header's 8px left padding, which puts the last of them flush with
+// the sidebar's edge at the minimum.
+function mdSidebarMin() {
+    const left = document.querySelector('.toolbar-left');
+    if (!left || !left.firstElementChild) return 150;
+    const natural = left.lastElementChild.getBoundingClientRect().right - left.firstElementChild.getBoundingClientRect().left;
+    return natural > 0 ? Math.ceil(natural) + 8 : 150;
+}
+
+// The width the sidebar opens at until the reader drags it. Worked out rather than fixed, so it is
+// wider than the left toolbar whatever that toolbar grows to: the usual width, or the minimum plus
+// clear room to spare, whichever is more.
+const MD_SIDEBAR_DEFAULT = 280;
+const MD_SIDEBAR_SPARE = 64;
+function mdSidebarDefault() {
+    return Math.max(MD_SIDEBAR_DEFAULT, mdSidebarMin() + MD_SIDEBAR_SPARE);
+}
+
 // Sidebar resizer (drag updates --sidebar-w; the final width is reported to .NET on release).
 window.mdInitResizer = function (splitterId) {
     const splitter = document.getElementById(splitterId);
@@ -584,7 +902,7 @@ window.mdInitResizer = function (splitterId) {
     splitter._wired = true;
     const root = document.documentElement;
     let resizing = false, startX = 0, startW = 0;
-    const cur = () => parseInt(getComputedStyle(root).getPropertyValue('--sidebar-w')) || 280;
+    const cur = () => parseInt(getComputedStyle(root).getPropertyValue('--sidebar-w')) || mdSidebarDefault();
     splitter.addEventListener('pointerdown', e => {
         resizing = true; startX = e.clientX; startW = cur();
         splitter.classList.add('dragging');
@@ -592,7 +910,7 @@ window.mdInitResizer = function (splitterId) {
     });
     splitter.addEventListener('pointermove', e => {
         if (!resizing) return;
-        const w = Math.min(700, Math.max(150, startW + (e.clientX - startX)));
+        const w = Math.min(700, Math.max(mdSidebarMin(), startW + (e.clientX - startX)));
         root.style.setProperty('--sidebar-w', w + 'px');
     });
     const end = e => {
@@ -606,6 +924,9 @@ window.mdInitResizer = function (splitterId) {
     splitter.addEventListener('pointercancel', end);
 };
 
+/// Applies the remembered sidebar width; with none (null), the default.
 window.mdSetSidebarWidth = function (w) {
-    document.documentElement.style.setProperty('--sidebar-w', w + 'px');
+    // A width remembered from before the minimum existed is brought up to it.
+    const width = w ? Math.max(mdSidebarMin(), w) : mdSidebarDefault();
+    document.documentElement.style.setProperty('--sidebar-w', width + 'px');
 };

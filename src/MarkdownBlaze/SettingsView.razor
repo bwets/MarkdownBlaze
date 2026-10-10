@@ -1,6 +1,6 @@
 <div class="app-shell">
     <header class="app-header">
-        <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => OnBack.InvokeAsync())" Title="Back"><Ico Name="back" /></FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Subtle" IconOnly="true" OnClick="@(() => OnBack.InvokeAsync())" Title="Back"><Ico Name="back" /></FluentButton>
         <span class="title">Settings</span>
     </header>
 
@@ -10,11 +10,11 @@
 
             <div class="setting-row">
                 <div class="setting-label">Appearance</div>
-                <FluentRadioGroup TValue="DesignThemeModes" Value="@CurrentMode" ValueChanged="OnRadioChanged"
+                <FluentRadioGroup TValue="ThemeMode" Value="@CurrentMode" ValueChanged="OnRadioChanged"
                                   Orientation="Orientation.Vertical">
-                    <FluentRadio Value="@DesignThemeModes.System">Use system theme</FluentRadio>
-                    <FluentRadio Value="@DesignThemeModes.Light">Light</FluentRadio>
-                    <FluentRadio Value="@DesignThemeModes.Dark">Dark</FluentRadio>
+                    <FluentRadio Value="@ThemeMode.System">Use system theme</FluentRadio>
+                    <FluentRadio Value="@ThemeMode.Light">Light</FluentRadio>
+                    <FluentRadio Value="@ThemeMode.Dark">Dark</FluentRadio>
                 </FluentRadioGroup>
             </div>
 
@@ -22,7 +22,7 @@
                 <div class="setting-label">Global history</div>
                 @if (!_confirming)
                 {
-                    <FluentButton Appearance="Appearance.Outline" Disabled="@(_count == 0)"
+                    <FluentButton Appearance="ButtonAppearance.Outline" Disabled="@(_count == 0)"
                                   OnClick="@(() => _confirming = true)">Clear global history</FluentButton>
                     <span class="muted" style="margin-left:.6rem">
                         @(_cleared ? "History cleared." : $"{_count} item{(_count == 1 ? "" : "s")}")
@@ -31,23 +31,30 @@
                 else
                 {
                     <span>Clear all @_count entries?</span>
-                    <FluentButton Appearance="Appearance.Accent" OnClick="ClearHistory" style="margin-left:.6rem">Clear</FluentButton>
-                    <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => _confirming = false)">Cancel</FluentButton>
+                    <FluentButton Appearance="ButtonAppearance.Primary" OnClick="ClearHistory" style="margin-left:.6rem">Clear</FluentButton>
+                    <FluentButton Appearance="ButtonAppearance.Subtle" OnClick="@(() => _confirming = false)">Cancel</FluentButton>
                 }
             </div>
 
+            <div class="setting-row">
+                <div class="setting-label">Guided tour</div>
+                <FluentButton Appearance="ButtonAppearance.Outline" OnClick="RestartTour">Show the tour again</FluentButton>
+                <span class="muted" style="margin-left:.6rem">A few tooltips pointing at the main features. You can skip it at any step, or put it off until next time.</span>
+            </div>
+
             <div class="setting-row muted">
-                MarkdownBlaze — offline Markdown viewer · Photino + Fluent UI
+                MarkdownBlaze@(MarkdownService.AppVersion is { } version ? " " + version : "") — offline Markdown viewer · Photino + Fluent UI
             </div>
         </div>
     </div>
 </div>
 
 @inject HistoryStore History
+@inject PreferencesStore Prefs
 
 @code {
-    [Parameter] public DesignThemeModes CurrentMode { get; set; }
-    [Parameter] public EventCallback<DesignThemeModes> OnModeChanged { get; set; }
+    [Parameter] public ThemeMode CurrentMode { get; set; }
+    [Parameter] public EventCallback<ThemeMode> OnModeChanged { get; set; }
     [Parameter] public EventCallback OnBack { get; set; }
 
     private int _count;
@@ -56,10 +63,20 @@
 
     protected override void OnInitialized() => _count = History.Entries.Count;
 
-    private async Task OnRadioChanged(DesignThemeModes mode)
+    private async Task OnRadioChanged(ThemeMode mode)
     {
         CurrentMode = mode;
         await OnModeChanged.InvokeAsync(mode);
+    }
+
+    // The tour belongs to the viewer; going back there with it marked unseen is what starts it.
+    private async Task RestartTour()
+    {
+        Prefs.Current.TourSeen = false;
+        Prefs.Current.TourDeferrals = 0;
+        Prefs.Current.TourOfferedThisRun = false;
+        Prefs.Save();
+        await OnBack.InvokeAsync();
     }
 
     private void ClearHistory()

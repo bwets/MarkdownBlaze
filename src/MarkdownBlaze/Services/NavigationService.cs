@@ -37,6 +37,9 @@ public sealed class NavigationService : IDisposable
     public string CurrentTitle { get; private set; } = "MarkdownBlaze";
     public string CurrentHtml { get; private set; } = "";
     public IReadOnlyList<Heading> CurrentHeadings { get; private set; } = [];
+
+    /// <summary>The open document's language tag, or null to leave it at the app's own (English).</summary>
+    public string? CurrentLanguage { get; private set; }
     public int RenderToken { get; private set; }
 
     public bool CanBack => _index > 0;
@@ -95,6 +98,7 @@ public sealed class NavigationService : IDisposable
         CurrentTitle = result.Title;
         CurrentHtml = result.BodyHtml;
         CurrentHeadings = result.Headings;
+        CurrentLanguage = result.Language;
         RenderToken++;
         Changed?.Invoke();
     }
@@ -133,12 +137,14 @@ public sealed class NavigationService : IDisposable
             CurrentTitle = Path.GetFileNameWithoutExtension(path);
             CurrentHtml = "<p><em>Unable to open this file.</em></p>";
             CurrentHeadings = [];
+            CurrentLanguage = null;
         }
         else
         {
             CurrentTitle = result.Title;
             CurrentHtml = result.BodyHtml;
             CurrentHeadings = result.Headings;
+            CurrentLanguage = result.Language;
         }
         RenderToken++;
     }

@@ -8,7 +8,7 @@ tags:
 # Syntax Showcase
 
 A single page that exercises the **Obsidian / GitHub flavoured** syntax MarkdownBlaze understands,
-using the sci-fi library as its playground. Open the **Headers** tab in the sidebar to see the
+using the sci-fi library as its playground. Open the **Contents** tab in the sidebar to see the
 outline this page produces. :rocket:
 
 ## Callouts (three dialects, one look)

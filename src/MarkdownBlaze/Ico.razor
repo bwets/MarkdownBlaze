@@ -11,6 +11,8 @@
         "forward" => S("<path d='M9 5l7 7-7 7'/>"),
         "refresh" => S("<path d='M4 12a8 8 0 1 0 2.3-5.6'/><path d='M4 4v4h4'/>"),
         "print"   => S("<path d='M6 9V3h12v6'/><path d='M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2'/><path d='M6 14h12v7H6z'/>"),
+        "file"    => S("<path d='M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z'/><path d='M14 3v5h5'/>"),
+        "chevron" => S("<path d='M9 6l6 6-6 6'/>"),
         "folder"  => S("<path d='M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/>"),
         "tree"    => S("<path d='M3 7a2 2 0 0 1 2-2h3l2 2h4a2 2 0 0 1 2 2'/><path d='M3 7v10a2 2 0 0 0 2 2h11l4-8H7a2 2 0 0 0-1.8 1.1L3 17'/>"),
         "view"    => S("<path d='M4 3h16v8H4z'/><path d='M4 13h16v8H4z'/>"),
@@ -25,9 +27,11 @@
         _ => "",
     };
 
+    // Fill and stroke are set as styles, not just attributes: a Fluent button paints any svg it is
+    // handed with `fill: currentColor`, which beats an attribute and turns a line icon into a blob.
     private string S(string paths) =>
-        $"<svg viewBox='0 0 24 24' width='{Size}' height='{Size}' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>{paths}</svg>";
+        $"<svg viewBox='0 0 24 24' width='{Size}' height='{Size}' style='fill:none;stroke:currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>{paths}</svg>";
 
     private string F(string paths) =>
-        $"<svg viewBox='0 0 24 24' width='{Size}' height='{Size}' fill='currentColor' stroke='none'>{paths}</svg>";
+        $"<svg viewBox='0 0 24 24' width='{Size}' height='{Size}' style='fill:currentColor;stroke:none'>{paths}</svg>";
 }

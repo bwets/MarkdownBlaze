@@ -1,5 +1,7 @@
+using System.Reflection;
 using System.Text;
 using Markdig;
+using Markdig.Extensions.Yaml;
 using Markdig.Renderers;
 using Markdig.Renderers.Html;
 using Markdig.Syntax;
@@ -10,8 +12,13 @@ namespace MarkdownBlaze.Services;
 
 public sealed record Heading(int Level, string Text, string Slug);
 
+/// <param name="Language">
+/// The language the document is written in, as a tag for its <c>lang</c> attribute — what the WebView
+/// hyphenates by. Null when there is too little text to tell.
+/// </param>
 public sealed record RenderResult(
-    string Path, string File, string Title, string BodyHtml, IReadOnlyList<Heading> Headings);
+    string Path, string File, string Title, string BodyHtml, IReadOnlyList<Heading> Headings,
+    string? Language = null);
 
 /// <summary>
 /// Renders Markdown to body HTML using the bwets.Markdig.Extensions pipeline: YAML front-matter,
@@ -73,7 +80,23 @@ public sealed class MarkdownService
         var headings = ExtractHeadings(document);
         var title = DeriveTitle(headings, path);
 
-        return new RenderResult(path, file, title, body, headings);
+        return new RenderResult(path, file, title, body, headings, LanguageOf(document));
+    }
+
+    /// <summary>
+    /// What the document says its language is in its front matter, or failing that what its prose
+    /// reads as. Code is left out of the reckoning: it is English whatever the document is.
+    /// </summary>
+    private static string? LanguageOf(MarkdownDocument document)
+    {
+        var frontMatter = document.Descendants<YamlFrontMatterBlock>().FirstOrDefault();
+        var declared = DocumentLanguage.FromFrontMatter(frontMatter?.Lines.ToString());
+        if (declared is not null) return declared;
+
+        var prose = new StringBuilder();
+        foreach (var literal in document.Descendants<LiteralInline>())
+            prose.Append(literal.Content.ToString()).Append(' ');
+        return DocumentLanguage.Detect(prose.ToString());
     }
 
     // ---- startup file ---------------------------------------------------------------------------
@@ -131,6 +154,37 @@ public sealed class MarkdownService
 
         var first = files.OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
         return first is null ? null : Path.GetFullPath(first);
+    }
+
+    /// <summary>
+    /// The version this build was published as — "1.0.24" — or null for a build made without one,
+    /// which is every build that did not come out of the release workflow.
+    /// </summary>
+    public static string? AppVersion
+    {
+        get
+        {
+            var version = typeof(MarkdownService).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            version = version?.Split('+')[0]; // drop the source-control suffix
+            return string.IsNullOrEmpty(version) || version == "1.0.0" ? null : version;
+        }
+    }
+
+    /// <summary>
+    /// The bundled "what's new" page as body HTML, one section per app version. The section for the
+    /// version being run is headed {{version}} in the file, because a version only gets its number
+    /// when it is released; it is given the real one here. Null if the file is missing.
+    /// </summary>
+    public string? RenderWhatsNew()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "WhatsNew.md");
+        string markdown;
+        try { markdown = File.ReadAllText(path); }
+        catch { return null; }
+
+        markdown = markdown.Replace("## {{version}}", "## " + (AppVersion ?? "This build"));
+        return RenderText("WhatsNew.md", markdown).BodyHtml;
     }
 
     /// <summary>The bundled user manual shown as a welcome screen when no file is opened.</summary>

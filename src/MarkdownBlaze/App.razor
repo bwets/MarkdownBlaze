@@ -1,7 +1,6 @@
 @inject PreferencesStore Prefs
 @inject IJSRuntime JS
-
-<FluentDesignTheme @bind-Mode="_mode" StorageName="MarkdownBlaze-theme" />
+@inject IThemeService Theme
 
 @if (_view == AppView.Settings)
 {
@@ -12,41 +11,46 @@ else
     <ViewerView OnOpenSettings="@(() => Show(AppView.Settings))" />
 }
 
-<FluentToastProvider />
-<FluentDialogProvider />
-<FluentTooltipProvider />
-<FluentMenuProvider />
+<FluentProviders />
 
 @code {
     private enum AppView { Viewer, Settings }
 
     private AppView _view = AppView.Viewer;
-    private DesignThemeModes _mode = DesignThemeModes.System;
+    private ThemeMode _mode = ThemeMode.System;
 
     protected override void OnInitialized()
     {
         _mode = Prefs.Current.ThemeMode switch
         {
-            "Light" => DesignThemeModes.Light,
-            "Dark" => DesignThemeModes.Dark,
-            _ => DesignThemeModes.System,
+            "Light" => ThemeMode.Light,
+            "Dark" => ThemeMode.Dark,
+            _ => ThemeMode.System,
         };
     }
 
     // The document's own theme belongs to the viewer, which owns the toolbar it is chosen from.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await JS.InvokeVoidAsync("mdSetTheme", _mode.ToString());
+        if (firstRender) await ApplyMode();
+    }
+
+    // Two things follow the appearance: Fluent's own components, through its theme service, and the
+    // app's stylesheets, through the theme class app.js keeps on <html>.
+    private async Task ApplyMode()
+    {
+        await Theme.SetThemeAsync(_mode);
+        await JS.InvokeVoidAsync("mdSetTheme", _mode.ToString());
     }
 
     private void Show(AppView view) => _view = view;
 
-    private async Task SetMode(DesignThemeModes mode)
+    private async Task SetMode(ThemeMode mode)
     {
         _mode = mode;
         Prefs.Current.ThemeMode = mode.ToString();
         Prefs.Save();
-        await JS.InvokeVoidAsync("mdSetTheme", mode.ToString());
+        await ApplyMode();
     }
 
 }

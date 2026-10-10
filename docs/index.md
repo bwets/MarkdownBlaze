@@ -12,9 +12,9 @@ landmark science-fiction sagas. It exists to show off what the viewer can do: li
 pages, diagrams, callouts, syntax highlighting, and a live document outline.
 
 :::tip[How to use this]
-Use the **sidebar** on the left. The **Headers** tab is the outline of the current page,
-**Session** is your back/forward trail, and **Global** is every page you've ever opened.
-Click any heading in the outline to jump to it.
+Use the **sidebar** on the left. The **Contents** tab shows this folder and, under the page you
+are reading, its outline; **History** is every page you've ever opened. Click any heading in the
+outline to jump to it.
 :::
 
 ## The collections

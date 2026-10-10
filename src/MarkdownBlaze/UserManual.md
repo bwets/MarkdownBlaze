@@ -13,25 +13,33 @@ started without a file. Open a `.md` file to start reading — everything below 
 
 | Button | Action |
 |---|---|
-| ☰ | Toggle the sidebar |
-| ← / → | Back / Forward through the documents you've read |
 | 🗁 | Open a file |
 | 🗂 | Open a folder — the whole folder appears in the sidebar |
-| ▤ | View — continuous or pages (see below) |
 | ⟳ | Refresh the current document |
 | 🖨 | Print — opens the print bar (see below) |
 | 🗀 | Open the current file's containing folder |
+| ☰ | Toggle the sidebar |
+| ← / → | Back / Forward through the documents you've read |
+| ▤ | View — continuous or pages (see below) |
 | − 100% + ↺ | Zoom the document out or in, and back to normal size |
 | ◐ | Document theme — how the document itself looks |
-| ⋮ | More — opens **Settings** |
+| ⋮ | More — **Keyboard shortcuts**, **What's new** and **Settings** |
+
+The first time MarkdownBlaze starts, a short guided tour points at each of these in turn. *Skip
+tour* or `Esc` ends it at any step, and it does not come back by itself; *Later*, on its first
+step, puts it off until the next time you start the app. **Settings → Show the tour again** runs
+it whenever you like. **What's new** lists what changed, version by version.
 
 ## The sidebar
 
 Two tabs keep you oriented:
 
-- **Headers** — the folder you are working in, as a tree. Folders and other documents stay closed;
-  the document you are reading is open, with its own headings listed underneath. Click a document to
-  read it, a heading to jump to it, or a folder to open and close it.
+- **Contents** — what is in the folder you are working in, and in the document you are reading. Every folder and every document is a panel with a
+  header you can click: a folder's panel opens onto the folders and documents inside it, and the
+  panel of the document you are reading — outlined in the accent colour — holds its headings as an
+  indented tree. Click a document to read it, a heading to jump to it, and a folder, or the
+  document you are already reading, to fold its panel away. A document opened from outside the
+  folder gets a panel of its own above the rest.
 - **History** — everything you have opened, across launches. Entries keep their place when you open
   them again, so a document you use often stays where you last saw it. Right-click any row for
   *Open*, *Open in new window*, *Copy filename*, and *Open containing folder*.
@@ -46,7 +54,7 @@ Explorer — and it opens the document that folder leads with: its `index`, `mai
 has one, otherwise the first document in alphabetical order.
 
 Following a link or a history entry does *not* move the root, so you can wander and still have the
-folder you started in beside you. Whenever you change document, the tree scrolls it to the top.
+folder you started in beside you. Whenever you change document, its panel is scrolled to the top.
 
 ## Keyboard shortcuts
 
@@ -100,6 +108,24 @@ toolbar and sidebar keep the light or dark appearance you picked under *Appearan
 | Writer | Soft grey writing paper, easy on the eyes. |
 | Typewriter | Monospaced draft on off-white paper, roomy for notes. |
 | Night | Light text on a dark page, for reading after dark. |
+
+### Justified text and hyphenation
+
+Running text is set flush on both edges and hyphenated — by the rules of the language the document
+is written in. MarkdownBlaze recognises that from the text itself: English, French, German, Spanish,
+Dutch, Italian, Portuguese, Polish, Czech, Swedish, Danish and Norwegian. To say it yourself, or for
+any other language, put it in the front matter:
+
+```yaml
+---
+lang: fr
+---
+```
+
+A document in a language MarkdownBlaze does not recognise is left unhyphenated rather than broken
+by another language's rules. Which languages can be hyphenated at all is up to the web engine of
+your system: on Windows it has no rules for Polish, Finnish, Romanian, Turkish or Catalan, so those
+are justified without hyphens. Headings, tables and code are never justified or hyphenated.
 
 ## Printing
 
