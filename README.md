@@ -37,6 +37,9 @@ OS WebView driven by **[Photino](https://www.tryphotino.io/) + Blazor** and
   Writer, Typewriter and Night, plus *Follow app theme*. Each changes the paper colour, the typeface
   and the spacing of the **document only**: the toolbar and sidebar keep the appearance you chose.
   Pick one from the toolbar or step through them with `F9`.
+- **Consistent typography** — every theme sets its text in a single typeface and its code in one
+  other, keeps body text the same size however deeply it is nested, and uses the same modest
+  heading scale.
 - **Justified, hyphenated text** in the document's own language — recognised from the text (English,
   French, German, Spanish, Dutch, Italian, Portuguese, Czech, Swedish, Danish, Norwegian) or
   stated with `lang:` in the front matter.
@@ -53,15 +56,19 @@ OS WebView driven by **[Photino](https://www.tryphotino.io/) + Blazor** and
 
 - `Ctrl + P` opens a bar along the bottom to choose the theme **for that one print**; the document
   changes as you look at it, so you see what the printer will produce. `Ctrl + P` again sends it.
-- Only the document is printed — no toolbar, no sidebar, no menus — always in a light palette, with
-  syntax highlighting and Mermaid diagrams re-drawn to match rather than dumped as dark blocks.
+- Only the document is printed — no toolbar, no sidebar, no menus. The app's dark appearance never
+  reaches the paper: *Follow app theme* prints in its light palette, and a document theme prints as
+  itself, with syntax highlighting and Mermaid diagrams re-drawn to match.
 - Code wraps, diagrams scale and tables shrink to the sheet, because paper cannot be scrolled.
+- Printing without backgrounds still works: code, callouts, highlights, tags and table headers are
+  outlined as well as tinted, so every box stays visible.
 
 ### Navigating
 
 - **Folder panels** — the sidebar's *Contents* tab shows the folder you are reading as nested,
   collapsible panels: one per folder, one per document. The current document's panel holds its own
-  headings as a tree, so files and folders are never mistaken for what is inside them.
+  headings as a tree, so files and folders are never mistaken for what is inside them, and the
+  heading of the section you are reading is marked as you scroll.
 - **The folder you point at is the root.** Open a file and you get its folder; open a folder and it
   reads that folder's `index`, `main` or `readme`, else the first document alphabetically. Following
   a link never moves the root.
@@ -70,7 +77,7 @@ OS WebView driven by **[Photino](https://www.tryphotino.io/) + Blazor** and
   folder*.
 - **Smart link rewriting** relative to the opened file: extension-less links and `[[wiki links]]` get
   `.md`; folder links resolve to `index.md`. Local links open in-app, external ones in your browser.
-- **Auto-refresh** — edit the file and the view reloads, keeping your place.
+- **Auto-refresh** — edit the file and the view reloads, keeping your place and your zoom.
 
 ### Rendering
 
@@ -103,10 +110,14 @@ Rendering comes from the standalone
 - Both register themselves on first run under `HKEY_CURRENT_USER` — no elevation, nothing to switch
   on — and repair themselves if the app moves. Linux and macOS packages register the handler through
   the `.desktop` entry and `Info.plist`.
-- **What's new** — a version-by-version list of changes, under the ⋮ menu.
+- **Remembers** window size, position, maximized state, sidebar width, view, theme and zoom.
+
+### Getting to know it
+
 - **Guided tour** — on first start, a few tooltips point at the main features. It can be skipped at
   any step, put off until the next launch, and run again from *Settings*.
-- **Remembers** window size, position, maximized state, sidebar width, view, theme and zoom.
+- **What's new** — a version-by-version list of changes, under the ⋮ menu.
+- **A welcome manual** opens when the app is started without a file.
 
 ### Keyboard shortcuts
 
@@ -153,7 +164,7 @@ macOS `.dmg`) come from the manual [`release` workflow](packaging/README.md). On
 
 ## Tech stack
 
-- **.NET 10**, **PhotinoX.Blazor 5** (native OS WebView host), **Microsoft Fluent UI Blazor**
+- **.NET 10**, **PhotinoX.Blazor 5** (native OS WebView host), **Microsoft Fluent UI Blazor 5**
 - **Markdig** + **bwets.Markdig.Extensions** for Markdown → HTML
 - **highlight.js**, **Mermaid** and **KaTeX**, all bundled for offline use
 
@@ -161,28 +172,43 @@ macOS `.dmg`) come from the manual [`release` workflow](packaging/README.md). On
 
 ```
 docs/                       Sample wiki / feature showcase
+resources/                  Logo artwork, and the screenshots this README shows
+scripts/
+  build-highlight-content.sh  Rebuilds the highlight.js palette keyed to the document's theme
 src/
   MarkdownBlaze/
     Program.cs              Photino + Blazor host, markdown:// scheme, shell integration
-    App.razor               Root (app theme, view switch)
-    ViewerView.razor        Toolbar, folder tree, print bar, view modes, zoom
+    App.razor               Root (app appearance, view switch)
+    ViewerView.razor        Toolbars, sidebar panels and outline, print bar, view modes, zoom,
+                            What's new, rating bar
+    SettingsView.razor      Settings page
+    Ico.razor               The toolbar and sidebar icons
     UserManual.md           The manual shown when no file is given
     WhatsNew.md             What changed, one section per app version (⋮ → What's new)
-    SettingsView.razor      Settings page
     Services/
-      MarkdownService       Markdown → HTML, startup file/folder resolution
+      MarkdownService       Markdown → HTML, startup file/folder resolution, app version
       NavigationService     Current document, back/forward, links, file watching
-      FileTreeService       The folder being read, as a lazily-read tree
+      FileWatcher           Reloads the open document when another program saves it
+      FileTreeService       The folder being read, as lazily-read folder and document panels
       ContentThemes         The document themes and their light/dark character
       DocumentLanguage      The language a document is written in, for hyphenation
       ViewModes             Continuous vs page view
+      PreferencesStore      Settings kept between launches
+      HistoryStore          Persisted history, order preserved
+      RatingPrompt          The one-time request to rate the app in the Microsoft Store
       ShellIntegration      Explorer verbs and the markdown:// handler
       UriScheme             markdown:// addresses, both directions
-      HistoryStore          Persisted history, order preserved
+      WindowHost            The native window, for the OS file and folder dialogs
+      WindowStateService    Window size, position and fullscreen
+      JsBridge              Calls coming back from the page's JavaScript
     wwwroot/
-      app.css / app.js      Shell styling, pagination, zoom, printing, theming
-      lib/                  Offline highlight.js, Mermaid, KaTeX, document themes
-packaging/                  Linux .desktop/.deb/PKGBUILD, Windows installer/MSIX, macOS .app/.dmg
+      app.css               App chrome, page view, print rules
+      app.js                Rendering, pagination, zoom, printing, guided tour
+      lib/                  Offline highlight.js, Mermaid and KaTeX; the document themes
+                            (content-themes.css) and the one bundled typeface
+packaging/                  Windows installer/MSIX, winget, Microsoft Store listing,
+                            Linux .desktop/.deb/PKGBUILD, macOS .app/.dmg
+.github/workflows/          The manual release workflow
 ```
 
 ## License

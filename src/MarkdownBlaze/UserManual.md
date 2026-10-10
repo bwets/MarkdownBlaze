@@ -34,17 +34,19 @@ it whenever you like. **What's new** lists what changed, version by version.
 
 Two tabs keep you oriented:
 
-- **Contents** — what is in the folder you are working in, and in the document you are reading. Every folder and every document is a panel with a
-  header you can click: a folder's panel opens onto the folders and documents inside it, and the
-  panel of the document you are reading — outlined in the accent colour — holds its headings as an
-  indented tree. Click a document to read it, a heading to jump to it, and a folder, or the
-  document you are already reading, to fold its panel away. A document opened from outside the
-  folder gets a panel of its own above the rest.
+- **Contents** — what is in the folder you are working in, and in the document you are reading.
+  Every folder and every document is a panel with a header you can click: a folder's panel opens
+  onto the folders and documents inside it, and the panel of the document you are reading —
+  outlined in the accent colour — holds its headings as an indented tree, with the section you are
+  in marked as you scroll. Click a document to read it, a heading to jump to it, and a folder, or
+  the document you are already reading, to fold its panel away. A document opened from outside
+  the folder gets a panel of its own above the rest.
 - **History** — everything you have opened, across launches. Entries keep their place when you open
   them again, so a document you use often stays where you last saw it. Right-click any row for
   *Open*, *Open in new window*, *Copy filename*, and *Open containing folder*.
 
-The sidebar is resizable and pinnable — your width and pinned state are remembered.
+The sidebar is resizable and pinnable — your width and pinned state are remembered. It cannot be
+made narrower than the file buttons above it, and the buttons beside them follow its edge.
 
 ### The folder you are working in
 
@@ -61,13 +63,15 @@ folder you started in beside you. Whenever you change document, its panel is scr
 | Shortcut | Action |
 |---|---|
 | `Alt + ←` / `Alt + →` | Back / Forward |
+| `Ctrl + O` / `Ctrl + Shift + O` | Open a file / a folder |
 | `F5` / `Ctrl + R` | Refresh |
 | `Ctrl + P` | Print — once to choose a theme, again to print |
 | `F2` / `Shift + F2` | Next / previous view |
 | `F9` / `Shift + F9` | Next / previous document theme |
 | `Ctrl` + wheel, `Ctrl +` / `Ctrl -` | Zoom the document (`Ctrl 0` resets) |
 | `F11` | Fullscreen (`Esc` leaves it) |
-| `Ctrl + B` | Toggle sidebar |
+| `Ctrl + B` / `F1` | Toggle sidebar |
+| `?` | All shortcuts |
 
 ## How the document is laid out
 
@@ -135,7 +139,9 @@ of the printer. Press `Ctrl + P` again — or the **Print** button in the bar �
 closes the bar and puts the document back.
 
 The theme you pick in the bar is for that one print; the one on the ◐ button is untouched.
-Only the document is printed — the toolbar, sidebar and any open menu are left out.
+Only the document is printed — the toolbar, sidebar and any open menu are left out. Long lines of
+code wrap on paper, and every tinted box — code, callouts, highlights, table headers — is outlined
+too, so it still shows if you print without backgrounds.
 
 Along the bottom of each sheet the browser prints the page number and the address of the document —
 `markdown://document/#C:/notes/Report.md` — with the document's name and the date across the top. To

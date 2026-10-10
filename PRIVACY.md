@@ -16,7 +16,9 @@ no tracking of any kind. The developer receives no data from your use of the app
 The app saves a small amount of information **locally on your computer only** — it is never
 uploaded or transmitted anywhere:
 
-- **Preferences** — your sidebar and theme settings.
+- **Preferences** — how you have set the app up: sidebar, appearance, document theme, view, zoom and
+  window placement; whether the guided tour and the one-time rating request have been shown; and a
+  count of the documents you have opened, kept only to decide when that request appears.
 - **History** — the list and titles of Markdown files you have opened, so you can reopen them.
 
 This data lives in your local application-data folder (for example
@@ -30,7 +32,9 @@ references. This content is processed locally and is not sent anywhere.
 MarkdownBlaze works fully offline and makes no network requests of its own. All rendering
 components (syntax highlighting, diagrams) are bundled with the app. If you click a web link inside
 a document, it opens in your default web browser; any data handling at that point is governed by
-that browser and the destination website, not by MarkdownBlaze.
+that browser and the destination website, not by MarkdownBlaze. Likewise, if you choose **Rate it**
+on the app's one-time rating request, the Microsoft Store app opens on MarkdownBlaze's page;
+MarkdownBlaze itself sends nothing.
 
 ## Permissions
 
