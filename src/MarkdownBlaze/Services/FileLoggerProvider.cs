@@ -19,6 +19,14 @@ internal sealed class FileLoggerProvider : ILoggerProvider
 {
     private const string BaseName = "markdownblaze";
 
+    /// <summary>
+    /// Next Line, Line Separator and Paragraph Separator: Unicode's line breaks other than CR and LF, which some
+    /// viewers break a line at. Written as numbers, because a separator typed into a source file ends its line.
+    /// </summary>
+    private const char NextLine = (char)0x0085;
+    private const char LineSeparator = (char)0x2028;
+    private const char ParagraphSeparator = (char)0x2029;
+
     private readonly string _folder;
     private readonly long _maxBytes;
     private readonly int _keep;
@@ -56,8 +64,8 @@ internal sealed class FileLoggerProvider : ILoggerProvider
             .Append(' ')
             .Append(category)
             .Append(": ")
-            .AppendLine(message);
-        if (exception is not null) _ = line.AppendLine(exception.ToString());
+            .AppendLine(OneLine(message));
+        if (exception is not null) _ = line.AppendLine(OneLine(exception.ToString()));
 
         lock (_lock)
         {
@@ -93,6 +101,33 @@ internal sealed class FileLoggerProvider : ILoggerProvider
         }
 
         File.Move(CurrentFile, Path.Combine(_folder, $"{BaseName}.1.log"), overwrite: true);
+    }
+
+    /// <summary>
+    /// Writes <paramref name="text"/> so that it cannot be more than the one line it is given. The messages
+    /// carry things that came out of documents — the name of a dropped file, a title, an address — and a
+    /// name with a line break in it would otherwise start a line of its own, and could look like anything:
+    /// a timestamp, a process id, a level and a category followed by whatever the document's author wanted
+    /// the reader of the log to believe. So a line break is written as the two characters <c>\n</c> (or
+    /// <c>\r</c>), in the message and in the text of an exception alike, here and nowhere else. (Unicode's
+    /// other line separators are escaped the same way, since some viewers break lines on them.)
+    /// </summary>
+    /// <param name="text">The message, or the text of an exception.</param>
+    internal static string OneLine(string text)
+    {
+        var written = new StringBuilder(text.Length);
+        foreach (var c in text)
+        {
+            _ = c switch
+            {
+                '\r' => written.Append("\\r"),
+                '\n' => written.Append("\\n"),
+                NextLine or LineSeparator or ParagraphSeparator => written.Append("\\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture)),
+                _ => written.Append(c),
+            };
+        }
+
+        return written.ToString();
     }
 
     private static string Abbreviation(LogLevel level) => level switch

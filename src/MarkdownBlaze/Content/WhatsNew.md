@@ -36,6 +36,15 @@ number its release ended up with (see the git tags), and start a fresh "## {{ver
 - **Pictures have to be pictures.** A file that is not an image is never shown as one, a network
   address is never contacted to draw one, and a picture that is too large is replaced by a note.
   Images in other folders still work, so a wiki can share one folder of pictures.
+- **A document cannot dress up as the app or take the window over.** Only the formatting a document
+  genuinely needs is kept (code, callouts, task lists, footnotes, math, diagrams); the names the app
+  uses for its own toolbar, menus and sidebar are not available to it. A page that nests its markup
+  a thousand levels deep, or has thousands of headings, opens normally, and one that cannot be
+  drawn within 30 seconds says so instead of freezing the window.
+- **You can see where a link goes before you click it.** Rest the pointer on a link — or tab to it —
+  and the real address appears in the bottom left corner, whatever the link's text says.
+- **Pictures written as HTML work too.** `<img src="logo.png" width="120">` next to a document is
+  shown like `![](logo.png)`, and a document on a network share shows its own pictures.
 - **The sample wiki has a `security/` section:** pages that try to misbehave, so you can see for
   yourself that nothing happens. The developer tools are off unless you start the app with `--devtools`.
 

@@ -11,7 +11,7 @@
 // them: changing a theme re-lays-out the page sheets and re-draws the diagrams.
 import { bridge } from './bridge.js';
 import { installDragDrop, installKeys, installMouseButtons } from './input.js';
-import { installLinkClicks } from './links.js';
+import { installLinkClicks, installLinkStatus } from './links.js';
 import { paginate, repaginate, setViewMode } from './pagination.js';
 import { installPositionListeners, queuePosition, scrollTo, scrollTop, scrollTreeTo, unwatchPane, watchPane } from './position.js';
 import { installPrintHooks, print } from './print.js';
@@ -36,6 +36,7 @@ export function init(dotNetRef, config) {
     installMouseButtons(signal);
     installDragDrop(signal);
     installLinkClicks(signal);
+    installLinkStatus(signal);
     installWheelZoom(signal);
     installPositionListeners(signal);
     installPrintHooks(signal);

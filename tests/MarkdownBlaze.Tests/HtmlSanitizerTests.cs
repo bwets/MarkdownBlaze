@@ -195,6 +195,228 @@ public partial class HtmlSanitizerTests
         Assert.Contains("role=\"doc-endnotes\"", html, StringComparison.Ordinal);
     }
 
+    // ---- SEC-13: the page's own names are not the document's --------------------------------------------
+
+    [Theory]
+    [InlineData("menu-backdrop")]
+    [InlineData("rate-bar")]
+    [InlineData("splash")]
+    [InlineData("ctx")]
+    [InlineData("settings-overlay")]
+    [InlineData("toast")]
+    [InlineData("app-header")]
+    [InlineData("Admonition")] // classes are case-sensitive in a page in standards mode, and so is this list
+    public void A_class_the_app_gives_a_meaning_to_is_removed_and_the_element_stays(string name)
+    {
+        var html = HtmlSanitizer.Sanitize($"<div class=\"{name}\">text</div>");
+
+        Assert.Equal("<div>text</div>", html);
+    }
+
+    [Fact]
+    public void Of_several_classes_only_the_allowed_ones_are_kept()
+    {
+        var html = HtmlSanitizer.Sanitize("<div class=\"menu-backdrop  admonition\tadmonition-note rate-bar language-x\">x</div>");
+
+        Assert.Equal("<div class=\"admonition admonition-note language-x\">x</div>", html);
+    }
+
+    [Theory]
+    [InlineData("language-csharp")]
+    [InlineData("language-")]
+    [InlineData("admonition-title")]
+    [InlineData("admonition-question")]
+    [InlineData("admonition-anything")]
+    public void The_two_prefixes_are_allowed(string name) =>
+        Assert.Equal($"<div class=\"{name}\">x</div>", HtmlSanitizer.Sanitize($"<div class=\"{name}\">x</div>"));
+
+    [Theory]
+    [InlineData("language")] // not the prefix: no hyphen
+    [InlineData("xlanguage-csharp")]
+    [InlineData("my-admonition-note")]
+    public void Names_that_only_contain_a_prefix_are_not_allowed(string name) =>
+        Assert.DoesNotContain("class=", HtmlSanitizer.Sanitize($"<div class=\"{name}\">x</div>"), StringComparison.Ordinal);
+
+    [Fact]
+    public void The_overlay_class_cannot_come_in_through_a_generic_attribute_or_a_custom_container()
+    {
+        const string markdown = "[a](https://example.com){.menu-backdrop}\n\n::: menu-backdrop\ninside the container\n:::\n\n"
+            + "## Title {.rate-bar #splash-id}\n\n![](x.png){.splash}\n";
+
+        var html = Markdown.RenderText("x.md", markdown).BodyHtml;
+
+        foreach (var name in new[] { "menu-backdrop", "rate-bar", "splash\"" })
+            Assert.DoesNotContain("class=\"" + name.TrimEnd('"'), html, StringComparison.Ordinal);
+
+        Assert.Contains("inside the container", html, StringComparison.Ordinal); // the container's content is still there
+        Assert.Contains("href=\"https://example.com\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"splash-id\"", html, StringComparison.Ordinal); // an id that is not the app's is the document's
+    }
+
+    [Fact]
+    public void Every_class_the_pipeline_emits_for_the_documents_of_the_repository_survives_unchanged()
+    {
+        // The documents a reader of this app is meant to see: the sample wiki (but for the hostile pages), the
+        // fixtures that exercise the features, the README and the bundled manual and change log. What Markdig writes
+        // before the sanitizer is compared with what is left after it.
+        var root = TestFiles.RepoRoot;
+        var documents = Directory.EnumerateFiles(Path.Combine(root, "samples", "wiki"), "*.md", SearchOption.AllDirectories)
+            .Where(file => !file.Contains(Path.Combine("wiki", "security") + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            .Concat(Directory.EnumerateFiles(Path.Combine(root, "tests", "fixtures", "features"), "*.md"))
+            .Append(Path.Combine(root, "README.md"))
+            .Concat(Directory.EnumerateFiles(Path.Combine(root, "src", "MarkdownBlaze", "Content"), "*.md"))
+            .ToList();
+        Assert.True(documents.Count >= 8, "found only " + documents.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " documents");
+
+        var seen = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var document in documents)
+        {
+            var markdown = File.ReadAllText(document);
+            var before = ClassesOf(Markdig.Markdown.ToHtml(markdown, MarkdownService.Pipeline));
+            var after = ClassesOf(Markdown.RenderText(Path.GetFileName(document), markdown).BodyHtml);
+
+            var removed = string.Join(", ", before.Except(after, StringComparer.Ordinal));
+            Assert.True(before.SetEquals(after), Path.GetFileName(document) + ": the sanitizer removed " + removed);
+            seen.UnionWith(after);
+        }
+
+        // What is emitted is exactly what the allow-list names (language-* standing for the fences' languages).
+        foreach (var name in seen)
+        {
+            Assert.True(
+                ExpectedClasses.Contains(name, StringComparer.Ordinal) || name.StartsWith("language-", StringComparison.Ordinal),
+                name + " is emitted and not on the list the documentation gives");
+        }
+    }
+
+    private static readonly string[] ExpectedClasses =
+    [
+        "admonition", "admonition-body", "admonition-danger", "admonition-icon", "admonition-info", "admonition-note",
+        "admonition-success", "admonition-tip", "admonition-warning", "admonition-title", "admonition-abstract", "admonition-bug",
+        "admonition-example", "admonition-question", "admonition-quote", "contains-task-list", "footnote-back-ref",
+        "footnote-ref", "footnotes", "math", "mermaid", "tag", "task-list-item", "wikilink",
+    ];
+
+    private static HashSet<string> ClassesOf(string html)
+    {
+        var classes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var element in Parse(html).QuerySelectorAll("[class]"))
+            classes.UnionWith(element.GetAttribute("class")!.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+        return classes;
+    }
+
+    [Theory]
+    [InlineData("md-tree")]
+    [InlineData("md-splitter")]
+    [InlineData("md-current-doc")]
+    [InlineData("md-anything")]
+    [InlineData("MD-Tree")]
+    [InlineData("tab-contents")]
+    [InlineData("tab-history")]
+    [InlineData("app")]
+    [InlineData("App")]
+    [InlineData("shortcuts-title")]
+    [InlineData("whats-new-title")]
+    [InlineData("global-overlay")]
+    public void An_id_the_app_looks_elements_up_by_is_removed_and_the_element_stays(string id) =>
+        Assert.Equal("<div>x</div>", HtmlSanitizer.Sanitize($"<div id=\"{id}\">x</div>"));
+
+    [Theory]
+    [InlineData("section")]
+    [InlineData("fn1")]
+    [InlineData("tabs")] // "tab-" needs its hyphen
+    [InlineData("md")]
+    [InlineData("application")]
+    [InlineData("my-md-tree")]
+    public void Other_ids_are_the_documents_own(string id) =>
+        Assert.Equal($"<div id=\"{id}\">x</div>", HtmlSanitizer.Sanitize($"<div id=\"{id}\">x</div>"));
+
+    [Fact]
+    public void A_heading_whose_generated_id_is_one_of_the_apps_loses_it_which_is_the_accepted_price()
+    {
+        // "MD notes" becomes the id md-notes, and "Tab stops" tab-stops: both are the app's prefixes. The anchor
+        // link to such a heading and its place in the outline no longer scroll to it (documented in the sanitizer).
+        var result = Markdown.RenderText("x.md", "# MD notes\n\n## Tab stops\n\n## Notes");
+
+        Assert.DoesNotContain("id=\"md-notes\"", result.BodyHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"tab-stops\"", result.BodyHtml, StringComparison.Ordinal);
+        Assert.Contains("id=\"notes\"", result.BodyHtml, StringComparison.Ordinal);
+        Assert.Contains("MD notes", result.BodyHtml, StringComparison.Ordinal); // the heading itself is there
+    }
+
+    [Theory]
+    [InlineData("dialog")]
+    [InlineData("alertdialog")]
+    [InlineData("alert")]
+    [InlineData("button")]
+    [InlineData("menu")]
+    [InlineData("menuitem")]
+    [InlineData("tab")]
+    [InlineData("tablist")]
+    [InlineData("status")]
+    [InlineData("textbox")]
+    [InlineData("tooltip")]
+    [InlineData("DIALOG")]
+    public void A_role_that_makes_a_screen_reader_announce_a_widget_is_removed(string role) =>
+        Assert.Equal("<div>x</div>", HtmlSanitizer.Sanitize($"<div role=\"{role}\">x</div>"));
+
+    [Theory]
+    [InlineData("doc-noteref")]
+    [InlineData("doc-endnotes")]
+    [InlineData("doc-backlink")]
+    [InlineData("note")]
+    [InlineData("img")]
+    [InlineData("figure")]
+    [InlineData("presentation")]
+    [InlineData("none")]
+    [InlineData("list")]
+    [InlineData("listitem")]
+    [InlineData("table")]
+    [InlineData("row")]
+    [InlineData("cell")]
+    [InlineData("columnheader")]
+    [InlineData("rowheader")]
+    [InlineData("group")]
+    [InlineData("region")]
+    [InlineData("heading")]
+    [InlineData("link")]
+    [InlineData("separator")]
+    public void A_role_that_describes_content_is_kept(string role) =>
+        Assert.Equal($"<div role=\"{role}\">x</div>", HtmlSanitizer.Sanitize($"<div role=\"{role}\">x</div>"));
+
+    [Fact]
+    public void Renders_on_several_threads_at_once_give_what_they_give_one_at_a_time()
+    {
+        // A render that was given up on goes on in the background while the next one starts, so the sanitizer
+        // is used from several threads (there is no lock around it any more, which a stuck render would hold).
+        string[] inputs =
+        [
+            "<div class=\"menu-backdrop admonition\" id=\"md-tree\" role=\"dialog\"><a href=\"javascript:alert(1)\" onclick=\"x()\">a</a><img src=\"C:/x.png\"></div>",
+            "<table><tr><td style=\"text-align:right; position:fixed\">1</td></tr></table><script>alert(1)</script><p class=\"tag\">#t</p>",
+            "<ul class=\"contains-task-list\"><li class=\"task-list-item\"><input type=\"checkbox\" checked> x</li></ul><details open><summary>s</summary>b</details>",
+            string.Concat(Enumerable.Repeat("<div>", 700)) + "deep" + string.Concat(Enumerable.Repeat("</div>", 700)),
+        ];
+        var expected = inputs.Select(HtmlSanitizer.Sanitize).ToArray();
+
+        var results = new string[8 * 25];
+        _ = Parallel.For(
+            0,
+            results.Length,
+            new ParallelOptions { MaxDegreeOfParallelism = 8 },
+            i => results[i] = HtmlSanitizer.Sanitize(inputs[i % inputs.Length]));
+
+        for (var i = 0; i < results.Length; i++)
+            Assert.Equal(expected[i % inputs.Length], results[i]);
+    }
+
+    [Fact]
+    public void Of_several_roles_only_the_content_ones_are_kept()
+    {
+        Assert.Equal("<div role=\"note\">x</div>", HtmlSanitizer.Sanitize("<div role=\"dialog note\">x</div>"));
+        Assert.Equal("<div>x</div>", HtmlSanitizer.Sanitize("<div role=\"dialog alertdialog\">x</div>"));
+    }
+
     private static AngleSharp.Dom.IElement Parse(string html)
     {
         var parser = new HtmlParser();

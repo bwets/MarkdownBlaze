@@ -22,6 +22,11 @@
          - No 'unsafe-eval': the bundled highlight.js, KaTeX and Mermaid 12 render under this policy
            without it (checked against a document with code, math and diagrams). -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' mdasset: data: https: http:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; connect-src 'self'" />
+    <!-- A picture from the web is fetched by the page, and a request carries the address of the page that
+         asked for it. This page's address is the app's own (markdown://document/…, with the name of the
+         document that is open in it), which is nobody's business but the reader's: no request from here says
+         where it came from. -->
+    <meta name="referrer" content="no-referrer" />
     <base href="/" />
     <title>MarkdownBlaze</title>
     <!-- No <link rel="icon">: a WebView has no tab to show it in. The window icon is set natively (Program.cs). -->

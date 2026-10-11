@@ -13,6 +13,18 @@ export function stripMathDelims(s) {
     return s;
 }
 
+// What KaTeX is allowed to do with a formula, which is text from a document nobody vetted. Stated here and
+// not left to the library's defaults, which have changed before and which suit a page whose author is
+// the one writing the formulas:
+//   - maxSize: no length a formula names (\rule{500em}{500em}, \hspace, \kern) is taken as more than 50 em;
+//     a larger one is clamped. Without it a single formula widened the document pane to 8,641 px.
+//   - maxExpand: at most 1000 macro expansions, so that \def\x{\x\x}\x ends in an error in a moment
+//     instead of running for ever. (KaTeX's default is the same number; it is written down so that it stays.)
+//   - trust: false, so that \href, \url, \includegraphics and \htmlClass, \htmlId, \htmlStyle, \htmlData do
+//     nothing: a formula cannot make a link, load a picture or give an element the class of the app's own
+//     chrome (\htmlClass{menu-backdrop}{x}). These commands are errors, shown in red with throwOnError off.
+export const KATEX_OPTIONS = Object.freeze({ throwOnError: false, maxSize: 50, maxExpand: 1000, trust: false });
+
 // Render TeX math with KaTeX. Markdig emits inline math as <span class="math">, display math
 // ($$…$$) as <div class="math">, and GitHub ```math fences as <pre><code class="language-math">.
 // IMPORTANT: we render *into* existing elements and never remove/replace a node. The rendered
@@ -26,19 +38,33 @@ export function renderMath() {
         const pre = code.parentElement;
         if (pre.querySelector('.katex')) return; // already rendered
         try {
-            window.katex.render(code.textContent.replace(/\n$/, ''), pre,
-                { displayMode: true, throwOnError: false });
+            window.katex.render(code.textContent.replace(/\n$/, ''), pre, { ...KATEX_OPTIONS, displayMode: true });
             pre.classList.add('math-block');
         } catch (e) { console.error('katex', e); }
     });
     document.querySelectorAll('span.math, div.math').forEach(function (el) {
         if (el.querySelector('.katex')) return; // already rendered
         try {
-            window.katex.render(stripMathDelims(el.textContent), el, {
-                displayMode: el.tagName === 'DIV',
-                throwOnError: false,
-            });
+            window.katex.render(stripMathDelims(el.textContent), el, { ...KATEX_OPTIONS, displayMode: el.tagName === 'DIV' });
         } catch (e) { console.error('katex', e); }
+    });
+}
+
+// Code longer than this many characters is left as plain text. highlight.js works through a block token by
+// token, and a block of a million characters (a log pasted into a fence, a minified bundle) keeps the page
+// busy for as long as it takes; nothing is lost by showing it unhighlighted, which is how it is rendered
+// before highlight.js has seen it. The block is marked so that this can be seen, in the developer tools.
+export const MAX_HIGHLIGHT_CHARS = 100_000;
+
+// Highlights every code block with highlight.js — except the ones that are too large. (hljs.highlightAll
+// does the same walk over `pre code`, without the exception.)
+export function highlightCode() {
+    document.querySelectorAll('pre code').forEach(function (code) {
+        if (code.textContent.length > MAX_HIGHLIGHT_CHARS) {
+            code.setAttribute('data-md-skipped', 'too-large');
+            return;
+        }
+        window.hljs.highlightElement(code);
     });
 }
 
@@ -131,6 +157,19 @@ export function withSteadyMeasures(draw, timeoutMs = STEADY_TIMEOUT_MS) {
     return result.finally(done);
 }
 
+// What Mermaid is allowed to do with a diagram, which is text from a document nobody vetted. Stated here
+// rather than relied on as defaults (the defaults have changed between versions, and are not the same in
+// every build of the library):
+//   - securityLevel 'strict': labels are encoded, HTML in them is not interpreted, click handlers and
+//     scripts are off. A diagram's own %%{init: {"securityLevel": "loose"}}%% directive cannot raise it:
+//     Mermaid keeps this key (and the two below) out of reach of directives.
+//   - maxTextSize 50000: a diagram source longer than that is refused with Mermaid's error box, instead
+//     of being laid out for as long as it takes.
+//   - maxEdges 500: likewise for a graph with more edges than anyone can read.
+// Even in strict mode a `click A "https://example.com"` line makes an anchor inside the SVG; it is not
+// let to navigate the window, see links.js, which sends it through the same allow-list as any link.
+export const MERMAID_LIMITS = Object.freeze({ securityLevel: 'strict', maxTextSize: 50000, maxEdges: 500 });
+
 export function runMermaid(theme) {
     try {
         const fontFamily = documentFont();
@@ -139,6 +178,7 @@ export function runMermaid(theme) {
             theme: theme || mermaidTheme(),
             fontFamily,
             themeVariables: { fontFamily },
+            ...MERMAID_LIMITS,
         });
         return withSteadyMeasures(() => window.mermaid.run());
     } catch (e) { console.error('mermaid', e); return Promise.resolve(); }
@@ -167,7 +207,7 @@ export function renderDocument() {
     }
     if (document.querySelector('pre code:not(.language-mermaid):not(.language-math)')) {
         jobs.push(loadScript('vendor/highlight/highlight.min.js')
-            .then(() => { try { window.hljs.highlightAll(); } catch (e) { console.error('hljs', e); } })
+            .then(() => { try { highlightCode(); } catch (e) { console.error('hljs', e); } })
             .catch(e => console.error('hljs load', e)));
     }
     const diagrams = document.querySelectorAll('pre.mermaid');

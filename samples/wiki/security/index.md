@@ -22,7 +22,10 @@ dialog. Opening them here must not.
    script running and no Content-Security-Policy violation.
 
 Nothing on these pages may ever show a dialog, start a program, open a window, change the address of
-the app, or put the contents of a file into the page. If it does, that is a bug.
+the app, put the contents of a file into the page, cover the toolbar, or look like part of the app. If it
+does, that is a bug. And none of them may stop the window answering: [Resource limits](resource-limits) is the
+one page that is *large* on purpose (about 185 KB, with a block of code of over 100,000 characters), and it
+should still open in a moment.
 
 ## The pages
 
@@ -32,6 +35,12 @@ the app, or put the contents of a file into the page. If it does, that is a bug.
 | [Dangerous links](dangerous-links) | Links that would run a program, open a share or hand code to a handler |
 | [File access](file-access) | Images that point at files the document has no business reading |
 | [Page hijack](page-hijack) | Markup that tries to redirect, overlay or impersonate the app itself |
+| [UI spoofing](ui-spoofing) | Borrowed class names, ids and roles that cover the window or pass for the app's own chrome |
+| [Resource limits](resource-limits) | A page that is small to send and enormous to render: deep nesting, huge counts, runaway math and diagrams, a very large block of code |
+| [Deep nesting](deep-nesting) | Markdown nested a thousand levels deep: **this one is refused**, and the page you see is a single sentence, *This document is nested too deeply to display.* |
+| [Diagrams and math](diagrams-and-math) | Diagram and formula source that asks for less security, a link, a call, a picture or a class |
+| [Arguments and protocol](arguments-and-protocol) | `markdown://` addresses with switches in them, and the `mdasset://` address only the viewer may write |
+| [Phishing](phishing) | Links that say one thing and go to another: lying text, a right-to-left override, look-alike letters, a false `title` |
 
 The same payloads are checked automatically: the unit tests render every page in this folder and fail
 if a dangerous marker survives in what reaches the window, so these pages cannot quietly go stale.

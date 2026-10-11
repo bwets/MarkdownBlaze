@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using System.Net;
 using MarkdownBlaze.Models;
 using MarkdownBlaze.Platform;
 using MarkdownBlaze.Security;
@@ -23,15 +25,23 @@ namespace MarkdownBlaze.Services;
 /// mutators assert in debug builds that they are where they should be.
 /// </para>
 /// <para>
-/// Rendering is asynchronous. A navigation updates the back/forward stack at once and renders on the
-/// thread pool; the current document (<see cref="CurrentHtml"/> and its companions, and
-/// <see cref="RenderToken"/>) changes together, when the render is done. A newer navigation, reload or
-/// drop cancels the render that is still running, and its result is never shown.
+/// Rendering is asynchronous. A navigation updates the back/forward stack at once and renders on a thread
+/// of its own (<see cref="RenderWorker"/>); the current document (<see cref="CurrentHtml"/> and its
+/// companions, and <see cref="RenderToken"/>) changes together, when the render is done. A newer navigation,
+/// reload or drop cancels the render that is still running, and its result is never shown.
+/// </para>
+/// <para>
+/// A render that takes longer than <see cref="RenderDeadline"/> is given up on: the page says so, and the
+/// result is never shown. The thread cannot be stopped — a library call is not interruptible — so it goes
+/// on until it reaches a point where it looks at its cancellation token, or ends. A render that was
+/// replaced by a newer one is in the same position, and the same is true of it once it has been going
+/// longer than the deadline. At most <see cref="MaxAbandonedRenders"/> such threads are tolerated, and while
+/// that many are still going a new document is not started (the page says so) instead of piling another on.
 /// </para>
 /// </summary>
 internal sealed partial class NavigationService : IDisposable
 {
-    private readonly MarkdownService _md;
+    private readonly IDocumentRenderer _md;
     private readonly HistoryStore _history;
     private readonly PreferencesStore _prefs;
     private readonly StartupArguments _startup;
@@ -56,7 +66,7 @@ internal sealed partial class NavigationService : IDisposable
     private bool _unrecorded;
 
     public NavigationService(
-        MarkdownService md,
+        IDocumentRenderer md,
         HistoryStore history,
         PreferencesStore prefs,
         StartupArguments startup,
@@ -68,7 +78,7 @@ internal sealed partial class NavigationService : IDisposable
 
     /// <summary>As above, over a file watcher of the caller's choosing — the tests drive it by hand.</summary>
     internal NavigationService(
-        MarkdownService md,
+        IDocumentRenderer md,
         HistoryStore history,
         PreferencesStore prefs,
         StartupArguments startup,
@@ -91,6 +101,32 @@ internal sealed partial class NavigationService : IDisposable
 
     /// <summary>How long a render may take before the page says it is rendering.</summary>
     internal TimeSpan RenderingDelay { get; set; } = TimeSpan.FromMilliseconds(150);
+
+    /// <summary>
+    /// How long a render may take, in all, before it is given up on. A reader waits a few seconds for a
+    /// large document; a render that is still going after half a minute is not a large document but a
+    /// pathological one (tens of thousands of headings, links or nested lists parse in quadratic time),
+    /// and the window should say so instead of looking frozen.
+    /// </summary>
+    internal static readonly TimeSpan DefaultRenderDeadline = TimeSpan.FromSeconds(30);
+
+    /// <summary>The deadline in force; the tests shorten it.</summary>
+    internal TimeSpan RenderDeadline { get; set; } = DefaultRenderDeadline;
+
+    /// <summary>
+    /// How many renders that were given up on may still be running before a new one is refused. Each is a
+    /// thread burning a core on a document nobody is waiting for any more.
+    /// </summary>
+    internal const int MaxAbandonedRenders = 2;
+
+    /// <summary>The renders nobody is waiting for any more whose thread has not ended yet (see <see cref="RenderRun.IsStuck"/> for which of them count).</summary>
+    private readonly ConcurrentDictionary<RenderRun, byte> _unwanted = new();
+
+    /// <summary>
+    /// How many renders have been given up on and are still running: the ones that took longer than the
+    /// deadline, and the ones that were replaced and have outlasted it since. The tests wait for it to fall.
+    /// </summary>
+    internal int AbandonedRenders => _unwanted.Keys.Count(run => run.IsStuck(RenderDeadline));
 
     /// <summary>
     /// How long to wait before trying again to read a document that has vanished or cannot be read: an
@@ -256,6 +292,12 @@ internal sealed partial class NavigationService : IDisposable
     /// <summary>Starts a render of <paramref name="path"/>, replacing any that is still running.</summary>
     private async Task ShowAsync(string? path, Func<CancellationToken, FileRender> render, bool keepLastGood)
     {
+        if (AbandonedRenders >= MaxAbandonedRenders)
+        {
+            await RefuseAsync(path, keepLastGood).ConfigureAwait(false);
+            return;
+        }
+
         var ct = BeginRender();
         _target = path;
         if (path is not null) _watcher.Watch(path);
@@ -263,15 +305,17 @@ internal sealed partial class NavigationService : IDisposable
 
         try
         {
-            var outcome = await Task.Run(() => render(ct), ct).ConfigureAwait(false);
-            if (keepLastGood && outcome.Status is RenderStatus.Missing or RenderStatus.Unreadable)
+            var outcome = await RenderWithinDeadlineAsync(path, render, ct).ConfigureAwait(false);
+            if (outcome is not null && keepLastGood && outcome.Status is RenderStatus.Missing or RenderStatus.Unreadable)
             {
                 LogRetrying(_log, path);
                 await Task.Delay(RetryDelay, ct).ConfigureAwait(false);
-                outcome = await Task.Run(() => render(ct), ct).ConfigureAwait(false);
+                outcome = await RenderWithinDeadlineAsync(path, render, ct).ConfigureAwait(false);
             }
 
-            await _dispatcher.InvokeAsync(() => Apply(path, outcome, keepLastGood, ct)).ConfigureAwait(false);
+            // Null is a render that took too long. The page says so; its result will never be shown.
+            var shown = outcome ?? new FileRender(RenderStatus.TimedOut);
+            await _dispatcher.InvokeAsync(() => Apply(path, shown, keepLastGood, ct)).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -287,9 +331,92 @@ internal sealed partial class NavigationService : IDisposable
             // wrong must not leave the page saying "Rendering…" for ever, or surface only as an
             // unobserved task: the reader gets the sentence, the log gets the cause. Cancellation is
             // excluded by the filter, because that is the normal way for a render to end.
-            LogRenderFailed(_log, ex, path);
-            await _dispatcher.InvokeAsync(() => Apply(path, new FileRender(RenderStatus.Unreadable), keepLastGood: false, ct)).ConfigureAwait(false);
+            await _dispatcher.InvokeAsync(() => Apply(path, new FileRender(StatusOf(ex, path)), keepLastGood: false, ct)).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Two threads are still grinding through documents nobody is waiting for, and a third would be
+    /// another core gone, so nothing is started. A reload of what is on screen simply leaves it there; a
+    /// navigation replaces the page, because the back/forward stack has already moved on to it.
+    /// </summary>
+    private async Task RefuseAsync(string? path, bool keepLastGood)
+    {
+        LogBusy(_log, path);
+        if (keepLastGood) return;
+
+        var ct = BeginRender();
+        _target = path;
+        if (path is not null) _watcher.Watch(path);
+        await _dispatcher.InvokeAsync(() => Apply(path, new FileRender(RenderStatus.Busy), keepLastGood: false, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// What a render that threw is reported as. One failure is a fact about the document and not a fault:
+    /// Markdig refusing it for being nested too deeply. It gets its own sentence and no stack trace in the log.
+    /// </summary>
+    private RenderStatus StatusOf(Exception ex, string? path)
+    {
+        if (MarkdownService.IsNestingLimit(ex))
+        {
+            LogTooDeep(_log, path);
+            return RenderStatus.TooDeep;
+        }
+
+        LogRenderFailed(_log, ex, path);
+        return RenderStatus.Unreadable;
+    }
+
+    /// <summary>
+    /// Runs one render on a thread of its own and waits for it for at most <see cref="RenderDeadline"/>.
+    /// Returns its outcome, or null when the deadline came first — and then the render is abandoned: its
+    /// thread is asked to stop at its next look at the token and counted until it ends, and whatever it
+    /// produces is dropped. The same happens to a render that is waited for no longer because a newer
+    /// one has taken its place (it is counted once it has outlasted the deadline as well). A render that
+    /// failed throws what it threw.
+    /// </summary>
+    private async Task<FileRender?> RenderWithinDeadlineAsync(string? path, Func<CancellationToken, FileRender> render, CancellationToken ct)
+    {
+        var run = new RenderRun(path, ct);
+        var work = RenderWorker.RunAsync(() => render(run.Token), run.Token);
+        _ = work.ContinueWith(_ => OnRenderEnded(run), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+        using var stopWaiting = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var deadline = Task.Delay(RenderDeadline, stopWaiting.Token);
+        var first = await Task.WhenAny(work, deadline).ConfigureAwait(false);
+        await stopWaiting.CancelAsync().ConfigureAwait(false); // the timer is not needed any more
+
+        if (ct.IsCancellationRequested)
+        {
+            Abandon(run, timedOut: false);
+            ct.ThrowIfCancellationRequested();
+        }
+
+        if (ReferenceEquals(first, work)) return await work.ConfigureAwait(false);
+
+        LogTimedOut(_log, path, RenderDeadline.TotalSeconds);
+        Abandon(run, timedOut: true);
+        return null;
+    }
+
+    /// <summary>Stops waiting for a run: it is asked to stop, and counted for as long as its thread goes on.</summary>
+    private void Abandon(RenderRun run, bool timedOut)
+    {
+        if (!run.GiveUp(timedOut)) return;
+
+        _unwanted[run] = 0;
+        if (run.HasEnded) _ = _unwanted.TryRemove(run, out _); // it ended between the two lines above
+    }
+
+    /// <summary>The thread of a render has ended, one way or another.</summary>
+    private void OnRenderEnded(RenderRun run)
+    {
+        run.End(out var elapsed);
+        if (!_unwanted.TryRemove(run, out _)) return;
+
+        // Only a render that had been going on for too long is worth a line: the others were replaced and
+        // stopped at their next look at the token.
+        if (run.TimedOut || elapsed > RenderDeadline) LogAbandonedEnded(_log, run.Path, elapsed.TotalSeconds);
     }
 
     /// <summary>Marks a render as started and cancels the one before it.</summary>
@@ -356,6 +483,18 @@ internal sealed partial class NavigationService : IDisposable
                         CultureInfo.InvariantCulture,
                         $"This file is too large to open ({outcome.Length / 1024.0 / 1024.0:0.#} MB; the limit is {MarkdownService.MaxFileBytes / 1024 / 1024} MB)."));
                 break;
+            case RenderStatus.TooDeep:
+                ShowMessage(path, "This document is nested too deeply to display.");
+                break;
+            case RenderStatus.TimedOut:
+                ShowMessage(
+                    path,
+                    string.Create(CultureInfo.InvariantCulture, $"This document could not be rendered within {RenderDeadline.TotalSeconds:0.#} seconds."),
+                    detail: path is null ? null : Path.GetFileName(path));
+                break;
+            case RenderStatus.Busy:
+                ShowMessage(path, "Still rendering an earlier document. Try again in a moment.", detail: path is null ? null : Path.GetFileName(path));
+                break;
             default:
                 ShowMessage(path, "Unable to open this file.");
                 break;
@@ -391,11 +530,18 @@ internal sealed partial class NavigationService : IDisposable
     }
 
     /// <summary>Shows a sentence in place of a document that could not be shown.</summary>
-    private void ShowMessage(string? path, string message)
+    /// <param name="path">The document, if it has a path.</param>
+    /// <param name="message">A fixed sentence, which may carry numbers.</param>
+    /// <param name="detail">The name of the file, when the sentence is about one; it is text and is encoded.</param>
+    private void ShowMessage(string? path, string message, string? detail = null)
     {
         CurrentPath = path;
         CurrentTitle = path is null ? "MarkdownBlaze" : Path.GetFileNameWithoutExtension(path);
-        CurrentHtml = $"<p><em>{message}</em></p>"; // built here from a fixed sentence and numbers, not from the file
+        // Built here from a fixed sentence and numbers; a file name is the one thing from outside, and a
+        // file name can hold anything the file system allows (on Linux, "<" and "&"), so it is encoded.
+        CurrentHtml = detail is null
+            ? $"<p><em>{message}</em></p>"
+            : $"<p><em>{message}</em></p><p><code>{WebUtility.HtmlEncode(detail)}</code></p>";
         CurrentHeadings = [];
         CurrentLanguage = null;
         _assets.Clear(); // a sentence has no pictures
@@ -546,6 +692,18 @@ internal sealed partial class NavigationService : IDisposable
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Rendering {Path} failed")]
     private static partial void LogRenderFailed(ILogger log, Exception ex, string? path);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Path} is nested too deeply to be rendered")]
+    private static partial void LogTooDeep(ILogger log, string? path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rendering {Path} took longer than {Seconds} s; it is given up on and its result will not be shown")]
+    private static partial void LogTimedOut(ILogger log, string? path, double seconds);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The render of {Path} that was given up on has ended, {Seconds} s after it started")]
+    private static partial void LogAbandonedEnded(ILogger log, string? path, double seconds);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Not rendering {Path}: renders that were given up on are still running")]
+    private static partial void LogBusy(ILogger log, string? path);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Refused to open {Url}: its scheme is not on the allow-list")]
     private static partial void LogRefusedLink(ILogger log, string url);

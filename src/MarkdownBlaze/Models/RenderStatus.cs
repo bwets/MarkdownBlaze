@@ -14,4 +14,13 @@ internal enum RenderStatus
 
     /// <summary>The file is larger than the viewer renders (see <c>MarkdownService.MaxFileBytes</c>).</summary>
     TooLarge = 3,
+
+    /// <summary>The document nests Markdown more deeply than the renderer follows (see <c>MarkdownService.MaxMarkdownNesting</c>).</summary>
+    TooDeep = 4,
+
+    /// <summary>The render took longer than the deadline (see <c>NavigationService.RenderDeadline</c>) and was given up on.</summary>
+    TimedOut = 5,
+
+    /// <summary>Not rendered: renders that were given up on earlier are still running (see <c>NavigationService.MaxAbandonedRenders</c>).</summary>
+    Busy = 6,
 }

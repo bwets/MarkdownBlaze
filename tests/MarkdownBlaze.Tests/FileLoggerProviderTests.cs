@@ -51,6 +51,60 @@ public sealed class FileLoggerProviderTests : IDisposable
         Assert.Contains(nameof(An_exception_is_written_with_its_stack_trace), text, StringComparison.Ordinal);
     }
 
+    /// <summary>SEC-19: a name from a document with a line break in it must not be able to start a line of its own.</summary>
+    [Fact]
+    public void A_line_break_in_a_message_cannot_forge_a_line()
+    {
+        using var provider = new FileLoggerProvider(_logs.Path);
+        var log = provider.CreateLogger("X");
+
+        Write(log, LogLevel.Information, "Dropped evil.md\n2026-10-10 12:00:00.000 +00:00 [1] ERR Security: the database was wiped\r\nand more\runtil here");
+
+        var line = Assert.Single(File.ReadAllLines(LogFile));
+        const string expected = "Dropped evil.md\\n2026-10-10 12:00:00.000 +00:00 [1] ERR Security: the database was wiped\\r\\nand more\\runtil here";
+        Assert.Contains(expected, line, StringComparison.Ordinal);
+        Assert.DoesNotContain('\r', File.ReadAllText(LogFile).TrimEnd('\r', '\n'));
+    }
+
+    [Fact]
+    public void A_line_break_in_the_text_of_an_exception_is_escaped_too_and_the_whole_trace_is_still_there()
+    {
+        using var provider = new FileLoggerProvider(_logs.Path);
+        var log = provider.CreateLogger("X");
+
+        try
+        {
+            throw new InvalidOperationException("first line\nsecond line");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Write(log, LogLevel.Error, "It failed", ex);
+        }
+
+        var lines = File.ReadAllLines(LogFile);
+        Assert.Equal(2, lines.Length); // the message, then the exception, each on one line
+        Assert.Contains("first line\\nsecond line", lines[1], StringComparison.Ordinal);
+        Assert.Contains(nameof(A_line_break_in_the_text_of_an_exception_is_escaped_too_and_the_whole_trace_is_still_there), lines[1], StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("a\nb", "a\\nb")]
+    [InlineData("a\rb", "a\\rb")]
+    [InlineData("a\r\nb", "a\\r\\nb")]
+    [InlineData("nothing to escape: \\n stays as written", "nothing to escape: \\n stays as written")]
+    [InlineData("", "")]
+    public void Only_line_breaks_are_rewritten(string text, string expected) =>
+        Assert.Equal(expected, FileLoggerProvider.OneLine(text));
+
+    [Fact]
+    public void Unicodes_other_line_separators_are_escaped_as_well()
+    {
+        // Built from their numbers: a separator typed into a source file ends its line.
+        var text = "a" + (char)0x85 + "b" + (char)0x2028 + "c" + (char)0x2029 + "d";
+
+        Assert.Equal("a\\u0085b\\u2028c\\u2029d", FileLoggerProvider.OneLine(text));
+    }
+
     [Fact]
     public void The_folder_is_created_on_the_first_line()
     {

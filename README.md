@@ -106,9 +106,11 @@ Rendering comes from the standalone
 #### Safe with documents you did not write
 
 A Markdown file can come from anywhere, so the app treats it as untrusted. Raw HTML is cleaned by an
-allow-list (no scripts, frames, forms or event handlers), a Content-Security-Policy confines the page, only
+allow-list (no scripts, frames, forms or event handlers, and none of the names the app uses for its own toolbar and menus),
+cut to the depth a browser would show, a Content-Security-Policy confines the page, only
 web, mail, phone and FTP links are handed to the system (nothing that starts a program or reaches a network
-share), only real image files are shown, and the web view's developer tools and menus are off. The
+share), only real image files are shown, a link shows where it really goes before it is clicked, a page that takes
+more than 30 seconds to render is given up on, and the web view's developer tools and menus are off. The
 `samples/wiki/security/` pages try each of these attacks; [docs/architecture.md](docs/architecture.md) explains
 the layers.
 
@@ -178,6 +180,9 @@ dotnet run --project src/MarkdownBlaze -- "samples/wiki"            # or a whole
 
 ### Command line
 
+Switches go **before** the file or folder: anything after the first file name is read as a file name, never as a
+switch (so an address someone else wrote cannot add switches of its own).
+
 | Argument | Effect |
 |---|---|
 | `<file>` or `<folder>` | Open it (a folder opens its `index`, `main` or `readme`, else the first document). A `markdown://` address is accepted too. |
@@ -235,7 +240,9 @@ src/
                             held), HistoryEntry, Heading, RenderResult, TreeNode, ContentTheme, …
     Services/
       MarkdownService       Markdown → HTML, startup file/folder resolution, app version
-      NavigationService     Current document, back/forward, links, file watching
+      ReferenceResolver     Which links go where and which pictures are shown, on the sanitized HTML
+      NavigationService     Current document, back/forward, links, file watching, the render deadline
+      RenderWorker          Renders on a thread of their own, with a 64 MB stack
       FileWatcher           Reloads the open document when another program saves it
       FileTreeService       The folder being read, as lazily-read folder and document panels
       ContentThemes         The document themes and their light/dark character
@@ -249,7 +256,8 @@ src/
       AppPaths, JsonFile, SaveDebouncer, Log, FileLoggerProvider, IUiDispatcher, Background …
                             Where data lives, atomic debounced saves, the local log, UI-thread marshalling,
                             logging the failure of work nobody awaits
-    Security/               HtmlSanitizer, ExternalLinks (link allow-list), LocalPath (which files may be read),
+    Security/               HtmlSanitizer, NestingLimit (HTML cut to a browser's depth), ExternalLinks (link allow-list),
+                            LocalPath (which files may be read),
                             AssetHandler (serves the open document's pictures over mdasset://)
     Interop/                ViewerInterop (the connection to the page's JavaScript, both ways), PageEvents, NativeDialogs (the OS
                             file and folder dialogs)

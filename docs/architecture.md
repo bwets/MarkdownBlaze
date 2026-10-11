@@ -71,9 +71,15 @@ its own `InvokeAsync` — the renderer's dispatcher — and attaches itself to `
 `ViewerState` when it is created; until then (and in tests) the default runs the work where it is
 called. Three kinds of thread feed the UI thread this way:
 
-- **the render itself**, on the thread pool: a document is read, parsed and sanitized off the UI thread,
+- **the render itself**, on a thread of its own (`Services/RenderWorker.cs`: a background thread with a 64 MB
+  stack, made for each render, because the libraries that parse a document recurse once per level of
+  nesting and a stack overflow cannot be caught): a document is read, parsed and sanitized off the UI thread,
   and only the finished result is applied on it. A newer navigation, reload or drop cancels the render in
-  flight, and a superseded result is never applied;
+  flight, and a superseded result is never applied. A render that is still going after 30 seconds
+  (`NavigationService.RenderDeadline`) is given up on — the page says so, naming the file, and the result is
+  never applied. Its thread cannot be stopped, so it runs on until it next looks at its cancellation token,
+  and is logged at Warning when it ends; while two such threads are still running, a new document is not
+  started (the page says "Still rendering an earlier document");
 - **timers**: the file watcher's debounce (a reload), the toast, the debounced saves of the preferences
   and the history (these only write files);
 - **callbacks from the page**: the JavaScript interop calls the instance methods of `ViewerInterop`, which
@@ -86,18 +92,28 @@ Work that is started and not awaited goes through `Background.Run` / `Background
 
 1. **Ask.** A click, a history row, a key, a drop or the command line becomes `NavigationService.NavigateAsync`
    (or `ReloadAsync` when the file watcher fires). It updates the back/forward stack at once, starts watching
-   the file, and starts the render on the thread pool, cancelling the one before it.
+   the file, and starts the render on a render thread (with a 30-second deadline), cancelling the one before it.
 2. **Read.** `MarkdownService.RenderFile` opens the file with a share mode that tolerates an editor's lock and
    refuses anything over 32 MB.
 3. **Parse.** Markdig parses it with the `bwets.Markdig.Extensions` pipeline (front matter, callouts, wiki
-   links, math, tags, …). The title, the headings and the document's language are taken from the tree.
-4. **Rewrite links and images.** Relative links become in-app navigation (`data-nav`) or, if unsafe, inert
-   ones; each local image that `LocalPath` allows gets a per-render token in its place.
-5. **Render** the tree to HTML.
-6. **Sanitize.** The HTML goes through the allow-list in `HtmlSanitizer`, which removes everything an author
-   could have used to run code — including any `data-nav` or `mdasset:` address the author wrote.
-7. **Restore tokens.** The renderer's own `data-nav` targets and `mdasset://doc/<token>/…` image addresses
-   are swapped in after the sanitizer, so the only ones on the page are the ones it made.
+   links, math, tags, …), which gives up on Markdown nested more than 128 levels deep
+   (`MarkdownService.MaxMarkdownNesting`; the page then says the document is nested too deeply). The title, the
+   headings and the document's language are taken from the tree.
+4. **Render** the tree to HTML.
+5. **Parse the HTML, and cut it down.** The HTML — Markdig's, with whatever raw HTML the author wrote in it — is
+   parsed once with AngleSharp, whose parser is iterative, and `NestingLimit` replaces everything deeper than
+   512 levels (Chromium's own limit) with its text, walking the tree with a stack of its own. This comes
+   before anything else touches the tree, because the sanitizer's walk recurses once per level.
+6. **Sanitize.** The tree goes through the allow-list in `HtmlSanitizer`, which removes everything an author
+   could have used to run code — including any `data-nav` or `mdasset:` address the author wrote — and every
+   class, id and role that the app's own markup uses.
+7. **Resolve links and pictures.** `ReferenceResolver` walks the sanitized tree once, for Markdown's links and
+   pictures and the author's raw `<a>` and `<img>` alike: a relative address to a Markdown document becomes an
+   in-app link (`data-nav`), an address that names a local file in any other way is made inert, and a local
+   picture that `LocalPath` allows gets its `mdasset://doc/<token>/…` address. It runs after the sanitizer and
+   nothing runs between them, so the only `data-nav` and `mdasset:` on the page are the ones it wrote. At most
+   5,000 links and 2,000 pictures are looked at on disk per document; the rest are inert, or a placeholder.
+   The tree is then serialized, once.
 8. **Apply, on the UI thread.** `NavigationService.Apply` takes the result through the dispatcher: it sets
    the current HTML, title, headings and language, hands the image grant to `AssetScope` (so the
    handler serves this render's pictures and no other's), records the history entry, bumps `RenderToken` and
@@ -125,18 +141,41 @@ the tags Markdig and its extensions emit, plus the harmless HTML authors write i
 event-handler attributes, `style` (except `text-align`) and URL attributes with a scheme outside the
 allow-list are removed, not escaped.
 
+**The page's own names** (the same file). A document shares a namespace with the app's markup, and that is
+enough to hurt: `<div class="menu-backdrop">` is a full-window layer that takes every click, `class="rate-bar"`
+is a request for a password that looks like the app's, and the same classes arrive through Markdig's `{.class}`
+attributes and `::: name` containers. So a document keeps only the classes the pipeline emits (`admonition`,
+`admonition-*`, `language-*`, `math`, `mermaid`, `tag`, `wikilink`, the task-list and footnote classes), cannot use
+an `id` the app looks things up by (`md-…`, `tab-…`, `app`, `global-overlay`, the two dialog titles — a heading whose generated id
+starts with `md-` or `tab-` loses its id, which is the price), and keeps only the ARIA roles that describe
+content (`doc-*`, `note`, `figure`, `list`, `table`, …). The element stays; only the name goes. The app's own
+addition to the page, the strip that shows where a link goes, is app chrome and so is not a class a document can use.
+
+**Resource limits.** A small file can ask for a great deal of work, so each of these has a limit, in the order a
+document meets them: a file is read up to 32 MB; Markdown nests to 128 levels; HTML nests to 512 (the cut above);
+links and pictures looked at on disk, 5,000 and 2,000; a render has 30 seconds. In the page, Mermaid runs in
+`securityLevel: 'strict'` with `maxTextSize` 50,000 and `maxEdges` 500, KaTeX with `maxSize` 50, `maxExpand` 1000 and
+`trust: false` (so `\href`, `\url`, `\includegraphics` and `\htmlClass` do nothing), and highlight.js leaves a block of
+more than 100,000 characters as plain text. An anchor that Mermaid draws inside its SVG is held to the link
+allow-list like any other.
+
 **The link allow-list** (`Security/ExternalLinks.cs`; the page is handed the list when it starts, it keeps no copy). A click
 on an external link hands the address to the operating system only if its scheme is on a short list whose
 handlers are a browser, a mail client or a dialler: `http`, `https`, `mailto`, `tel`, `ftp`. `file:`,
 `javascript:`, `data:`, `vbscript:`, drive letters, UNC paths and the Windows URL handlers with a history
-of code execution (`ms-msdt:`, `search-ms:`) are dropped, and the rewriting pass in `MarkdownService`
-turns such links into an inert `href="#"`, so a click does nothing. In-app navigation (`data-nav`) is only
-followed for files the viewer can open (`NavigationService.IsFollowable`).
+of code execution (`ms-msdt:`, `search-ms:`) are dropped, and `ReferenceResolver` turns such links into an
+inert `href="#"`, so a click does nothing. In-app navigation (`data-nav`) is only followed for files the viewer
+can open (`NavigationService.IsFollowable`). A link that would open an address in the browser shows that
+address in a strip at the bottom of the window while the pointer or the keyboard focus is on it
+(`js/links.js`) — taken from the same classification, never from the link's text or `title`, and written the way the
+URL parser writes it, so that a host spelled with look-alike letters shows as ASCII.
 
 **The local-path policy** (`Security/LocalPath.cs`). A path in a document is a request, not an
 instruction. Only files with an image extension are shown as images, never as
 `application/octet-stream`. UNC and device paths (`\\server\share`, `//server/share`, `\\?\`, `\\.\`) are
-refused outright, because opening one makes Windows authenticate to a host the document's author chose.
+refused, because opening one makes Windows authenticate to a host the document's author chose — except a
+picture on the server the document itself was opened from (`LocalPath.IsOnServerOf`), which is where a document
+on a network share keeps its pictures and where the session exists already.
 A single image is capped at 20 MB and a document's images at 64 MB, and a refused image shows a
 placeholder, not an error. The same helper guards `markdown://` addresses. A document itself is read only
 up to 32 MB, with a share mode that tolerates an editor's lock.
@@ -152,7 +191,7 @@ handler asks it again for every request, so the two cannot disagree. The token i
 something with no pictures) holds the one that is current: a request carrying any other — from a
 document that has been replaced, or one an author guessed — is refused, and a refusal is a 404. The
 sanitizer never lets an `mdasset:` address through, in `src` or `href`: the only ones on the page are
-those the renderer swaps in afterwards. Images anywhere on disk are served (decision SEC-4: an image
+those `ReferenceResolver` writes afterwards. Images anywhere on disk are served (decision SEC-4: an image
 type that is not a UNC or device path), which is the reach images had before they were served this way; the page, not
 the handler, is what a document controls, and `connect-src 'self'` stops a script from reading the
 bytes back out with `fetch`.
@@ -166,8 +205,13 @@ touches the network, and it is the document author's choice, not the app's. `mda
 app's own scheme for the open document's pictures (above).
 
 **The web view is locked down** (`Program.ConfigureWebView`). Developer tools exist only in debug builds
-or with `--devtools`; the engine's own context menu (Reload, View source, Inspect) is never shown;
-browser permissions are not granted; navigation away from the app's own origin is cancelled; and
+or with `--devtools` (a switch counts only before the first file name: the protocol handler's command line
+carries an address somebody else wrote); the engine's own context menu (Reload, View source, Inspect) is never
+shown; browser permissions are not granted; web security stays on and the page sends no referrer; the engine's
+cache and cookies live in the app's own `webview` folder under `%LOCALAPPDATA%\MarkdownBlaze`, not in the `Photino`
+folder every PhotinoX program shares, and the disk cache is limited to one byte (`--disk-cache-size=1`; checked in
+the running window: the pictures a document loads from the web are not written to disk); navigation away from
+the app's own origin is cancelled; and
 `target="_blank"` or `window.open` never open a window: a web address goes through the link allow-list to
 the browser, anything else is dropped.
 
@@ -188,8 +232,9 @@ which the page was handed a `DotNetObjectReference` to when it started: there is
 that a script in a document could find by assembly name. What the page reports is still treated as a
 request — a link target is only followed if it is a supported document that exists, a key only counts if
 it is one the command registry gave the page to report, and `data-nav`, the attribute that marks an
-in-app link, is removed by the sanitizer and written by the renderer after it, so a document cannot forge
-one. The sanitizer and the CSP still come first.
+in-app link, is removed by the sanitizer and written by `ReferenceResolver` after it, so a document cannot forge
+one. The sanitizer and the CSP still come first. The log is one line per entry — a line break in a message, which
+can carry the name of a dropped file, is written as `\n` — so a document cannot forge a line of it.
 
 To report a problem, see [SECURITY.md](../SECURITY.md). The pages in
 [`samples/wiki/security/`](../samples/wiki/security/index.md) show what a hostile document's payloads look
@@ -200,10 +245,12 @@ like, and a test renders every one of them and checks that none survives.
 | Concern | Where |
 |---|---|
 | Markdown to HTML, startup file, app version | `Services/MarkdownService.cs` |
+| Links and pictures of a document, resolved on the sanitized tree | `Services/ReferenceResolver.cs` |
+| Render threads, the deadline, the renders given up on | `Services/RenderWorker.cs`, `Services/RenderRun.cs`, `Services/NavigationService.cs` |
 | Back/forward, links, file watching; the one place document state changes (UI thread only) | `Services/NavigationService.cs` |
 | Starting programs: the browser, another window, the file manager | `Platform/IShellLauncher.cs`, `Platform/ShellLauncher.cs` |
 | Returning to the UI thread; work nobody awaits | `Services/IUiDispatcher.cs`, `Services/Background.cs` |
-| Sanitizer, link allow-list, local-path policy | `Security/` |
+| Sanitizer, the cut to 512 levels, link allow-list, local-path policy, the image scheme | `Security/` (`HtmlSanitizer`, `NestingLimit`, `ExternalLinks`, `LocalPath`, `AssetHandler`) |
 | Settings and history on disk (atomic, debounced) | `Services/PreferencesStore.cs`, `HistoryStore.cs`, `JsonFile.cs`, `SaveDebouncer.cs` |
 | The local log file | `Services/FileLoggerProvider.cs`, `Services/Log.cs` |
 | Calls from the page into .NET; native dialogs | `Interop/` |

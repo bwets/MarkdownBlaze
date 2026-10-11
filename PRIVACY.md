@@ -1,6 +1,6 @@
 # Privacy Policy — MarkdownBlaze
 
-_Last updated: 2026-10-10_
+_Last updated: 2026-10-11_
 
 MarkdownBlaze ("the app") is an offline desktop application that renders Markdown files on your
 device. Your privacy is simple to describe: **the app does not collect, transmit, store remotely,
@@ -25,6 +25,13 @@ uploaded or transmitted anywhere:
   or a link that would not open; it can name the files involved and, at the detailed level, the addresses of links the app refused to open. It is for
   diagnosing faults, stays on your computer, is never sent anywhere, and is deleted with the folder.
   Starting the app with `--log-level debug` makes it more detailed.
+- **Web view data** (Windows) — the browser engine that draws the window (WebView2) keeps its working files in a
+  `webview` folder next to the files above: its profile, and whatever a page leaves behind (cookies, local
+  storage). The app asks the engine not to keep a disk cache, so the pictures a document loads from the web are
+  not written to disk; the little the engine does keep stays on your computer and is never sent anywhere. Older
+  builds put these files in a folder named `Photino`, shared with other programs built on the same toolkit; this
+  app no longer uses it and leaves it alone, because other programs may — you can delete
+  `%LOCALAPPDATA%\Photino` yourself if nothing else needs it.
 
 This data lives in your local application-data folder (for example
 `%LOCALAPPDATA%\MarkdownBlaze` on Windows) and can be deleted at any time by removing that folder.

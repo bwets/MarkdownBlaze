@@ -662,6 +662,40 @@ body .content-area.document-pane.paged {
        so the element leaves exactly as it finishes fading rather than blinking out. */
     animation: toast-life 1.4s ease-out forwards;
 }
+/* A picture past the per-document limit has no picture, only the words "Too many images" as its alternative text
+   (see ReferenceResolver); drawn like the dashed box the app makes for a picture it will not show. */
+.markdown-body img[data-md-skipped="limit"] {
+    display: inline-block;
+    padding: 9px 20px;
+    border: 1px dashed #888;
+    border-radius: 4px;
+    color: #888;
+    font: 13px sans-serif;
+}
+
+/* Where a link goes, while the pointer is over it or it has the keyboard focus: a browser's status strip, in
+   the bottom left corner (js/links.js). It shows the address that would be opened — not the text of the link,
+   which a document writes as it likes — and only for a link that opens one. App chrome, like the toast: no
+   document class may be named after it (the sanitizer's list of classes is short and does not include it). */
+.link-status {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    z-index: 900; /* over the document and the bars, under the menus (1000+) */
+    max-width: min(80vw, 60rem);
+    padding: 3px 12px 3px 10px;
+    border-top: 1px solid var(--ui-divider, rgba(255, 255, 255, .18));
+    border-right: 1px solid var(--ui-divider, rgba(255, 255, 255, .18));
+    border-top-right-radius: 6px;
+    background: var(--ui-layer-3, #26262b);
+    color: var(--ui-fg, #f2f2f2);
+    font-size: .8rem;
+    overflow: hidden;
+    text-overflow: ellipsis; /* the host comes first, so it is the end of a long address that goes */
+    white-space: nowrap;
+    pointer-events: none;
+}
+.link-status[hidden] { display: none; }
 /* Clear of the bar along the bottom of the window, when there is one (Toast.razor says which). */
 .toast-over-bar { bottom: 62px; }
 .toast-over-print { bottom: 76px; }

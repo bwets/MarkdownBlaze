@@ -52,18 +52,44 @@ public class LinkRewriteTests
         Assert.DoesNotContain("mdnav-", html, StringComparison.Ordinal); // every token was swapped back
     }
 
+    /// <summary>
+    /// SEC-14: the renderer's own stage runs after the sanitizer and nothing runs between them, so what an
+    /// author wrote by hand of what only the renderer may write is gone before the renderer starts. The
+    /// two things are <c>data-nav</c> and <c>mdasset://</c>; the renderer's own, in the same document, survive.
+    /// </summary>
     [Fact]
-    public void A_link_cannot_forge_the_token_the_renderer_uses()
+    public void What_only_the_renderer_may_write_is_removed_from_the_authors_html_and_the_renderers_own_is_not()
     {
         using var temp = new TempFolder();
         var existing = temp.File("existing.md", "# Existing");
+        _ = temp.File("pic.png", Png);
+        var doc = temp.File(
+            "doc.md",
+            $"<a data-nav=\"{existing}\" href=\"#\">forged link</a>\n\n"
+                + "<img src=\"mdasset://doc/00000000000000000000000000000000/x.png\" alt=\"forged picture\">\n\n"
+                + "<img src=\"pic.png\" alt=\"mine\">\n\n"
+                + "<a href=\"existing.md\">mine too</a>");
 
-        // A guess at the token, as an author might write it: it is not restored into anything.
-        var html = Render(temp, "<a href=\"mdnav-00000000000000000000000000000000-0\">guess</a>");
+        var result = Markdown.Render(doc)!;
+        var html = result.BodyHtml;
 
-        Assert.DoesNotContain("data-nav", html, StringComparison.Ordinal);
-        Assert.DoesNotContain(existing, html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-nav", AnchorOf(html, "forged link"), StringComparison.Ordinal);
+        Assert.Contains($"data-nav=\"{existing}\"", AnchorOf(html, "mine too"), StringComparison.Ordinal);
+        var forged = ImageOf(html, "forged picture");
+        Assert.DoesNotContain("src=", forged, StringComparison.Ordinal);
+        Assert.DoesNotContain("00000000000000000000000000000000", html, StringComparison.Ordinal);
+        Assert.Contains("src=\"mdasset://doc/" + result.Assets!.Token + "/pic.png\"", ImageOf(html, "mine"), StringComparison.Ordinal);
     }
+
+    private static string ImageOf(string html, string alt)
+    {
+        var at = html.IndexOf("alt=\"" + alt + "\"", StringComparison.Ordinal);
+        Assert.True(at > 0, $"no image with the alt text '{alt}' in: {html}");
+        return html[html.LastIndexOf("<img", at, StringComparison.Ordinal)..(html.IndexOf('>', at) + 1)];
+    }
+
+    private static readonly byte[] Png = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
 
     [Fact]
     public void Web_and_mail_links_are_left_alone()

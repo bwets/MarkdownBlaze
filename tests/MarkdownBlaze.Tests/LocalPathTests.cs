@@ -292,12 +292,16 @@ public class LocalPathTests
     }
 
     [Fact]
-    public void A_forged_image_token_in_the_document_is_not_replaced()
+    public void An_address_that_looks_like_a_token_is_only_a_relative_address_to_a_file_that_is_no_picture()
     {
         using var temp = new TempFolder();
         _ = temp.File("pic.png", Png);
+
+        // There is no token in the markup any more: every image is looked at by the same code, whoever wrote it.
         var html = Render(temp, "![a](pic.png)\n\n<img src=\"mdimg-00000000000000000000000000000000-0\">");
 
-        Assert.Contains("src=\"mdimg-00000000000000000000000000000000-0\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("mdimg-", html, StringComparison.Ordinal);
+        Assert.Equal(1, html.Split("data-md-skipped=\"blocked\"").Length - 1); // not an image type
+        Assert.Equal(1, html.Split("src=\"mdasset://").Length - 1); // and the one real picture
     }
 }

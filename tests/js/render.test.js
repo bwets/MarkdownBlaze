@@ -1,5 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { restoreMeasures, stripMathDelims, withSteadyMeasures } from '../../src/MarkdownBlaze/wwwroot/js/render.js';
+import {
+  KATEX_OPTIONS,
+  MAX_HIGHLIGHT_CHARS,
+  MERMAID_LIMITS,
+  highlightCode,
+  renderMath,
+  restoreMeasures,
+  runMermaid,
+  stripMathDelims,
+  withSteadyMeasures,
+} from '../../src/MarkdownBlaze/wwwroot/js/render.js';
 
 describe('stripMathDelims', () => {
   it.each([
@@ -64,5 +74,96 @@ describe('withSteadyMeasures', () => {
       restoreMeasures();
       Element.prototype.getBoundingClientRect = real;
     }
+  });
+});
+
+// SEC-16: what the libraries are allowed to do with a document's diagrams, formulas and code.
+describe('runMermaid', () => {
+  afterEach(() => { delete window.mermaid; restoreMeasures(); document.body.innerHTML = ''; });
+
+  it('initialises Mermaid in strict mode with its size limits stated, whatever the defaults are', async () => {
+    const initialize = vi.fn();
+    window.mermaid = { initialize, run: vi.fn(() => Promise.resolve()) };
+
+    await runMermaid('dark');
+
+    expect(initialize).toHaveBeenCalledTimes(1);
+    expect(initialize.mock.calls[0][0]).toMatchObject({
+      startOnLoad: false,
+      theme: 'dark',
+      securityLevel: 'strict',
+      maxTextSize: 50000,
+      maxEdges: 500,
+    });
+  });
+
+  it('asks again with the same limits every time a diagram is drawn (a theme change draws it again)', async () => {
+    const initialize = vi.fn();
+    window.mermaid = { initialize, run: vi.fn(() => Promise.resolve()) };
+
+    await runMermaid('dark');
+    await runMermaid('default');
+
+    expect(initialize.mock.calls.map(call => call[0].securityLevel)).toEqual(['strict', 'strict']);
+  });
+
+  it('keeps the limits where nothing can change them', () => {
+    expect(MERMAID_LIMITS).toEqual({ securityLevel: 'strict', maxTextSize: 50000, maxEdges: 500 });
+    expect(Object.isFrozen(MERMAID_LIMITS)).toBe(true);
+  });
+});
+
+describe('renderMath', () => {
+  afterEach(() => { delete window.katex; document.body.innerHTML = ''; });
+
+  it('gives every formula the limits: no size over 50 em, 1000 expansions, nothing trusted', () => {
+    const render = vi.fn();
+    window.katex = { render };
+    document.body.innerHTML = '<span class="math">$x^2$</span><div class="math">$$y$$</div><pre><code class="language-math">z</code></pre>';
+
+    renderMath();
+
+    expect(render).toHaveBeenCalledTimes(3);
+    for (const [, , options] of render.mock.calls) {
+      expect(options).toMatchObject({ maxSize: 50, maxExpand: 1000, trust: false, throwOnError: false });
+    }
+    const modes = render.mock.calls.map(([tex, , options]) => [tex, options.displayMode]);
+    expect(modes).toEqual(expect.arrayContaining([['z', true], ['y', true], ['x^2', false]]));
+  });
+
+  it('keeps the options where nothing can change them', () => {
+    expect(KATEX_OPTIONS).toEqual({ throwOnError: false, maxSize: 50, maxExpand: 1000, trust: false });
+    expect(Object.isFrozen(KATEX_OPTIONS)).toBe(true);
+  });
+});
+
+describe('highlightCode', () => {
+  afterEach(() => { delete window.hljs; document.body.innerHTML = ''; });
+
+  it('highlights a block of code', () => {
+    const highlightElement = vi.fn();
+    window.hljs = { highlightElement };
+    document.body.innerHTML = '<pre><code class="language-js">let x = 1;</code></pre>';
+
+    highlightCode();
+
+    expect(highlightElement).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('code').hasAttribute('data-md-skipped')).toBe(false);
+  });
+
+  it('leaves a block over 100,000 characters as plain text and marks it', () => {
+    const highlightElement = vi.fn();
+    window.hljs = { highlightElement };
+    document.body.innerHTML = '<pre><code id="small">x</code></pre><pre><code id="big"></code></pre><pre><code id="edge"></code></pre>';
+    document.getElementById('big').textContent = 'x'.repeat(MAX_HIGHLIGHT_CHARS + 1);
+    document.getElementById('edge').textContent = 'x'.repeat(MAX_HIGHLIGHT_CHARS);
+
+    highlightCode();
+
+    expect(MAX_HIGHLIGHT_CHARS).toBe(100_000);
+    expect(document.getElementById('big').getAttribute('data-md-skipped')).toBe('too-large');
+    expect(highlightElement).toHaveBeenCalledTimes(2); // the small one and the one at the limit
+    expect(highlightElement.mock.calls.map(([code]) => code.id).sort()).toEqual(['edge', 'small']);
+    expect(document.getElementById('big').textContent.length).toBe(MAX_HIGHLIGHT_CHARS + 1); // untouched
   });
 });

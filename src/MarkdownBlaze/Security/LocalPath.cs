@@ -60,6 +60,22 @@ internal static partial class LocalPath
         return end < 0 ? path[2..] : path.Substring(2, end);
     }
 
+    /// <summary>
+    /// Whether <paramref name="path"/> is a UNC path on the same server as <paramref name="baseDir"/>, the
+    /// folder of the document being shown. This is the one UNC path an image may have: a document opened
+    /// from <c>\\server\share\doc.md</c> has its pictures on that share, the session with that server
+    /// exists already (opening the document made it), and so nothing is given away by asking for them.
+    /// A path on another server, a device path (which has no server) and any path when the document is on
+    /// a local disk are all false. Only the text of the two paths is compared; nothing is touched.
+    /// </summary>
+    /// <param name="path">The path to ask about.</param>
+    /// <param name="baseDir">The document's folder; empty for text that has none.</param>
+    public static bool IsOnServerOf(string? path, string? baseDir)
+    {
+        var server = UncServer(path);
+        return server is not null && string.Equals(server, UncServer(baseDir), StringComparison.OrdinalIgnoreCase);
+    }
+
     public static bool IsImage(string path) => ImageExtensions.Contains(Path.GetExtension(path));
 
     /// <summary>The media type of an image extension, matched without regard to case.</summary>
@@ -91,17 +107,22 @@ internal static partial class LocalPath
     /// Resolves <paramref name="decodedPath"/> (already percent-decoded) against
     /// <paramref name="baseDir"/>. Null when the path is not safe, or when the result is a device or
     /// UNC path after all — the Win32 layer maps names like <c>CON.png</c> to <c>\\.\CON</c>, which
-    /// <see cref="Path.GetFullPath(string)"/> reveals.
+    /// <see cref="Path.GetFullPath(string)"/> reveals. A UNC path, written out or the result of a relative
+    /// one for a document that is itself on a share, is resolved only when it is on the document's own
+    /// server (<see cref="IsOnServerOf"/>); every other server, and every device path, is refused.
     /// </summary>
     public static string? Resolve(string decodedPath, string baseDir)
     {
-        if (!IsSafe(decodedPath)) return null;
+        // NUL and friends truncate or confuse the Win32 layer
+        if (string.IsNullOrWhiteSpace(decodedPath) || decodedPath.Any(char.IsControl)) return null;
+        var written = decodedPath.TrimStart();
+        if (IsUncOrDevice(written) && !IsOnServerOf(written, baseDir)) return null;
         try
         {
             var full = Path.IsPathRooted(decodedPath)
                 ? Path.GetFullPath(decodedPath)
                 : Path.GetFullPath(Path.Combine(baseDir, decodedPath));
-            if (IsUncOrDevice(full)) return null;
+            if (IsUncOrDevice(full) && !IsOnServerOf(full, baseDir)) return null;
             // Win32 still treats CON, NUL, COM1 ... as devices wherever they appear in a path, with or
             // without an extension; opening one can hang the render waiting for input.
             if (OperatingSystem.IsWindows() && IsReservedDeviceName(Path.GetFileName(full))) return null;

@@ -21,6 +21,9 @@ internal static partial class Program
     private const int ExitRegistryRefused = 1;
     private const int ExitNotApplicable = 2;
 
+    /// <summary>Chromium switches for WebView2: the disk cache is limited to one byte.</summary>
+    internal const string WebViewBrowserArguments = "--disk-cache-size=1";
+
     /// <summary>
     /// WebView2 on Windows requires an STA thread; top-level statements run as MTA,
     /// which leaves the WebView uninitialized (blank/black window).
@@ -112,6 +115,22 @@ internal static partial class Program
         _ = window.SetContextMenuEnabled(enabled: false);
         _ = window.SetGrantBrowserPermissions(grant: false);
 
+        // The same-origin policy and the rest of the engine's web security stay on. PhotinoX has them on
+        // by default; it is said here so that nobody has to wonder, and so that a newer PhotinoX that
+        // changed the default (the setting exists for apps that load their own local pages) cannot turn
+        // the protection off underneath a window that shows documents from anywhere.
+        _ = window.SetWebSecurityEnabled(enable: true);
+
+        // Windows: the engine's own folder (cache, cookies, storage) belongs to the app, not to the
+        // "Photino" folder every PhotinoX program on the machine shares — see AppPaths.WebViewFolder and
+        // PRIVACY.md. The disk cache is kept to the least the engine accepts: the pictures of a document
+        // that come from the web are fetched when it is opened and are not worth keeping copies of.
+        if (OperatingSystem.IsWindows())
+        {
+            _ = window.SetUserDataFolder(AppPaths.WebViewFolder);
+            _ = window.SetBrowserControlInitParameters(WebViewBrowserArguments);
+        }
+
         // The window may only ever show the app. A script or a stray link that tries to take it
         // somewhere else — a web page inside the app's own frame — is stopped here.
         _ = window.RegisterNavigationStartingHandler((_, e) =>
@@ -156,6 +175,7 @@ internal static partial class Program
         _ = services.AddSingleton<PreferencesStore>();
         _ = services.AddSingleton<HistoryStore>();
         _ = services.AddSingleton<MarkdownService>();
+        _ = services.AddSingleton<IDocumentRenderer>(provider => provider.GetRequiredService<MarkdownService>());
         _ = services.AddSingleton<NavigationService>();
         _ = services.AddSingleton<FileTreeService>();
         _ = services.AddSingleton<NativeDialogs>();
@@ -203,7 +223,7 @@ internal static partial class Program
     }
 
     private static bool IsDevToolsWanted(string[] args) =>
-        IsDebugBuild() || args.Contains("--devtools", StringComparer.OrdinalIgnoreCase);
+        IsDebugBuild() || StartupArguments.DevToolsRequestedBy(args);
 
     /// <summary>
     /// Sends what nobody caught to the log. A WinExe has no console, so the <c>Console.Error</c> line that

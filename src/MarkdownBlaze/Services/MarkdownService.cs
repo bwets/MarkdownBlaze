@@ -1,6 +1,4 @@
 using System.Collections.Frozen;
-using System.Globalization;
-using System.Net;
 using System.Reflection;
 using System.Text;
 using bwets.Markdig.Extensions;
@@ -23,9 +21,10 @@ namespace MarkdownBlaze.Services;
 /// mermaid, wiki links, hidden Obsidian comments, and Obsidian tags. Syntax highlighting (highlight.js)
 /// and math (KaTeX) are applied client-side over the emitted classes. Relative links are rewritten for
 /// in-app navigation, and local images are given an <c>mdasset://</c> address that the WebView host
-/// serves from disk (see <see cref="AssetHandler"/>) rather than being carried in the page.
+/// serves from disk (see <see cref="AssetHandler"/>) rather than being carried in the page — both by
+/// <see cref="ReferenceResolver"/>, on the sanitized HTML.
 /// </summary>
-internal sealed partial class MarkdownService
+internal sealed partial class MarkdownService : IDocumentRenderer
 {
     private static readonly ILogger Logger = Log.For(nameof(MarkdownService));
 
@@ -36,7 +35,30 @@ internal sealed partial class MarkdownService
     /// </summary>
     public const long MaxFileBytes = 32L * 1024 * 1024;
 
-    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
+    /// <summary>
+    /// How many links of one document are looked at on disk (does the file exist? is it a folder?). Each
+    /// is a file-system call, and a document with fifty thousand of them is one the reader did not write
+    /// for reading; a link past the limit is inert, marked <c>data-md-blocked="limit"</c>.
+    /// </summary>
+    public const int MaxResolvedLinks = 5000;
+
+    /// <summary>
+    /// How many local pictures of one document are opened to see whether they may be shown; a picture past
+    /// the limit is a placeholder that says there are too many, marked <c>data-md-skipped="limit"</c>.
+    /// </summary>
+    public const int MaxImages = 2000;
+
+    /// <summary>
+    /// How deeply Markdown may nest — lists in quotes in lists, emphasis in links — before Markdig refuses
+    /// the document with an <see cref="ArgumentException"/> (<see cref="IsNestingLimit"/>). Markdig's own
+    /// default for the version in use is the same number; it is written down so that a newer Markdig
+    /// cannot raise it without this line changing, and the renderer recurses once per level. Raw HTML is
+    /// not Markdown nesting and is limited separately, to <see cref="NestingLimit.MaxDepth"/>.
+    /// </summary>
+    public const int MaxMarkdownNesting = 128;
+
+    /// <summary>The Markdown pipeline. Internal so that a test can see what it writes before the sanitizer has had its say.</summary>
+    internal static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder { MaximumNestingDepth = MaxMarkdownNesting }
         .UseYamlFrontMatter()
         .UseAdvancedExtensions()
         .UseEmojiAndSmiley(enableSmileys: false) // :shortcode: only — no ":)"→emoji, matching GitHub/Obsidian
@@ -106,9 +128,22 @@ internal sealed partial class MarkdownService
             RenderCore(markdown, baseDir, fullPath, Path.GetFileName(fullPath), cancellationToken));
     }
 
-    /// <summary><see cref="RenderFile"/> on the thread pool, so that the window keeps answering while a big document renders.</summary>
+    /// <summary>
+    /// <see cref="RenderFile"/> on a thread of its own (see <see cref="RenderWorker"/>), so that the window
+    /// keeps answering while a big document renders, and the render has the stack a deeply nested one needs.
+    /// </summary>
     public Task<FileRender> RenderFileAsync(string markdownFilePath, CancellationToken cancellationToken) =>
-        Task.Run(() => RenderFile(markdownFilePath, cancellationToken), cancellationToken);
+        RenderWorker.RunAsync(() => RenderFile(markdownFilePath, cancellationToken), cancellationToken);
+
+    /// <summary>
+    /// Whether <paramref name="exception"/> is Markdig giving up on a document because its Markdown is
+    /// nested too deeply (an <see cref="ArgumentException"/> with no parameter name, whose text says so).
+    /// Such a document is not an error in the app but a property of the document, and is reported as one.
+    /// </summary>
+    /// <param name="exception">What a render threw.</param>
+    public static bool IsNestingLimit(Exception exception) =>
+        exception is ArgumentException { ParamName: null }
+            && exception.Message.Contains("too deeply nested", StringComparison.OrdinalIgnoreCase);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Rendered {File} in {Milliseconds} ms; the HTML handed to the page is {Characters} characters")]
     private static partial void LogRendered(ILogger log, string file, long milliseconds, int characters);
@@ -125,9 +160,6 @@ internal sealed partial class MarkdownService
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not read the What's new page at {Path}")]
     private static partial void LogWhatsNewMissing(ILogger log, Exception ex, string path);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "The link target {Url} is not a path this system can resolve; the link is left as written")]
-    private static partial void LogLinkNotResolved(ILogger log, Exception ex, string url);
-
     /// <summary>
     /// Renders raw Markdown that has no backing file path (e.g. a file dropped into the WebView, where
     /// the real path is not available). Relative links/images cannot be resolved without a base folder.
@@ -143,10 +175,6 @@ internal sealed partial class MarkdownService
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         var document = Markdown.Parse(markdown, Pipeline);
         cancellationToken.ThrowIfCancellationRequested();
-        var images = new ImageRefs(baseDir, cancellationToken);
-        var targets = new LinkTargets();
-        RewriteLinksAndImages(document, images, targets);
-        cancellationToken.ThrowIfCancellationRequested();
 
         using var writer = new StringWriter();
         var htmlRenderer = new HtmlRenderer(writer);
@@ -157,18 +185,24 @@ internal sealed partial class MarkdownService
 
         // The document is untrusted, and so is the raw HTML Markdig lets through in it: nothing reaches
         // the page without passing the sanitizer. It is done here, in the one place every render goes
-        // through, so text dropped onto the window and the What's new page are covered as well.
-        // The addresses of the images (mdasset://) and the in-app link targets (data-nav) are both
-        // things only this class may put on the page: the sanitizer removes every one an author wrote,
-        // so the ones that are left are the ones this class made, swapped in after it has run.
-        var body = targets.Restore(images.Restore(HtmlSanitizer.Sanitize(writer.ToString())));
+        // through, so text dropped onto the window and the What's new page are covered as well. The HTML
+        // is parsed once, cut down to a depth that is safe to walk (a browser would flatten it anyway),
+        // sanitized, and only then are the links and pictures resolved — Markdown's and the author's
+        // own HTML alike, by the one piece of code (ReferenceResolver). The in-app link targets
+        // (data-nav) and the picture addresses (mdasset://) are things only that stage may put on the
+        // page: the sanitizer has removed every one an author wrote before it runs. Serialized once.
+        using var cleaned = HtmlSanitizer.Clean(writer.ToString());
+        var references = new ReferenceResolver(baseDir, cancellationToken);
+        if (cleaned.Body is { } bodyElement) references.Resolve(bodyElement);
+        cancellationToken.ThrowIfCancellationRequested();
+        var body = HtmlSanitizer.Serialize(cleaned);
 
         var headings = ExtractHeadings(document);
         var title = DeriveTitle(headings, path);
         var elapsed = (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         LogRendered(Logger, file, elapsed, body.Length);
 
-        return new RenderResult(path, file, title, body, headings, LanguageOf(document), images.Grant);
+        return new RenderResult(path, file, title, body, headings, LanguageOf(document), references.Grant);
     }
 
     /// <summary>
@@ -376,276 +410,5 @@ internal sealed partial class MarkdownService
         }
 
         return sb.ToString().Trim();
-    }
-
-    // ---- link / image rewriting -----------------------------------------------------------------
-
-    private static void RewriteLinksAndImages(MarkdownDocument document, ImageRefs images, LinkTargets targets)
-    {
-        foreach (var link in document.Descendants<LinkInline>())
-        {
-            if (link.IsImage)
-                images.Rewrite(link);
-            else
-                RewriteLink(link, images.BaseDir, targets);
-        }
-    }
-
-    /// <summary>
-    /// Internal markdown links (relative paths, folders → index.md, extension-less → .md) become
-    /// in-app navigation targets carried in a data-nav attribute (see <see cref="LinkTargets"/> for how
-    /// it gets onto the page); web and mail links are left as-is
-    /// (and are opened only if they pass <see cref="ExternalLinks"/>). A link that points at a local
-    /// file by an absolute address — <c>C:/x.md</c> or <c>file:///C:/x.md</c> — is either a Markdown
-    /// document that exists, and then navigates in-app, or it is made inert: it is never left to be
-    /// opened as an "external" link, because the shell would run whatever it names.
-    /// </summary>
-    private static void RewriteLink(LinkInline link, string baseDir, LinkTargets targets)
-    {
-        var url = link.Url;
-        if (string.IsNullOrWhiteSpace(url)) return;
-        if (url.StartsWith('#') || url.StartsWith("//", StringComparison.Ordinal)) return;
-        if (Uri.TryCreate(url, UriKind.Absolute, out var absolute))
-        {
-            RewriteAbsoluteLink(link, absolute, targets);
-            return;
-        }
-
-        var splitIndex = url.IndexOfAny(['#', '?']);
-        var path = splitIndex >= 0 ? url[..splitIndex] : url;
-        if (path.Length == 0 || path.StartsWith('/') || path.StartsWith('\\')) return;
-
-        try
-        {
-            var decoded = Uri.UnescapeDataString(path);
-            var fullPath = Path.GetFullPath(Path.Combine(baseDir, decoded));
-
-            var endsWithSeparator = decoded.EndsWith('/') || decoded.EndsWith('\\');
-            if (endsWithSeparator || Directory.Exists(fullPath))
-            {
-                fullPath = Path.Combine(fullPath, "index.md");
-            }
-            else
-            {
-                var fileName = Path.GetFileName(decoded);
-                if (fileName.Length > 0
-                    && fileName is not ("." or "..")
-                    && string.IsNullOrEmpty(Path.GetExtension(fileName)))
-                {
-                    fullPath += ".md";
-                }
-            }
-
-            if (fullPath.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
-            {
-                link.Url = targets.Add(fullPath);
-            }
-        }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
-        {
-            // A path the file system cannot make sense of: the link stays as the author wrote it.
-            LogLinkNotResolved(Logger, ex, url);
-        }
-    }
-
-    /// <summary>The part of <see cref="RewriteLink"/> that deals with a link written as an absolute address.</summary>
-    private static void RewriteAbsoluteLink(LinkInline link, Uri absolute, LinkTargets targets)
-    {
-        // http:, mailto:, ... are external links; the page and ExternalLinks decide what opens.
-        if (!absolute.IsFile) return;
-
-        // file:///C:/x.md, or what the Windows parser makes of C:/x.md and \\server\share\x.md.
-        // A UNC target would make Windows open a network session just to look at it.
-        var local = absolute.IsUnc ? null : absolute.LocalPath;
-        if (local is not null
-            && LocalPath.IsSafe(local)
-            && local.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
-            && File.Exists(local))
-        {
-            link.Url = targets.Add(Path.GetFullPath(local));
-        }
-        else
-        {
-            link.GetAttributes().AddProperty("data-md-blocked", "link");
-            link.Url = "#";
-        }
-    }
-
-    /// <summary>
-    /// Carries the in-app targets of one document's links through the sanitizer.
-    /// <para>
-    /// <c>data-nav</c> is what the page follows without asking: the target is opened on a click. So it must
-    /// be something only this class can put on the page — and a sanitizer that lets <c>data-nav</c> through
-    /// cannot tell the attribute written here from one an author wrote by hand in an HTML block, which
-    /// would make any Markdown file on the machine a link target. The sanitizer therefore removes every
-    /// <c>data-nav</c>, and a link is given a token as its address (random per render, so a document cannot
-    /// forge one — the mechanism <see cref="ImageRefs"/> uses for pictures); <see cref="Restore"/>
-    /// swaps the token for <c>href="#" data-nav="target"</c> after the sanitizer has run.
-    /// </para>
-    /// </summary>
-    private sealed class LinkTargets
-    {
-        private readonly string _prefix = "mdnav-" + Guid.NewGuid().ToString("N") + "-";
-        private readonly List<string> _targets = [];
-
-        /// <summary>Registers an in-app target; the result is the address to give the link for now.</summary>
-        public string Add(string target)
-        {
-            _targets.Add(target);
-            return _prefix + (_targets.Count - 1).ToString(CultureInfo.InvariantCulture);
-        }
-
-        public string Restore(string html)
-        {
-            // As for images: the closing quote is part of what is replaced, so that token 1 cannot match
-            // the start of token 10.
-            for (var i = 0; i < _targets.Count; i++)
-            {
-                var token = "href=\"" + _prefix + i.ToString(CultureInfo.InvariantCulture) + "\"";
-                html = html.Replace(token, "href=\"#\" data-nav=\"" + WebUtility.HtmlEncode(_targets[i]) + "\"", StringComparison.Ordinal);
-            }
-
-            return html;
-        }
-    }
-
-    /// <summary>
-    /// Points the local images of one document at <see cref="AssetHandler"/> (<c>mdasset://</c>), within
-    /// the limits of <see cref="LocalPath"/>: image types only, never a UNC or device path, a cap per
-    /// image and a cap for the document. The bytes are not read here — the WebView asks for them when it
-    /// draws the page — but each image is opened, by the same <see cref="LocalPath.TryOpenImage"/> the
-    /// handler uses, so that one that would be refused is a placeholder in the markup rather than a
-    /// broken picture, and so that the document's budget can be added up.
-    /// <para>
-    /// The addresses are not put into the HTML where the sanitizer would see them: <c>mdasset</c> is not
-    /// a scheme it lets through, so that an address an author wrote by hand is removed. Each image is
-    /// given a token in the markup instead (random per render, so a document cannot forge one) and
-    /// <see cref="Restore"/> swaps the real address in once the sanitizer is done. The render's own
-    /// <see cref="Token"/> is also the one the handler is told to accept (<see cref="AssetGrant"/>).
-    /// </para>
-    /// </summary>
-    private sealed class ImageRefs(string baseDir, CancellationToken cancellationToken)
-    {
-        private readonly List<string> _addresses = [];
-        private long _remaining = LocalPath.MaxDocumentImageBytes;
-
-        public string BaseDir { get; } = baseDir;
-
-        /// <summary>Random per render: part of every address this render makes, and what the handler checks.</summary>
-        // Decided: a fresh token for every render. A reload (file watcher, F5) therefore gives every image
-        // a new address, so the WebView asks for each of them again and the browser cache cannot help; the
-        // bytes come from the file each time, never through the page. That is deliberate: reusing the token
-        // would let the cache work, but an image that was edited would stay as it was, and showing the
-        // edited picture matters more than saving a file read.
-        public string Token { get; } = Guid.NewGuid().ToString("N");
-
-        /// <summary>The grant the handler needs to serve this render's images, or null when it has none.</summary>
-        public AssetGrant? Grant =>
-            _addresses.Count > 0 ? new AssetGrant(Token, BaseDir) : null;
-
-        private string Prefix => "mdimg-" + Token + "-";
-
-        public void Rewrite(LinkInline image)
-        {
-            cancellationToken.ThrowIfCancellationRequested(); // images are the slow part of a document that has many
-
-            var url = image.Url;
-            // data: images are the author's own and are vetted by the sanitizer.
-            if (string.IsNullOrWhiteSpace(url) || url.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-                return;
-
-            var decoded = LocalPathOf(url, out var isLocal);
-            if (!isLocal) return; // a remote image is kept as it is, by decision (SEC-5)
-            if (decoded is null)
-            {
-                Skip(image, "blocked"); // //server/share/x.png, \\?\C:\x.png and the like
-                return;
-            }
-
-            switch (LocalPath.Check(decoded, BaseDir, LocalPath.MaxImageBytes, _remaining, out var length))
-            {
-                case LocalPath.ImageOutcome.Allowed:
-                    _remaining -= length;
-                    image.Url = Prefix + _addresses.Count.ToString(CultureInfo.InvariantCulture);
-                    _addresses.Add(AssetHandler.UrlFor(Token, decoded));
-                    break;
-                case LocalPath.ImageOutcome.Blocked:
-                    Skip(image, "blocked");
-                    break;
-                case LocalPath.ImageOutcome.TooLarge:
-                    Skip(image, "too-large");
-                    break;
-                case LocalPath.ImageOutcome.Missing:
-                    // Left as written, so the page shows its broken-image alt text. (For dropped text
-                    // this includes every relative path: it has no folder to be relative to.)
-                    break;
-            }
-        }
-
-        /// <summary>Puts the addresses into the sanitized <paramref name="html"/>.</summary>
-        public string Restore(string html)
-        {
-            // The quote that closes the attribute is part of what is replaced, so that the token for
-            // image 1 cannot match the start of the token for image 10.
-            for (var i = 0; i < _addresses.Count; i++)
-                html = html.Replace("\"" + Prefix + i.ToString(CultureInfo.InvariantCulture) + "\"", "\"" + _addresses[i] + "\"", StringComparison.Ordinal);
-
-            return html;
-        }
-
-        /// <summary>
-        /// The decoded filesystem path an image URL stands for. <paramref name="isLocal"/> is false for
-        /// anything that is not a local file (http:, data:, ...); the result is null when it is local
-        /// but must not be read (UNC, device).
-        /// </summary>
-        private static string? LocalPathOf(string url, out bool isLocal)
-        {
-            isLocal = true;
-            var trimmed = url.TrimStart();
-
-            // Refuse before the URL parser gets to interpret it: on Windows "//server/share/x.png" is
-            // parsed as an absolute file: URI, and merely looking for such a file starts an SMB session.
-            if (LocalPath.IsUncOrDevice(trimmed)) return null;
-
-            if (Uri.TryCreate(url, UriKind.Absolute, out var absolute))
-            {
-                if (!absolute.IsFile)
-                {
-                    isLocal = false;
-                    return null;
-                }
-
-                if (absolute.IsUnc) return null;
-                var local = absolute.LocalPath;
-                return LocalPath.IsUncOrDevice(local) ? null : local;
-            }
-
-            var splitIndex = url.IndexOfAny(['#', '?']);
-            var path = splitIndex >= 0 ? url[..splitIndex] : url;
-            return Uri.UnescapeDataString(path);
-        }
-
-        private static void Skip(LinkInline image, string reason)
-        {
-            image.GetAttributes().AddProperty("data-md-skipped", reason);
-            image.Url = string.Equals(reason, "too-large", StringComparison.Ordinal) ? Placeholders.TooLarge : Placeholders.Blocked;
-        }
-    }
-
-    /// <summary>What stands in the page for an image that is not shown on purpose.</summary>
-    private static class Placeholders
-    {
-        public static readonly string TooLarge = Make("Image too large to display");
-        public static readonly string Blocked = Make("Image not displayed");
-
-        private static string Make(string message)
-        {
-            var svg = "<svg xmlns='http://www.w3.org/2000/svg' width='280' height='40' viewBox='0 0 280 40'>"
-                + "<rect x='.5' y='.5' width='279' height='39' rx='4' fill='none' stroke='#888' stroke-dasharray='4 3'/>"
-                + "<text x='140' y='25' font-family='sans-serif' font-size='13' fill='#888' text-anchor='middle'>"
-                + message
-                + "</text></svg>";
-            return "data:image/svg+xml;base64," + Convert.ToBase64String(Encoding.UTF8.GetBytes(svg));
-        }
     }
 }
