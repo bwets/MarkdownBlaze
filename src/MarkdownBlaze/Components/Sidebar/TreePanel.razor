@@ -1,13 +1,18 @@
+@implements IDisposable
 @inject ViewerState State
 
 @* One folder or document, as a collapsible panel, and — recursively — the panels inside it. A folder's
    panel holds the panels of what is inside it; the panel of the document being read holds its outline.
 
    The component is handed a path, not a node: the rows are worked out once per change (ViewerState.Rows)
-   and each panel finds its own. Each panel head is a treeitem (aria-level; aria-expanded where it can open;
-   aria-selected on the document being read), and what a panel holds is a group. The <section> around a
-   panel is role="none" on purpose: left as a section it sits between the tree and its items, and the
-   browser then drops the treeitem role from the buttons inside it. *@
+   and each panel finds its own. That is also why it watches the state itself rather than leaving it to
+   the parent's render: its parameters (a path, a level, the callbacks) are the same from one change to
+   the next, so Blazor keeps the panel as it is when the parent draws again — and a panel that kept
+   its drawing after another document was opened still wore the "current" marking and the old outline.
+   Each panel head is a treeitem (aria-level; aria-expanded where it can open; aria-selected on the
+   document being read), and what a panel holds is a group. The <section> around a panel is role="none"
+   on purpose: left as a section it sits between the tree and its items, and the browser then drops the
+   treeitem role from the buttons inside it. *@
 @if (State.Rows.Find(Path) is { } node)
 {
     @if (node.Kind == TreeNodeKind.Folder)
@@ -71,4 +76,10 @@
 
     /// <summary>A heading of the open document was chosen (its slug).</summary>
     [Parameter] public EventCallback<string> OnHeading { get; set; }
+
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
 }

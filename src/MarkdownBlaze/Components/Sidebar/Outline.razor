@@ -1,8 +1,12 @@
+@implements IDisposable
 @inject ViewerState State
 @inject NavigationService Nav
 
 @* The open document's headings, as the body of its panel. Indented from the shallowest heading, so a
-   document that starts at ## does not waste a level of the sidebar's width. *@
+   document that starts at ## does not waste a level of the sidebar's width.
+
+   Watches the state itself, for the same reason as TreePanel: its parameters do not change when the
+   document does, so the parent's render alone would leave the previous document's headings here. *@
 <div class="panel-body outline" role="group">
     @if (Nav.CurrentHeadings.Count == 0) { <div class="panel-empty">No headings</div> }
     @foreach (var heading in Nav.CurrentHeadings)
@@ -19,4 +23,10 @@
     [Parameter] public int Level { get; set; } = 2;
 
     [Parameter] public EventCallback<string> OnHeading { get; set; }
+
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
 }
