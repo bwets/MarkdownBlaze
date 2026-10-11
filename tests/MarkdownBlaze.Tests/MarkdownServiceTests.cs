@@ -323,8 +323,11 @@ public sealed partial class MarkdownServiceTests : IDisposable
             // The test assembly's own folder is below the repository root, which holds samples/wiki/index.md.
             Directory.SetCurrentDirectory(elsewhere.Path);
             Assert.Equal(Markdown.GetUserManualPath(), Markdown.GetStartupFilePath(["samples/wiki/index.md"]));
+            // Compared against the working directory as the system reports it, not the temp path as it
+            // was handed out: on macOS the temp folder is a symlink (/var → /private/var), and a full
+            // path is made from the resolved one.
             Assert.Equal(
-                Path.Combine(elsewhere.Path, "deep", "only-here.md"),
+                Path.Combine(Directory.GetCurrentDirectory(), "deep", "only-here.md"),
                 Markdown.GetStartupFilePath(["deep/only-here.md"]),
                 ignoreCase: true);
 

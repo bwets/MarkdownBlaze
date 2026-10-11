@@ -50,7 +50,8 @@ the placeholder, and no network traffic.
 ![a device name](CON.png)
 
 `CON.png` — a reserved device name, which Windows opens as the console and which can hang a program
-waiting for input. Refused: the placeholder.
+waiting for input. Refused on Windows: the placeholder. On Linux and macOS the name is ordinary and
+there is no such file, so the picture is simply missing (its alt text shows), like any broken image.
 
 ## A file that is not an image
 

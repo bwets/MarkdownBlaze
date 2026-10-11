@@ -69,11 +69,20 @@ internal static class UriScheme
             raw = uri.AbsolutePath;
 
         raw = Uri.UnescapeDataString(raw);
-        // One leading slash is the URL's own ("/C:/notes"); a second means a UNC path written with
-        // forward slashes, and trimming it away would quietly turn it into a relative one.
+        // Two leading slashes mean a UNC path written with forward slashes; trimming them away would
+        // quietly turn it into a relative one, so it is refused outright.
         if (LocalPath.IsUncOrDevice(raw) || LocalPath.IsUncOrDevice(raw.TrimStart('/'))) return null;
 
-        raw = raw.TrimStart('/');
-        return raw.Length == 0 ? null : raw.Replace('/', Path.DirectorySeparatorChar);
+        // A leading slash is the URL's own only when a drive letter follows it ("/C:/notes", the path
+        // form of a Windows address). On Linux and macOS the slash is the root of the path itself —
+        // "/home/user/notes" — and must stay.
+        if (IsSlashBeforeDrive(raw)) raw = raw[1..];
+        // Nothing, or the bare root, names no document: markdown://document/ is the window's own address.
+        if (raw.Length == 0 || string.Equals(raw, "/", StringComparison.Ordinal)) return null;
+        return raw.Replace('/', Path.DirectorySeparatorChar);
     }
+
+    /// <summary><c>/C:/…</c>: a slash followed by a drive letter and its colon.</summary>
+    private static bool IsSlashBeforeDrive(string path) =>
+        path.Length >= 3 && path[0] == '/' && char.IsAsciiLetter(path[1]) && path[2] == ':';
 }

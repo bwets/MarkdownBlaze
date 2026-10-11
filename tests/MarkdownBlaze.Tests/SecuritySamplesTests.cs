@@ -209,11 +209,14 @@ public sealed partial class SecuritySamplesTests
         var html = Render("file-access.md");
 
         // Seven hostile images, seven refusals, and not one byte of a file in the page — nor an address
-        // (mdasset://) that would make the app serve one.
+        // (mdasset://) that would make the app serve one. One of the seven, CON.png, is a device only
+        // on Windows: elsewhere it is an ordinary name with no file behind it, left as written.
+        var refused = OperatingSystem.IsWindows() ? 7 : 6;
         Assert.Equal(7, Occurrences(html, "<img "));
         Assert.DoesNotContain("src=\"mdasset:", html, StringComparison.Ordinal);
-        Assert.Equal(7, Occurrences(html, "data-md-skipped=\"blocked\""));
-        Assert.Equal(7, Occurrences(html, "data:image/svg+xml;base64,"));
+        Assert.Equal(refused, Occurrences(html, "data-md-skipped=\"blocked\""));
+        Assert.Equal(refused, Occurrences(html, "data:image/svg+xml;base64,"));
+        if (!OperatingSystem.IsWindows()) Assert.Contains("src=\"CON.png\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("[fonts]", html, StringComparison.OrdinalIgnoreCase); // win.ini
         Assert.DoesNotContain("root:", html, StringComparison.Ordinal); // /etc/passwd
         Assert.DoesNotContain("attacker", MarkupOnly(html), StringComparison.OrdinalIgnoreCase);
