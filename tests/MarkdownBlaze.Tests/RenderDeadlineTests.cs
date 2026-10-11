@@ -189,7 +189,27 @@ public sealed class RenderDeadlineTests : IDisposable
     // ---- helpers ---------------------------------------------------------------------------------------
 
     private string Doc(string name, string content = "# Title") => _docs.File(name, content);
-    private static void Go(Sut sut, string path) => sut.Run(sut.Nav.NavigateAsync(path));
+
+    /// <summary>
+    /// Opens a document and waits for the page. Only a document the fake holds back is held to the short
+    /// deadline: one that renders at once gets a generous one, because on a loaded machine (the macOS
+    /// runner, for one) merely starting the render's thread took longer than 200 ms, and a document that
+    /// "timed out" that way was counted as a render still running — which refused the navigation the test
+    /// was actually about.
+    /// </summary>
+    private static void Go(Sut sut, string path)
+    {
+        var deadline = sut.Nav.RenderDeadline;
+        if (!path.Contains(".slow.", StringComparison.OrdinalIgnoreCase)) sut.Nav.RenderDeadline = TimeSpan.FromMinutes(5);
+        try
+        {
+            sut.Run(sut.Nav.NavigateAsync(path));
+        }
+        finally
+        {
+            sut.Nav.RenderDeadline = deadline;
+        }
+    }
 
     private sealed class ThrowingRenderer : IDocumentRenderer
     {
