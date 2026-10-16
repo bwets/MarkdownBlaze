@@ -1,0 +1,75 @@
+# Snap recipe for MarkdownBlaze. Do not run snapcraft on this file in place: build-snap.sh stages a
+# build directory around a copy of it, with the version filled in and the publish output next to it.
+name: markdownblaze
+# Replaced by build-snap.sh. Quoted so that the placeholder is a string and the real version stays one.
+version: '@VERSION@'
+title: MarkdownBlaze
+summary: A fast, offline Markdown viewer that prints properly
+description: |
+  MarkdownBlaze is a fast, no-fuss viewer for Markdown (.md) files. Point it at
+  a document, or at a whole folder, and it renders a clean, readable page in a
+  moment, then gets out of your way.
+
+  It is also the rare Markdown viewer that prints properly. Choose from eleven
+  document themes, switch to page view to see the document laid out on A4 sheets
+  exactly as it will print, and pick the look for each print from a bar along
+  the bottom of the window. Only the document is printed, never the app around
+  it.
+
+  It understands the Markdown you actually use: tables and task lists,
+  footnotes, code with syntax highlighting for about 190 languages, Mermaid
+  diagrams, KaTeX math, callouts, and Obsidian wiki links, tags and comments.
+
+  The sidebar shows the folder you are reading as collapsible panels, with the
+  outline of the current document. Links between Markdown files open inside the
+  app, and the view refreshes when you save the file in your editor.
+
+  MarkdownBlaze makes no network requests of its own and has no accounts, ads
+  or tracking. The only time anything goes online is when a document you open
+  references a resource on the web, such as a remote image.
+
+  Files on removable media (USB drives) are reachable once you run:
+  snap connect markdownblaze:removable-media
+license: MIT
+website: https://github.com/bwets/MarkdownBlaze
+source-code: https://github.com/bwets/MarkdownBlaze
+issues: https://github.com/bwets/MarkdownBlaze/issues
+contact: https://github.com/bwets/MarkdownBlaze/issues
+
+base: core24
+confinement: strict
+grade: stable
+
+# One snap per architecture: each is built on a runner of its own kind from the matching
+# self-contained publish output, so the libicu staged below matches the binary.
+platforms:
+  amd64:
+  arm64:
+
+apps:
+  markdownblaze:
+    command: opt/markdownblaze/MarkdownBlaze
+    # The gnome extension supplies GTK 3 and WebKitGTK from the shared gnome-46-2404 content snap, and
+    # brings the desktop, wayland and x11 plugs with it.
+    extensions: [gnome]
+    plugs:
+      - home
+      - removable-media
+      - network
+      - cups
+      - opengl
+
+parts:
+  markdownblaze:
+    # The publish output is already built and self-contained: it only has to be copied into the snap.
+    plugin: dump
+    source: publish
+    organize:
+      '*': opt/markdownblaze/
+  # A part of its own, because the organize above would otherwise move the staged library into
+  # opt/markdownblaze, off the library path ($SNAP/usr/lib/<triplet>) where .NET looks for ICU.
+  icu:
+    plugin: nil
+    stage-packages:
+      # .NET globalization needs ICU, which core24 does not ship.
+      - libicu74

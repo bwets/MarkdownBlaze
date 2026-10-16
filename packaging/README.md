@@ -12,6 +12,8 @@ Actions → **release** → *Run workflow*:
   an explicit version.
 - **publish_winget** — also open a winget update PR (needs `WINGET_TOKEN`; see `packaging/winget`).
 - **publish_store** — also submit to the Microsoft Store (see below).
+- **publish_snap** — also upload the snap to the Snap Store and release it to `stable` (needs the
+  `SNAPCRAFT_STORE_CREDENTIALS` secret; see *Snap Store / Ubuntu App Center* below).
 
 It creates a GitHub **Release `v<version>`** with:
 
@@ -25,6 +27,8 @@ It creates a GitHub **Release `v<version>`** with:
 | `markdownblaze-<v>-1-x86_64.pkg.tar.zst` | Arch Linux package (`pacman -U`) |
 | `MarkdownBlaze-<v>-osx-arm64.dmg` / `-osx-x64` | macOS disk images (Apple Silicon / Intel) |
 | `SHA256SUMS` | Checksums for every artifact |
+
+The snap is not in this table: the same run builds it, but it goes to the Snap Store, not to the release.
 
 The release notes start with the thumbprint of the certificate the MSIX was signed with, and every
 file is covered by a build-provenance attestation (`gh attestation verify <file> --repo <owner>/<repo>`):
@@ -123,6 +127,123 @@ xattr -dr com.apple.quarantine /Applications/MarkdownBlaze.app
 
 To distribute without that step, sign with a Developer ID certificate and notarize (needs an Apple
 Developer account); the `codesign --sign -` step in the workflow is where that would plug in.
+
+## Snap Store / Ubuntu App Center
+
+`sudo snap install markdownblaze` installs MarkdownBlaze from the Snap Store, and Ubuntu's App Center
+lists it. The snap is **strictly confined**, so the store checks it automatically and no human review
+is needed. It is not a release artifact: the `.snap` is not attached to the GitHub release (a snap
+installed from outside the store needs `--dangerous` and never updates); the store is where users get it.
+
+### What is built
+
+The snap repackages the self-contained `linux-x64` / `linux-arm64` publish output; nothing is compiled
+inside it.
+
+- `packaging/snap/snapcraft.yaml` is the recipe: `core24`, strict confinement, one snap per architecture
+  (`amd64`, `arm64`). Its `version` is a placeholder that the staging script fills in. The `summary` and
+  `description` the store shows are written there too (the same text as in `packaging/snap/store-listing.md`).
+- `packaging/snap/build-snap.sh <version> <publish-dir> [<out-dir>]` stages a build directory
+  (`markdownblaze-snap/`: the recipe with the version filled in, `snap/gui/` and `publish/`) and prints
+  its path as the last line. It does not run snapcraft. The desktop entry in `snap/gui/` is derived
+  from `packaging/linux/MarkdownBlaze.desktop` (the one definition, as for the other Linux packages):
+  `Exec` becomes `markdownblaze %u` and `Icon` points into the snap; `MimeType` (including the
+  `markdown` link) and `StartupWMClass` are kept. The icon is `branding/icon.svg`.
+- **GTK 3 and WebKitGTK are not in the snap.** The `gnome` extension takes them from the shared
+  `gnome-46-2404` content snap, which keeps the snap small and gives WebKit security updates
+  without a MarkdownBlaze release. The extension also brings the `desktop`, `wayland` and `x11` plugs.
+- **ICU** (which .NET globalization needs and `core24` lacks) is listed as a stage package (`libicu74`),
+  but the extension's graphics cleanup removes from the snap everything the `mesa-2404` content snap
+  also ships, and that includes ICU 74. At run time .NET is expected to find it through the `gpu-2404`
+  plug. The stage package is kept to say what is needed, and as a safeguard.
+
+### The `snap` workflow
+
+`.github/workflows/snap.yml` is a workflow of its own, so that the snap can be tried without a release (a
+release run always creates a GitHub release). It has two entry points:
+
+| Started by | What it does |
+|---|---|
+| Actions → **snap** → *Run workflow* | Builds and smoke-tests both architectures. **Never publishes.** *version* defaults to `0.0.<run_number>-dev`. The snaps are kept for 7 days as the artifacts `snap-amd64` and `snap-arm64`. |
+| The `release` workflow's `snap` job | The same, with the release's version. Publishes only if **publish_snap** is ticked. |
+
+Each architecture is built on a runner of its own kind (`ubuntu-24.04`, `ubuntu-24.04-arm`) from its own
+`dotnet publish`, then smoke-tested: the job installs the snap with `--dangerous`, installs and connects
+the content snaps, starts the app under `xvfb-run` on `samples/wiki/index.md`, and requires that the app
+log (`markdownblaze.log`) shows it started *and* rendered `index.md`, and that the process is still alive
+20 seconds later. The app renders only after the web view has loaded its page, so this shows that WebKit
+started under confinement and that the `home` plug lets the app read the document. It does **not** prove
+that anything is visible: the display is virtual and nobody looks at it, so a blank window or a broken
+layout would pass. That is checked by hand on a real desktop before the first publish.
+
+Publishing is the separate `publish` job in `snap.yml`. It `needs` the whole build matrix and runs only
+when **publish_snap** is ticked, so if either architecture fails its smoke test, **nothing is published**.
+For each architecture it downloads the snap the build job tested (nothing is rebuilt), uploads it and
+releases it to the **`stable`** channel straight away; it reaches App Center users once the store's
+automatic review has passed it. The credentials are given to that one step. The `release` job does not
+wait for any of this, so a problem with the store never holds back the GitHub release.
+
+### What each plug is for
+
+| Plug | Why |
+|---|---|
+| `home` | Documents in the user's home folder. **Hidden folders in it (such as `~/.notes`) are not reachable** under this plug; documents in them cannot be opened. |
+| `removable-media` | Documents on USB drives and other mounted volumes (`/media`, `/mnt`). **Not connected automatically:** until the store grants that (to be requested on forum.snapcraft.io after launch; the text is in `packaging/snap/store-listing.md`), users run `snap connect markdownblaze:removable-media`. |
+| `network` | Remote images in documents. The app makes no other network requests. |
+| `cups` | Printing: the print dialog lists the system's printers. |
+| `opengl` | Graphics acceleration for the web view. |
+
+`desktop`, `wayland`, `x11` and the content plugs come from the `gnome` extension.
+
+### Where the logs and settings are
+
+A snap runs with its own `HOME`, `~/snap/markdownblaze/<revision>/`, and `~/snap/markdownblaze/current`
+is the link to the active revision. The app keeps its files in a `MarkdownBlaze` folder under the
+platform's local app data (`AppPaths.DataFolder`), which on Linux is `$XDG_DATA_HOME` or else
+`$HOME/.local/share`; inside the snap that should be
+`~/snap/markdownblaze/current/.local/share/MarkdownBlaze/`, holding `preferences.json`, the history and
+`logs/markdownblaze.log`. (The exact folder has not been checked on an installed snap; the smoke test
+finds the log with `find ~/snap/markdownblaze -name markdownblaze.log` so that it does not depend on it.)
+Settings shows where the log is. Snapd copies the folder to the new revision on a refresh and removes it
+with the snap.
+
+### Credentials
+
+The `publish` job needs the repository secret **`SNAPCRAFT_STORE_CREDENTIALS`** (Settings → Secrets and
+variables → Actions); the name `markdownblaze` is already registered in the store. Create the credentials
+with:
+
+```bash
+snapcraft export-login --snaps=markdownblaze --channels=stable --acls=package_access,package_push,package_update,package_release creds.txt
+```
+
+They expire after **one year** (`--expires` changes that); the current ones expire on **2027-10-16**.
+Renew them before then: run the command again and replace the secret, or a release with **publish_snap**
+ticked fails at the upload. Delete `creds.txt` afterwards. `snapcraft login` does not work under WSL
+(there is no keyring); `export-login` does not need one. In PowerShell, set the secret like this (single
+quotes, because a WSL path contains `$`; `<` redirection does not exist in PowerShell):
+
+```powershell
+Get-Content '<path to creds.txt>' -Raw | gh secret set SNAPCRAFT_STORE_CREDENTIALS --repo bwets/MarkdownBlaze
+```
+
+The listing on snapcraft.io (icon, screenshots, category, links) is filled in by hand once, after the first
+upload; the text to paste is in `packaging/snap/store-listing.md`.
+
+### Building locally
+
+`snapcraft` builds `core24` snaps in LXD (destructive mode only works if the host is Ubuntu 24.04), so
+LXD has to be installed and initialized. Then, on a machine of the architecture you want:
+
+```bash
+dotnet publish src/MarkdownBlaze/MarkdownBlaze.csproj -c Release -r linux-x64 --self-contained true -o publish-linux-x64
+dir="$(bash packaging/snap/build-snap.sh 1.0.0 publish-linux-x64 snapbuild | tail -n 1)"
+cd "$dir" && snapcraft pack
+sudo snap install --dangerous ./markdownblaze_1.0.0_amd64.snap
+```
+
+A snap installed this way may need its content snaps (`gnome-46-2404`, `mesa-2404`) installed and
+connected by hand; `snap connections markdownblaze` shows what is missing.
 
 ## Windows MSIX
 

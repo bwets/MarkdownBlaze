@@ -281,6 +281,93 @@ public sealed partial class PackagingTests : IDisposable
         Assert.DoesNotContain("<string>public.plain-text</string>", plist, StringComparison.Ordinal);
     }
 
+    // ---- the snap ---------------------------------------------------------------------------------
+
+    /// <summary>The part of <paramref name="text"/> from the first <paramref name="start"/> up to the next <paramref name="end"/> (or the end of the text).</summary>
+    private static string Section(string text, string start, string? end = null)
+    {
+        var from = text.IndexOf(start, StringComparison.Ordinal);
+        Assert.True(from >= 0, $"No '{start.Trim()}' in the file");
+        var to = end is null ? -1 : text.IndexOf(end, from + start.Length, StringComparison.Ordinal);
+        return to < 0 ? text[from..] : text[from..to];
+    }
+
+    [Fact]
+    public void The_snap_is_strictly_confined_on_core24_with_the_gnome_extension_and_the_plugs_it_needs()
+    {
+        var recipe = Read("packaging", "snap", "snapcraft.yaml");
+
+        Assert.Matches(@"(?m)^confinement: strict\r?$", recipe);
+        Assert.Matches(@"(?m)^base: core24\r?$", recipe);
+        Assert.Matches(@"(?m)^\s+extensions: \[gnome\]\r?$", recipe);
+
+        // home opens the documents, network and cups are the links and printing, removable-media is the USB stick.
+        foreach (var plug in new[] { "home", "network", "cups", "removable-media", "opengl" })
+            Assert.Matches($@"(?m)^\s+- {plug}\r?$", recipe);
+
+        // build-snap.sh fills this in; without it the snap would be built with a version of '@VERSION@'.
+        Assert.Matches(@"(?m)^version: '@VERSION@'\r?$", recipe);
+    }
+
+    [Fact]
+    public void The_snap_desktop_entry_is_derived_from_the_shared_one_and_the_shared_one_still_fits()
+    {
+        var script = Read("packaging", "snap", "build-snap.sh");
+        var desktop = Read("packaging", "linux", "MarkdownBlaze.desktop");
+
+        Assert.Contains("packaging/linux/MarkdownBlaze.desktop", script, StringComparison.Ordinal);
+        Assert.Contains("s|^Exec=.*|Exec=markdownblaze %u|", script, StringComparison.Ordinal);
+
+        // The lines the script rewrites have to be there to rewrite, or the derived entry keeps the shared
+        // file's values (an Exec the snap cannot run).
+        Assert.Matches(@"(?m)^Exec=.+\r?$", desktop);
+        Assert.Matches(@"(?m)^Icon=.+\r?$", desktop);
+        Assert.Matches("(?m)^MimeType=.*x-scheme-handler/markdown", desktop);
+    }
+
+    [Fact]
+    public void The_release_workflow_publishes_the_snap_only_when_asked_and_does_not_wait_for_it()
+    {
+        var workflow = Read(".github", "workflows", "release.yml");
+
+        var input = Section(workflow, "      publish_snap:", "\npermissions:");
+        Assert.Matches(@"(?m)^\s+type: boolean\r?$", input);
+        Assert.Matches(@"(?m)^\s+default: false\r?$", input);
+
+        var snap = Section(workflow, "\n  snap:\n", "\n  archpkg:");
+        Assert.Contains("uses: ./.github/workflows/snap.yml", snap, StringComparison.Ordinal);
+        Assert.Contains("publish: ${{ inputs.publish_snap }}", snap, StringComparison.Ordinal);
+        Assert.Contains("SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}", snap, StringComparison.Ordinal);
+
+        // The one secret is passed by name, so the snap workflow gets no other.
+        Assert.DoesNotMatch(@"(?m)^\s*secrets:\s*inherit", workflow);
+
+        // A problem with the store must not hold back the GitHub release.
+        var release = Section(workflow, "\n  release:\n", "\n  winget:");
+        var needs = Assert.Single(release.Split('\n'), l => l.TrimStart().StartsWith("needs:", StringComparison.Ordinal));
+        Assert.DoesNotMatch(@"\bsnap\b", needs);
+    }
+
+    [Fact]
+    public void The_snap_workflow_gives_the_store_credentials_to_one_step_that_runs_after_every_build_and_releases_to_stable()
+    {
+        var workflow = Read(".github", "workflows", "snap.yml");
+
+        // A manual run only builds and tests: the dispatch has no publish option.
+        var dispatch = Section(workflow, "  workflow_dispatch:", "\npermissions:");
+        Assert.DoesNotContain("publish:", dispatch, StringComparison.Ordinal);
+
+        var publish = Section(workflow, "\n  publish:\n");
+        Assert.Matches(@"(?m)^    needs: snap\r?$", publish);
+        Assert.Contains("if: ${{ inputs.publish }}", publish, StringComparison.Ordinal);
+        Assert.Matches(@"(?m)^\s+release: stable\r?$", publish);
+
+        // The secret is read exactly once, and that is in the publish job.
+        const string secret = "secrets.SNAPCRAFT_STORE_CREDENTIALS";
+        Assert.Equal(1, workflow.Split(secret, StringSplitOptions.None).Length - 1);
+        Assert.Contains(secret, publish, StringComparison.Ordinal);
+    }
+
     // ---- the release ------------------------------------------------------------------------------
 
     [Fact]

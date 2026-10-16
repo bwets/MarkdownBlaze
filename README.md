@@ -190,6 +190,16 @@ switch (so an address someone else wrote cannot add switches of its own).
 | `--devtools` | Turn the web view's developer tools on (`F12`) in a release build; a debug build always has them. |
 | `--register` / `--unregister` | Windows only: add or remove the Explorer and `markdown://` registration and exit without opening a window. Exit code 0 done, 1 the registry refused, 2 not applicable (not Windows, or the Store package). |
 
+### Install on Linux from the Snap Store
+
+```bash
+sudo snap install markdownblaze
+```
+
+MarkdownBlaze is also in Ubuntu's App Center. To open files on a USB drive or other removable media, run
+`sudo snap connect markdownblaze:removable-media` once. Documents in hidden folders of your home
+(such as `~/.notes`) cannot be opened from the snap.
+
 ### Releases & packaging
 
 Prebuilt, self-contained binaries (Windows zip/installer/MSIX, Linux `tar.gz`/`.deb`/`.pkg.tar.zst`,

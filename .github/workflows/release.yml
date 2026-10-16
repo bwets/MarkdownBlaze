@@ -16,6 +16,10 @@ on:
         description: "Also submit to the Microsoft Store (requires AZURE_AD_*/SELLER_ID/STORE_PRODUCT_ID; app must be live + free)"
         type: boolean
         default: false
+      publish_snap:
+        description: "Also upload the snap to the Snap Store and release it to stable (requires SNAPCRAFT_STORE_CREDENTIALS; the snap name must be registered)"
+        type: boolean
+        default: false
 
 # Nothing is allowed by default. Each job asks for exactly what it uses: reading the repository to
 # build it, and — only for the jobs that publish — writing to it.
@@ -426,6 +430,23 @@ jobs:
         run: |
           $msix = (Get-ChildItem dist -Recurse -Filter *.msix | Select-Object -First 1).FullName
           msstore publish "$msix" -id "$env:STORE_PRODUCT_ID"
+
+  # The snap: built from its own publish output on a runner of each architecture, smoke-tested, and
+  # (with publish_snap) uploaded to the Snap Store and released to stable. See snap.yml. It is not
+  # attached to the GitHub release (the store is where it is installed from), and the release job
+  # does not wait for it, so a problem with the store never holds back the release.
+  snap:
+    needs: setup
+    # A called workflow gets no more permission than its caller gives it: reading the repository.
+    permissions:
+      contents: read
+    uses: ./.github/workflows/snap.yml
+    with:
+      version: ${{ needs.setup.outputs.version }}
+      publish: ${{ inputs.publish_snap }}
+    # Named, not `secrets: inherit`, so that snap.yml gets this secret and no other.
+    secrets:
+      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
 
   # Native Arch package (.pkg.tar.zst) — built before the release from the locally-built tarball,
   # then included in the release alongside the .deb. Installable with `pacman -U`, no AUR needed.
