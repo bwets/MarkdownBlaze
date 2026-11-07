@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { neighbour } from '../../src/MarkdownBlaze/wwwroot/js/focus.js';
-import { sectionAt } from '../../src/MarkdownBlaze/wwwroot/js/position.js';
+import { neighbour } from '../../src/MarkdownBlaze.Core/wwwroot/js/focus.js';
+import { sectionAt } from '../../src/MarkdownBlaze.Core/wwwroot/js/position.js';
 
 describe('sectionAt', () => {
   it('is the last heading to have passed the line', () => expect(sectionAt([-300, -20, 150, 600], 100)).toBe(1));

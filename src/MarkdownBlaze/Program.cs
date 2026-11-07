@@ -21,6 +21,15 @@ internal static partial class Program
     private const int ExitRegistryRefused = 1;
     private const int ExitNotApplicable = 2;
 
+    /// <summary>
+    /// The web view's own user data folder (Windows / WebView2): what the browser engine inside the window
+    /// keeps — its cache, cookies and local storage. PhotinoX would put it in <c>%LOCALAPPDATA%Photino</c>,
+    /// which every PhotinoX application on the machine shares, so a picture fetched from the web for one
+    /// document would sit in a cache that other programs can read and this app cannot clear. Under the
+    /// app's own folder it is deleted with it, like everything else the app stores.
+    /// </summary>
+    private static string WebViewFolder => Path.Combine(AppPaths.DataFolder, "webview");
+
     /// <summary>Chromium switches for WebView2: the disk cache is limited to one byte.</summary>
     internal const string WebViewBrowserArguments = "--disk-cache-size=1";
 
@@ -39,7 +48,7 @@ internal static partial class Program
         // Serve the UI from markdown:// instead of PhotinoX's default app://localhost. The scheme is
         // the app's own, and the WebView's address is what the browser prints in the page footer —
         // so a printed sheet says markdown://document/<file> rather than a meaningless app://localhost.
-        _ = builder.ConfigureBlazor(options => options.AppBaseUri = UriScheme.AppBase);
+        _ = builder.ConfigureBlazor(options => options.AppBaseUri = DesktopAddresses.AppBase);
         var assets = new AssetScope();
         var shell = new ShellLauncher();
         _ = builder.ConfigureMainWindow(window => ConfigureWebView(window, IsDevToolsWanted(args), assets, shell));
@@ -66,7 +75,7 @@ internal static partial class Program
         SetWindowIcon(app.MainWindow);
 
         // Expose the window so components can use native dialogs (e.g. the "open file" button).
-        app.Services.GetRequiredService<NativeDialogs>().Attach(app.MainWindow);
+        app.Services.GetRequiredService<PhotinoFilePicker>().Attach(app.MainWindow);
 
         // Nothing is registered with Windows from here. The installer does that for an installed copy,
         // and a portable one does it when the reader asks (Settings, or --register) — see ShellIntegration.
@@ -122,12 +131,12 @@ internal static partial class Program
         _ = window.SetWebSecurityEnabled(enable: true);
 
         // Windows: the engine's own folder (cache, cookies, storage) belongs to the app, not to the
-        // "Photino" folder every PhotinoX program on the machine shares — see AppPaths.WebViewFolder and
+        // "Photino" folder every PhotinoX program on the machine shares — see WebViewFolder and
         // PRIVACY.md. The disk cache is kept to the least the engine accepts: the pictures of a document
         // that come from the web are fetched when it is opened and are not worth keeping copies of.
         if (OperatingSystem.IsWindows())
         {
-            _ = window.SetUserDataFolder(AppPaths.WebViewFolder);
+            _ = window.SetUserDataFolder(WebViewFolder);
             _ = window.SetBrowserControlInitParameters(WebViewBrowserArguments);
         }
 
@@ -149,9 +158,9 @@ internal static partial class Program
         // mdasset://doc/<token>/<path> and the WebView asks this handler for the bytes. A second custom
         // scheme beside markdown:// (the UI's own), registered the same way; what it will serve is
         // decided by AssetHandler, with the rules of LocalPath, for the render AssetScope names.
-        var assetHandler = new AssetHandler(assets);
+        var assetHandler = new AssetHandler(assets, DesktopAddresses.Addresses);
         _ = window.RegisterCustomSchemeHandler(
-            AssetHandler.Scheme,
+            DesktopAddresses.AssetScheme,
             (_, _, url, out contentType) => assetHandler.Serve(url, out contentType));
     }
 
@@ -178,10 +187,18 @@ internal static partial class Program
         _ = services.AddSingleton<IDocumentRenderer>(provider => provider.GetRequiredService<MarkdownService>());
         _ = services.AddSingleton<NavigationService>();
         _ = services.AddSingleton<FileTreeService>();
-        _ = services.AddSingleton<NativeDialogs>();
-        if (OperatingSystem.IsWindows()) _ = services.AddSingleton<ShellIntegration>();
-        _ = services.AddSingleton<ShellIntegrationActions>();
+        _ = services.AddSingleton(DesktopAddresses.Addresses);
+
+        // What differs from one host to another (see MarkdownBlaze.Core's Platform folder). The page prints
+        // itself in WebView2 and the other engines of the desktop, so the printer leaves it to the page.
+        _ = services.AddSingleton(new HostInfo("Photino"));
+        _ = services.AddSingleton<PhotinoFilePicker>();
+        _ = services.AddSingleton<IFilePicker>(provider => provider.GetRequiredService<PhotinoFilePicker>());
+        _ = services.AddSingleton<IPrinter, PagePrinter>();
         _ = services.AddSingleton<WindowStateService>();
+        _ = services.AddSingleton<IWindowControl>(provider => provider.GetRequiredService<WindowStateService>());
+        if (OperatingSystem.IsWindows() && !PackageIdentity.IsPackaged) _ = services.AddSingleton<IShellIntegration, ShellIntegration>();
+        _ = services.AddSingleton<ShellIntegrationActions>();
 
         // The viewer's own parts: one set per window. ViewerInterop owns the connection to the page's
         // JavaScript (it needs the window's IJSRuntime, which is scoped), and the rest build on it.
@@ -252,8 +269,8 @@ internal static partial class Program
 
     /// <summary>Whether <paramref name="address"/> is the app's own origin — the only place the window may be.</summary>
     private static bool IsAppAddress(Uri address) =>
-        string.Equals(address.Scheme, UriScheme.AppBase.Scheme, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(address.Host, UriScheme.AppBase.Host, StringComparison.OrdinalIgnoreCase);
+        string.Equals(address.Scheme, DesktopAddresses.AppBase.Scheme, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(address.Host, DesktopAddresses.AppBase.Host, StringComparison.OrdinalIgnoreCase);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "MarkdownBlaze {Version} started on {Os}; log level {Level}")]
     private static partial void LogStarted(ILogger log, string version, string os, LogLevel level);

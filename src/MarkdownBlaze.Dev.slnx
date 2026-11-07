@@ -1,7 +1,7 @@
 <!--
   The owner's two-repository loop: MarkdownBlaze plus the sibling checkout of bwets.Markdig.Extensions
   (../../bwets.Markdig.Extensions, next to this repository), so both can be edited and debugged in one
-  IDE. It needs LocalSources=true (set it in src/MarkdownBlaze/MarkdownBlaze.csproj.user, which is
+  IDE. It needs LocalSources=true (set it in src/MarkdownBlaze.Core/MarkdownBlaze.Core.csproj.user, which is
   git-ignored) so MarkdownBlaze references that project instead of the NuGet package. A clone without
   the sibling checkout cannot load this file; use MarkdownBlaze.slnx, which needs nothing outside this
   repository.
@@ -17,6 +17,8 @@
     <File Path="../Directory.Packages.props" />
   </Folder>
   <Project Path="../../bwets.Markdig.Extensions/src/bwets.Markdig.Extensions/bwets.Markdig.Extensions.csproj" />
+  <Project Path="MarkdownBlaze.Core/MarkdownBlaze.Core.csproj" />
   <Project Path="MarkdownBlaze/MarkdownBlaze.csproj" />
+  <Project Path="MarkdownBlaze.Android/MarkdownBlaze.Android.csproj" />
   <Project Path="../tests/MarkdownBlaze.Tests/MarkdownBlaze.Tests.csproj" />
 </Solution>

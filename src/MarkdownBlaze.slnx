@@ -8,6 +8,7 @@
     <File Path="../Directory.Build.targets" />
     <File Path="../Directory.Packages.props" />
   </Folder>
+  <Project Path="MarkdownBlaze.Core/MarkdownBlaze.Core.csproj" />
   <Project Path="MarkdownBlaze/MarkdownBlaze.csproj" />
   <Project Path="../tests/MarkdownBlaze.Tests/MarkdownBlaze.Tests.csproj" />
 </Solution>

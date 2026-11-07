@@ -20,6 +20,6 @@ branding/icon.svg -diff
 *.woff2 binary
 *.snk binary
 
-# Vendored third-party files are pinned by SHA-256 (src/MarkdownBlaze/wwwroot/vendor/SHA256SUMS), so
+# Vendored third-party files are pinned by SHA-256 (src/MarkdownBlaze.Core/wwwroot/vendor/SHA256SUMS), so
 # they must be byte-for-byte what upstream published, on every OS and with any autocrlf setting.
-src/MarkdownBlaze/wwwroot/vendor/** -text -diff
+src/MarkdownBlaze.Core/wwwroot/vendor/** -text -diff

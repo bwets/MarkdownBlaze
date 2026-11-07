@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # Fetches the vendored JavaScript libraries — highlight.js, Mermaid and KaTeX — at the versions pinned
-# below, checks every file against src/MarkdownBlaze/wwwroot/vendor/SHA256SUMS, and installs them into
-# src/MarkdownBlaze/wwwroot/vendor/. The files are committed (the app has to run offline); this script
+# below, checks every file against src/MarkdownBlaze.Core/wwwroot/vendor/SHA256SUMS, and installs them into
+# src/MarkdownBlaze.Core/wwwroot/vendor/. The files are committed (the app has to run offline); this script
 # exists so a reader can see exactly where they came from, reproduce them byte for byte, and update
 # them on purpose rather than by pasting a file from somewhere.
 #
@@ -24,7 +24,7 @@ MERMAID_VERSION=12.1.0
 KATEX_VERSION=0.19.0
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VENDOR="$ROOT/src/MarkdownBlaze/wwwroot/vendor"
+VENDOR="$ROOT/src/MarkdownBlaze.Core/wwwroot/vendor"
 SUMS="$VENDOR/SHA256SUMS"
 
 mode="${1:-install}"

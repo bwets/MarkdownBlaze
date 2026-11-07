@@ -99,7 +99,7 @@ public sealed class NestingLimitTests
 
     // ---- through the whole renderer ------------------------------------------------------------------------
 
-    private static readonly MarkdownService Markdown = new();
+    private static readonly MarkdownService Markdown = new(TestAddresses.Desktop);
 
     /// <summary>The probe cases that ended the process: 50,000 divs (300 KB), 100,000 unclosed bold, and their kin.</summary>
     public static TheoryData<string, string, string, int> HostileNesting() => new()

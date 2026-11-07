@@ -18,6 +18,14 @@
     <PackageVersion Include="bwets.Markdig.Extensions" Version="0.1.4" />
   </ItemGroup>
 
+  <!-- Android host (src/MarkdownBlaze.Android). The MAUI packages are held at the version of the installed
+       maui-android workload (10.0.110): the workload supplies the platform packs, and a package newer than
+       them is not built against what the app runs on. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.110" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="10.0.110" />
+  </ItemGroup>
+
   <!-- Tests -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- The app's own files are all it reads, so the one permission is the network, for the pictures a document
+       takes from the web (PRIVACY.md). No storage, location, camera or notification permission is asked for. -->
+  <application android:allowBackup="false" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true"></application>
+  <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

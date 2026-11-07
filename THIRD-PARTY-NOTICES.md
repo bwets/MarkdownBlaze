@@ -17,8 +17,13 @@ and release.
 | [PhotinoX](#photinox) | 5.3.5 | Apache-2.0 | the native window and the web view host |
 | [HtmlSanitizer](#htmlsanitizer) | 9.2.1039 | MIT | sanitising the rendered document |
 | [AngleSharp](#anglesharp) and AngleSharp.Css | 1.7.2 / 1.0.2 | MIT | HTML and CSS parsing for the sanitiser |
+| [.NET MAUI](#net-maui-and-the-xamarinandroid-bindings) | 10.0.110 | MIT | the Android app's host (Android only) |
+| [AndroidX libraries](#androidx-glide-and-gson) | 1.x to 2.x (see below) | Apache-2.0 | Android's support libraries, which MAUI builds on (Android only) |
+| [Glide](#androidx-glide-and-gson) | 4.16.0 | BSD-2-Clause, MIT and Apache-2.0 | image loading inside MAUI (Android only) |
+| [Gson](#androidx-glide-and-gson) | 2.13.1 | Apache-2.0 | JSON inside the Android libraries (Android only) |
 
 The versions are the ones pinned in `Directory.Packages.props` and in `src/MarkdownBlaze/wwwroot/vendor/VERSIONS.md`.
+The Android rows are in the Android package only; the versions of the .NET MAUI packages are held at the installed `maui-android` workload (see `Directory.Packages.props`), the others come with them (`Xamarin.AndroidX.*`, `Xamarin.Android.Glide`, `GoogleGson` on NuGet).
 Add an entry here when a dependency is added.
 
 ---
@@ -545,4 +550,78 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
+```
+
+---
+
+## .NET MAUI and the Xamarin.Android bindings
+
+Version 10.0.110, <https://github.com/dotnet/maui>, NuGet packages `Microsoft.Maui.Controls` (with `Microsoft.Maui.Core`,
+`.Essentials` and `.Graphics`) and `Microsoft.AspNetCore.Components.WebView.Maui`; and the `Xamarin.AndroidX.*`,
+`Xamarin.Android.Glide` and `GoogleGson` packages (<https://github.com/dotnet/android-libraries>) that bind the Java libraries
+below for .NET. Licence: MIT. The Microsoft packages are Copyright (c) .NET Foundation and Contributors.
+
+```text
+MIT License
+
+Copyright (c) .NET Foundation and Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
+## AndroidX, Glide and Gson
+
+Android package only. Packaged inside the APK as the Java libraries the bindings above wrap:
+
+- **AndroidX** (Activity, AppCompat, Core, Fragment, Lifecycle, Navigation, RecyclerView, ConstraintLayout, Emoji2,
+  Startup, ProfileInstaller and the other support libraries listed in `src/MarkdownBlaze.Android/obj/project.assets.json`
+  as `Xamarin.AndroidX.*`), <https://developer.android.com/jetpack/androidx>, Copyright (c) The Android Open Source Project.
+  Licence: Apache-2.0.
+- **Gson** 2.13.1, <https://github.com/google/gson>, Copyright 2008 Google Inc. Licence: Apache-2.0.
+- **Glide** 4.16.0, <https://github.com/bumptech/glide>, Copyright 2014 Google, Inc. Licence: BSD-2-Clause for most of it,
+  with parts under MIT and Apache-2.0.
+
+The Apache-2.0 licence text is the one reproduced once under [PhotinoX](#photinox) above; it is the same text for these
+libraries. Glide's BSD-2-Clause text:
+
+```text
+Copyright 2014 Google, Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are
+permitted provided that the following conditions are met:
+
+   1. Redistributions of source code must retain the above copyright notice, this list of
+      conditions and the following disclaimer.
+
+   2. Redistributions in binary form must reproduce the above copyright notice, this list
+      of conditions and the following disclaimer in the documentation and/or other materials
+      provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY GOOGLE, INC. ``AS IS'' AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE, INC. OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```

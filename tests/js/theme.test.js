@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { applyContentTheme, contentIsDark, isDark, mermaidTheme, setTheme } from '../../src/MarkdownBlaze/wwwroot/js/theme.js';
+import { applyContentTheme, contentIsDark, isDark, mermaidTheme, setTheme } from '../../src/MarkdownBlaze.Core/wwwroot/js/theme.js';
 
 const html = document.documentElement;
 afterEach(() => { html.className = ''; });

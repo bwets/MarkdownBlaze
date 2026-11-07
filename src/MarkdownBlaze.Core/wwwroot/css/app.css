@@ -1,0 +1,1104 @@
+/* The app chrome's colours. Fluent UI supplies them as theme tokens on <html>, light or dark; they
+   are given the app's own names here, once, so the rest of this file does not depend on how Fluent
+   happens to spell them in a given version. */
+:root {
+    --ui-layer-1: var(--colorNeutralBackground1);   /* cards */
+    --ui-layer-2: var(--colorNeutralBackground2);   /* the sidebar */
+    --ui-layer-3: var(--colorNeutralBackground3);   /* the toolbars, folder headers */
+    --ui-layer-4: var(--colorNeutralBackground4);
+    --ui-fg: var(--colorNeutralForeground1);
+    --ui-fg-hint: var(--colorNeutralForeground3);
+    --ui-divider: var(--colorNeutralStroke2);
+    --ui-hover: var(--colorSubtleBackgroundHover);
+    --ui-accent: var(--colorBrandForeground1);      /* accent as text or an edge */
+    --ui-accent-fill: var(--colorBrandBackground);  /* accent as a filled surface… */
+    --ui-on-accent: var(--colorNeutralForegroundOnBrand); /* …and the text on it */
+    /* What hover paints. On a touch screen a tap leaves the hover on what was tapped until the next tap somewhere else, so a
+       touch host (data-touch, see the Android page) paints none, unless a mouse is attached and the WebView says it can hover.
+       The desktop's own WebView2 says it cannot on a touch-screen machine, which is why the host says it and the query does not. */
+    --ui-hover-live: var(--ui-hover);
+    --ui-folder-hover: var(--colorNeutralBackground4);
+    --ui-tour-hover: rgba(255, 255, 255, .16);
+}
+:root[data-touch] {
+    --ui-hover-live: transparent;
+    --ui-folder-hover: var(--colorNeutralBackground3);
+    --ui-tour-hover: transparent;
+}
+@media (hover: hover) {
+    :root[data-touch] {
+        --ui-hover-live: var(--ui-hover);
+        --ui-folder-hover: var(--colorNeutralBackground4);
+        --ui-tour-hover: rgba(255, 255, 255, .16);
+    }
+}
+
+:root {
+    color-scheme: light dark;
+    --sidebar-w: 280px;
+    /* How far the system's own bars (the status bar, the gesture bar) and a display cutout reach into the page, which
+       an edge-to-edge window on Android draws under. The host measures them and js/layout.js writes the numbers
+       here (inline on <html>, which outranks this); the env() is the page's own answer where the WebView gives one.
+       Nothing covers a desktop window, and every use below adds 0. */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    /* markdown theme tokens (light defaults) */
+    --md-fg: #1f2328;
+    --md-border: #d0d7de;
+    --md-link: #0969da;
+    --md-code-bg: rgba(175,184,193,.2);
+    --md-quote: #59636e;
+    --md-row: #f6f8fa;
+}
+.theme-dark {
+    --md-fg: #e6edf3;
+    --md-border: #30363d;
+    --md-link: #4493f8;
+    --md-code-bg: #161b22;
+    --md-quote: #9198a1;
+    --md-row: #161b22;
+}
+@media (prefers-color-scheme: dark) {
+    .theme-system {
+        --md-fg: #e6edf3;
+        --md-border: #30363d;
+        --md-link: #4493f8;
+        --md-code-bg: #161b22;
+        --md-quote: #9198a1;
+        --md-row: #161b22;
+    }
+}
+
+html, body { height: 100%; margin: 0; overflow: hidden; }
+/* A tap is not a hover: no grey flash over what was touched (the buttons draw their own pressed state). */
+html { -webkit-tap-highlight-color: transparent; }
+
+/* Startup splash (shown until Blazor mounts and replaces the <app> content). */
+.splash {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: Canvas;
+    color: CanvasText;
+}
+/* The Android host paints the WebView in the splash screen's colour (light or dark with the system) and shows this page over it: no
+   other background, or a dark start would pass through Canvas's own dark on the way. */
+:root[data-touch] .splash { background: transparent; }
+/* The page itself is painted the same colour from its first frame: with both colour schemes allowed the engine's own canvas for a dark
+   system is a darker grey than the splash screen's, which showed as a step on the way. */
+:root[data-touch] { background: #fff; }
+@media (prefers-color-scheme: dark) { :root[data-touch] { background: #292929; } }
+.splash-logo {
+    width: 340px;
+    height: 340px;
+    max-width: 60vw;
+    max-height: 60vh;
+    object-fit: contain;
+    animation: splash-pulse 1.6s ease-in-out infinite;
+}
+.splash-name {
+    font-family: -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", sans-serif;
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: .2px;
+}
+.splash-bar {
+    width: 180px;
+    height: 3px;
+    border-radius: 2px;
+    background: color-mix(in srgb, CanvasText 15%, transparent);
+    overflow: hidden;
+}
+.splash-bar span {
+    display: block;
+    width: 40%;
+    height: 100%;
+    border-radius: 2px;
+    background: #E8540F;
+    animation: splash-slide 1.2s ease-in-out infinite;
+}
+@keyframes splash-pulse { 0%, 100% { opacity: .7; transform: scale(.98); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes splash-slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+
+/* Drag & drop overlay shown while a file hovers over the window. */
+body.drag-over::after {
+    content: "Drop a .md file to open";
+    position: fixed;
+    inset: 12px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--md-link);
+    background: color-mix(in srgb, Canvas 78%, transparent);
+    border: 3px dashed var(--md-link);
+    border-radius: 12px;
+    pointer-events: none;
+}
+body { font-family: -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", sans-serif; }
+
+/* Only the document is text. Everything around it — toolbar, sidebar, tabs, bars, menus — is
+   furniture, and dragging across furniture in a native app does not paint a blue selection. Form
+   fields keep their own selection so typing and editing still behave. */
+body { user-select: none; }
+.content, .content *, input, textarea { user-select: text; }
+app { display: block; height: 100%; }
+
+/* ---- App shell ---- */
+.app-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.app-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 calc(48px + var(--safe-top));
+    padding: var(--safe-top) max(8px, var(--safe-right)) 0 max(8px, var(--safe-left));
+    background: var(--ui-layer-3);
+    border-bottom: 1px solid var(--ui-divider);
+}
+.app-header .title {
+    margin-left: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.app-header .spacer { flex: 1 1 auto; }
+/* The header is three toolbars: left (files), middle (sidebar toggle, back/forward, title) and
+   right (view, zoom, theme, more).
+
+   The left toolbar spans the sidebar below it. The header's own left padding (8px) and the gap
+   after the toolbar (4px) are taken off, and the splitter (6px) added, so the middle toolbar starts
+   on the document's left edge. js/sidebar.js keeps the sidebar from being dragged narrower than the left
+   toolbar's buttons; max-content is the backstop if it ever is. With the sidebar hidden there is
+   nothing to line up with, and the left toolbar is just its buttons. */
+.toolbar-left, .toolbar-middle, .toolbar-right { display: flex; align-items: center; gap: 4px; }
+.toolbar-left {
+    flex: 0 0 auto;
+    width: calc(var(--sidebar-w) - 6px);
+    min-width: max-content;
+}
+.app-header.no-sidebar .toolbar-left { width: auto; }
+.toolbar-middle { flex: 1 1 auto; min-width: 0; } /* takes the slack; the title inside it truncates */
+.toolbar-right { flex: 0 0 auto; }
+
+/* Zoom control: −, the current percentage, +, reset. Grouped so it reads as one instrument, and the
+   label has a fixed width so the toolbar does not shuffle as the number changes. */
+.zoom-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 2px;
+    border-radius: 6px;
+    background: var(--ui-layer-1); /* a step off the toolbar behind it, so the group reads as one control */
+}
+.zoom-label {
+    min-width: 46px;
+    text-align: center;
+    font-size: .8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ui-fg);
+    user-select: none;
+}
+.gly { font-size: 16px; line-height: 1; font-family: "Segoe UI Symbol", "Noto Color Emoji", sans-serif; }
+.app-body { display: flex; flex: 1 1 auto; min-height: 0; }
+
+/* ---- Sidebar ---- */
+.sidebar {
+    width: var(--sidebar-w);
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--ui-layer-2);
+    border-right: 1px solid var(--ui-divider);
+}
+.sidebar-tabs { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.splitter {
+    flex: 0 0 6px;
+    cursor: col-resize;
+    background: transparent;
+    transition: background .12s;
+}
+.splitter:hover, .splitter.dragging { background: var(--ui-accent); }
+.app-body.no-sidebar .sidebar,
+.app-body.no-sidebar .splitter { display: none; }
+
+/* The strip of tabs is Fluent's own; this is just the line it sits on. */
+.tabstrip { flex: 0 0 auto; border-bottom: 1px solid var(--ui-divider); padding: 0 4px; }
+/* Fluent gives every tab a panel of its own. Ours are empty — the app renders what a tab shows,
+   underneath — and would only leave a gap under the strip. */
+.tabstrip [id$="-panel"] { display: none; }
+.tab-panels { flex: 1 1 auto; min-height: 0; }
+
+.list { overflow: auto; padding: 6px; height: 100%; box-sizing: border-box; }
+.row {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    color: var(--ui-fg);
+    font-size: .9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: none;
+    background: transparent;
+}
+.row:hover { background: var(--ui-hover-live); }
+.row.current { color: var(--ui-accent); font-weight: 600; }
+.row .dot { color: var(--ui-accent); margin-right: 4px; }
+
+/* Global-history rows carry a delete button that slides in from the right on hover. Flex keeps a
+   fixed right-hand slot (so the row width never jumps); overflow:hidden clips the button while it is
+   parked off the edge. */
+.row-wrap { display: flex; align-items: stretch; overflow: hidden; }
+/* Flatten the row's right corners so it joins the delete button into a single pill on hover. */
+.row-wrap > .row { flex: 1 1 auto; min-width: 0; width: auto; border-radius: 5px 0 0 5px; }
+.row-del {
+    flex: 0 0 auto;
+    align-self: stretch;         /* same height as the row (matches the hover highlight) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 0 5px 5px 0;  /* right corners only — flat where it meets the row */
+    background: var(--ui-hover); /* blends into the row's hover pill */
+    color: var(--ui-fg);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateX(140%);
+    transition: transform .18s ease, opacity .18s ease, background-color .12s ease;
+    pointer-events: none;
+}
+.row-wrap:hover .row-del { opacity: 1; transform: translateX(0); pointer-events: auto; }
+/* Turns red only when the × itself is hovered. */
+.row-del:hover { background: #ff3b30; color: #fff; }
+
+/* ---- Folder tree (Contents tab) ---- */
+/* Folders and documents are panels — a header you click and a body that folds away — so neither
+   can be mistaken for the headings, which stay a plain indented tree inside the open document.
+   A folder is a tinted header over whatever it holds; a document is a card. Panels nest, and each
+   level costs only a few pixels of the sidebar's width. */
+.tree { display: flex; flex-direction: column; gap: 4px; }
+.tree > * { flex: 0 0 auto; }
+.panel {
+    border: 1px solid var(--ui-divider);
+    border-radius: 6px;
+    overflow: hidden; /* the header's tint follows the rounded corners */
+}
+.panel-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    color: var(--ui-fg);
+    font-family: inherit;
+    font-size: .88rem;
+    text-align: left;
+    cursor: pointer;
+}
+.panel-head:hover { background: var(--ui-hover-live); }
+.panel-icon { display: flex; flex: 0 0 auto; color: var(--ui-fg-hint); }
+.panel-label { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Points right when shut, down when open. */
+.panel-chevron { display: flex; flex: 0 0 auto; color: var(--ui-fg-hint); transition: transform .12s ease; }
+.panel.open > .panel-head .panel-chevron { transform: rotate(90deg); }
+.panel-body { display: flex; flex-direction: column; gap: 4px; }
+.panel-empty { padding: 4px 8px; color: var(--ui-fg-hint); font-size: .8rem; }
+
+.panel-folder > .panel-head { background: var(--ui-layer-3); font-weight: 600; }
+.panel-folder > .panel-head:hover { background: var(--ui-folder-hover); }
+.panel-folder > .panel-body { padding: 4px; border-top: 1px solid var(--ui-divider); }
+
+.panel-file { background: var(--ui-layer-1); }
+/* The document being read: picked out in the accent colour, edge and name alike. */
+.panel-file.current { border-color: var(--ui-accent); }
+.panel-file.current > .panel-head { font-weight: 600; }
+.panel-file.current > .panel-head .panel-label,
+.panel-file.current > .panel-head .panel-icon { color: var(--ui-accent); }
+
+/* The outline: one row per heading, indented by its level below the document's shallowest. */
+.outline { gap: 0; padding: 3px; border-top: 1px solid var(--ui-divider); }
+.outline-row {
+    display: block;
+    width: 100%;
+    padding: 4px 8px 4px calc(8px + var(--level, 0) * 12px);
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ui-fg);
+    font-family: inherit;
+    font-size: .84rem;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.outline-row:hover { background: var(--ui-hover-live); }
+/* How far a heading is indented below the document's shallowest (Outline.razor sets data-level; six
+   heading levels leave five steps). */
+.outline-row[data-level="1"] { --level: 1; }
+.outline-row[data-level="2"] { --level: 2; }
+.outline-row[data-level="3"] { --level: 3; }
+.outline-row[data-level="4"] { --level: 4; }
+.outline-row[data-level="5"] { --level: 5; }
+/* Where the reader is: the heading of the section at the top of the pane. Kept slight — a tint and
+   a hairline of accent — because it moves as the document scrolls. js/position.js sets the attribute. */
+.outline-row[data-here] { background: var(--ui-hover); box-shadow: inset 2px 0 0 var(--ui-accent); }
+.empty { padding: 12px; color: var(--ui-fg-hint); font-size: .85rem; }
+
+/* ---- Content ---- */
+.content-area {
+    flex: 1 1 auto;
+    overflow: auto;
+    /* Clear of a cutout or a bar at the side of a phone held on its side; the pane keeps painting under it. */
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    /* Two fingers on the document are a pinch for js/zoom.js, not the browser's; one finger still scrolls. */
+    touch-action: pan-x pan-y;
+}
+/* The reader's zoom — and in page view the fit — is held on the pane by js/zoom.js, not on the document:
+   the document element is rebuilt whenever the file is re-read, and the pane is not. */
+.content-area > .content { zoom: var(--doc-zoom, 1); }
+
+/* The document's own box. Everything about how the document *reads* — typeface, sizes, spacing,
+   lists, tables, code — is in css/content-themes.css, for the app's own look and for every content
+   theme alike. What is left here is what belongs to the app: wrapping, callouts, page view, print. */
+.content { padding: 1.5rem 2.2rem calc(4rem + var(--safe-bottom)); }
+
+/* code blocks + mermaid */
+pre code.hljs { padding: 1rem; border-radius: 6px; display: block; }
+
+/* ---- Blocks stay inside the reading column -----------------------------------------------------
+   The column is the width of the running text. Diagrams scale to it and wide tables shrink to it.
+   Code is never justified or hyphenated, and what a long line does depends on the look, through
+   --ct-code-space (css/content-themes.css): in the app's own look a line of code is a line, kept
+   exactly as written, and the block scrolls sideways when one runs past the column; under a
+   content theme the document is a page for printing, so long lines wrap instead. The <pre> is
+   what scrolls, because it is the <pre> that draws the box; the highlight.js sheet would
+   otherwise put the scrollbar on the <code> inside it.
+
+   The `.content.markdown-body` compound is deliberate: it outranks the shared document structure
+   in css/content-themes.css, which lands on `.markdown-body` alone. */
+.content.markdown-body pre {
+    white-space: var(--ct-code-space, pre);
+    overflow-x: auto;           /* nothing to scroll once the lines wrap */
+    overflow-wrap: break-word;  /* only bites when wrapping: a long token breaks rather than overflows */
+    hyphens: manual;
+    text-align: start;
+    /* A slim bar in the document's own border colour, rather than the system's chunky one. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--md-border) transparent;
+}
+.content.markdown-body pre code {
+    white-space: inherit;
+    overflow: visible;
+    overflow-wrap: inherit;
+}
+.content.markdown-body pre.mermaid { overflow: visible; text-align: center; font-family: inherit; font-size: 1em; }
+.content.markdown-body pre.mermaid svg { max-width: 100%; height: auto; }
+/* A table keeps its natural width, capped at the column so it can never scroll. It is data, not
+   prose: forced into a book measure a seven-column table breaks its headings mid-word, which is
+   worse than a table that runs a little wider than the paragraphs around it. */
+.content.markdown-body table { max-width: 100%; }
+.content.markdown-body th,
+.content.markdown-body td { overflow-wrap: break-word; }
+
+pre.mermaid { background: transparent; text-align: center; line-height: normal; }
+/* A diagram's labels are HTML inside the drawing; they are words in boxes, not running text. */
+svg[id^="mermaid"] { hyphens: manual; text-align: start; }
+
+/* ---- Admonitions (mirrors bwets.Markdig.Extensions AdmonitionFeature) ---- */
+.admonition { margin: 1em 0; border: 1px solid var(--md-border); border-left: 4px solid var(--adm, #448aff); border-radius: 6px; overflow: hidden; background: var(--ui-layer-1); }
+.admonition-title { display: flex; align-items: center; gap: .5em; font-weight: 600; padding: .5em .9em; background: var(--adm-bg, rgba(68,138,255,.1)); }
+.admonition-icon { font-style: normal; line-height: 1; }
+.admonition-body { padding: .2em .9em; }
+.admonition-body > :first-child { margin-top: .6em; }
+.admonition-body > :last-child { margin-bottom: .6em; }
+details.admonition > summary.admonition-title { cursor: pointer; list-style: none; }
+.admonition-note     { --adm: #448aff; --adm-bg: rgba(68,138,255,.1); }
+.admonition-abstract { --adm: #00b0ff; --adm-bg: rgba(0,176,255,.1); }
+.admonition-info     { --adm: #00b8d4; --adm-bg: rgba(0,184,212,.1); }
+.admonition-tip      { --adm: #00bfa5; --adm-bg: rgba(0,191,165,.1); }
+.admonition-success  { --adm: #00c853; --adm-bg: rgba(0,200,83,.1); }
+.admonition-question { --adm: #9c27b0; --adm-bg: rgba(156,39,176,.1); }
+.admonition-warning  { --adm: #ff9100; --adm-bg: rgba(255,145,0,.12); }
+.admonition-danger   { --adm: #ff1744; --adm-bg: rgba(255,23,68,.1); }
+.admonition-bug      { --adm: #f50057; --adm-bg: rgba(245,0,87,.1); }
+.admonition-example  { --adm: #7c4dff; --adm-bg: rgba(124,77,255,.1); }
+.admonition-quote    { --adm: #9e9e9e; --adm-bg: rgba(158,158,158,.12); }
+
+/* ---- Wiki links, tags, math ---- */
+/* Obsidian-style [[wiki links]] use the normal link colour but a dashed underline to hint
+   they resolve inside the vault rather than to the web. */
+.markdown-body a.wikilink { text-decoration-style: dashed; text-underline-offset: 2px; }
+
+/* Obsidian #tags as compact, non-interactive pills. */
+.markdown-body .tag {
+    display: inline-block;
+    padding: 0 .5em;
+    border-radius: 999px;
+    font-size: .85em;
+    line-height: 1.5;
+    background: var(--md-code-bg);
+    color: var(--md-link);
+    white-space: nowrap;
+}
+
+/* KaTeX display math: allow wide equations to scroll instead of overflowing the page. */
+.markdown-body .katex-display { overflow-x: auto; overflow-y: hidden; padding: .3em 0; }
+/* A ```math fence is rendered in place into its <pre>; strip the code-block chrome. */
+.markdown-body pre.math-block { background: transparent; padding: .3em 0; border: 0; font-size: 1em; }
+
+/* ---- Popup menu (More button + history context menu) ---- */
+.menu-backdrop { position: fixed; inset: 0; z-index: 1000; }
+.ctx {
+    position: fixed;
+    /* Where the click was, when the menu opens at the pointer (ContextMenu.razor sets the properties);
+       a menu with no height hangs from the bottom of the toolbar. */
+    left: var(--menu-x, 0);
+    top: var(--menu-y, calc(46px + var(--safe-top)));
+    z-index: 1001;
+    min-width: 200px;
+    max-width: 320px;
+    background: var(--ui-layer-1);
+    border: 1px solid var(--ui-divider);
+    border-radius: 6px;
+    padding: 4px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.28);
+}
+/* The More and theme menus: under the toolbar, against the right edge of the window. */
+.ctx-right { left: auto; right: max(8px, var(--safe-right)); }
+.ctx button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 7px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--ui-fg);
+    cursor: pointer;
+    font-size: .9rem;
+    font-family: inherit;
+    white-space: nowrap;
+}
+.ctx button:hover { background: var(--ui-hover-live); }
+
+/* ---- Keyboard shortcuts overlay (?) ---- */
+.shortcuts {
+    position: fixed;
+    z-index: 1001;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 340px;
+    max-width: 90vw;
+    background: var(--ui-layer-1);
+    border: 1px solid var(--ui-divider);
+    border-radius: 10px;
+    padding: 18px 24px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+}
+.shortcuts-head { font-weight: 600; font-size: 1.05rem; margin-bottom: .8em; }
+.shortcuts-table { border-collapse: collapse; width: 100%; }
+.shortcuts-table td { padding: .35em .3em; vertical-align: middle; }
+.sc-action { color: var(--ui-fg); padding-right: 2.5em !important; }
+.sc-keys { text-align: right; white-space: nowrap; }
+.sc-or, .sc-plus { color: var(--ui-fg-hint); margin: 0 .3em; }
+.shortcuts kbd {
+    display: inline-block;
+    min-width: 1.3em;
+    padding: .12em .5em;
+    font-family: inherit;
+    font-size: .82em;
+    text-align: center;
+    background: var(--md-code-bg);
+    border: 1px solid var(--md-border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+}
+.shortcuts-foot { margin-top: 1.1em; font-size: .82rem; color: var(--ui-fg-hint); text-align: center; }
+
+/* ---- What's new ----
+   A page of the app's own, shown over the document: one section per version. Always in the app's
+   look (.app-look, see css/content-themes.css), not in the document's theme. */
+.whats-new {
+    position: fixed;
+    z-index: 1001;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    width: min(680px, 92vw);
+    max-height: 82vh;
+    background: var(--ui-layer-1);
+    border: 1px solid var(--ui-divider);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+    overflow: hidden;
+}
+.whats-new-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    padding: 12px 12px 12px 22px;
+    border-bottom: 1px solid var(--ui-divider);
+    font-weight: 600;
+    font-size: 1.05rem;
+}
+.whats-new-close {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ui-fg);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+.whats-new-close:hover { background: var(--ui-hover-live); }
+/* The page fills the dialog rather than keeping a document's reading column. */
+.whats-new .whats-new-body {
+    flex: 1 1 auto;
+    max-width: none;
+    margin: 0;
+    padding: 18px 22px 22px;
+    overflow: auto;
+    user-select: text;
+}
+.whats-new .whats-new-body * { user-select: text; }
+
+/* ---- Guided tour ----
+   Small blue tooltips, one at a time, each pointing at one part of the window. Built by js/tour.js
+   outside the app's own element, so nothing here is ever in the way of rendering. */
+.tour-tip {
+    position: fixed;
+    z-index: 2001;
+    width: 300px;
+    max-width: calc(100vw - 16px);
+    padding: 12px 14px 10px;
+    border-radius: 8px;
+    background: var(--ui-accent-fill, #0f6cbd);
+    color: var(--ui-on-accent, #fff);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+    font-size: .88rem;
+    line-height: 1.45;
+}
+.tour-arrow {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: inherit;
+    transform: rotate(45deg);
+}
+.tour-title { font-weight: 600; font-size: .95rem; margin-bottom: 3px; }
+.tour-foot { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.tour-count { margin-right: auto; opacity: .8; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.tour-tip button {
+    padding: 4px 10px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: .84rem;
+    cursor: pointer;
+}
+.tour-tip button:hover { background: var(--ui-tour-hover); }
+.tour-tip .tour-skip { opacity: .85; }
+/* The way forward is the one filled button. */
+.tour-tip .tour-next { background: var(--ui-on-accent, #fff); color: var(--ui-accent-fill, #0f6cbd); font-weight: 600; }
+.tour-tip .tour-next:hover { background: var(--ui-on-accent, #fff); opacity: .9; }
+/* What the tooltip is pointing at. */
+.tour-ring {
+    position: fixed;
+    z-index: 2000;
+    border: 2px solid var(--ui-accent, #0f6cbd);
+    border-radius: 8px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-accent, #0f6cbd) 25%, transparent);
+    pointer-events: none;
+}
+
+/* ---- Page view ----
+   The document keeps its own element and is simply given the width of a sheet; a repeating gradient
+   paints the paper and the gaps behind it, and js/pagination.js pushes blocks down with margins so none straddles a gap.
+   Three classes deep so these win over a content theme, which sizes the same element. */
+/* The desk the sheets lie on. js/pagination.js sets it away from the paper colour so the sheet edges read.
+   `body` is on the front to outrank a content theme, which papers this same element with the
+   document's own colour — without it the desk takes the paper's colour and the sheets disappear. */
+body .content-area.document-pane.paged {
+    background: var(--page-desk, #6b6b6b);
+    padding: 12px var(--safe-right) 12px var(--safe-left);
+}
+.content-area.paged .content {
+    width: var(--page-w);
+    max-width: none;
+    margin: 0 auto;
+    padding: var(--page-margin);
+    box-sizing: border-box;
+    /* One repeating band per sheet: a hairline, the paper, a hairline, then the gap. The hairlines
+       give each sheet a visible top and bottom edge when paper and desk are close in value. */
+    background:
+        repeating-linear-gradient(to bottom,
+            var(--page-edge) 0 1px,
+            var(--page-paper) 1px calc(var(--page-h) - 1px),
+            var(--page-edge) calc(var(--page-h) - 1px) var(--page-h),
+            transparent var(--page-h) calc(var(--page-h) + var(--page-gap)));
+    /* Follows the gradient's alpha, so every sheet gets its own shadow rather than one for the lot. */
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, .5));
+}
+/* A sheet has hard edges, so a wide table has to fit it and long code has to wrap — the same
+   concessions printing makes, for the same reason: there is nothing past the edge of the paper. */
+.content-area.paged .content th,
+.content-area.paged .content td { overflow-wrap: anywhere; }
+.content-area.paged .content pre { white-space: pre-wrap; overflow-wrap: break-word; overflow-x: visible; }
+
+/* ---- Toast ----
+   A word about what just changed, for the keyboard shortcuts that have no other feedback. */
+/* The live region the toast appears in (see Toast.razor). It is always in the page, so a screen reader
+   announces what appears in it, and has no box of its own. */
+.toast-host { display: contents; }
+.toast {
+    position: fixed;
+    bottom: calc(28px + var(--safe-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+    padding: 7px 16px;
+    border-radius: 999px;
+    /* Fallbacks matter here: this floats over the document, which a content theme may have painted
+       any colour, so it must never come out as bare text on the page. */
+    background: var(--ui-layer-3, #26262b);
+    color: var(--ui-fg, #f2f2f2);
+    border: 1px solid var(--ui-divider, rgba(255, 255, 255, .18));
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+    font-size: .85rem;
+    white-space: nowrap;
+    pointer-events: none; /* never in the way of the document underneath */
+    /* Rises in, holds long enough to read, fades out. The 1.4s matches the timer that removes it,
+       so the element leaves exactly as it finishes fading rather than blinking out. */
+    animation: toast-life 1.4s ease-out forwards;
+}
+/* A picture past the per-document limit has no picture, only the words "Too many images" as its alternative text
+   (see ReferenceResolver); drawn like the dashed box the app makes for a picture it will not show. */
+.markdown-body img[data-md-skipped="limit"] {
+    display: inline-block;
+    padding: 9px 20px;
+    border: 1px dashed #888;
+    border-radius: 4px;
+    color: #888;
+    font: 13px sans-serif;
+}
+
+/* Where a link goes, while the pointer is over it or it has the keyboard focus: a browser's status strip, in
+   the bottom left corner (js/links.js). It shows the address that would be opened — not the text of the link,
+   which a document writes as it likes — and only for a link that opens one. App chrome, like the toast: no
+   document class may be named after it (the sanitizer's list of classes is short and does not include it). */
+.link-status {
+    position: fixed;
+    bottom: var(--safe-bottom);
+    left: var(--safe-left);
+    z-index: 900; /* over the document and the bars, under the menus (1000+) */
+    max-width: min(80vw, 60rem);
+    padding: 3px 12px 3px 10px;
+    border-top: 1px solid var(--ui-divider, rgba(255, 255, 255, .18));
+    border-right: 1px solid var(--ui-divider, rgba(255, 255, 255, .18));
+    border-top-right-radius: 6px;
+    background: var(--ui-layer-3, #26262b);
+    color: var(--ui-fg, #f2f2f2);
+    font-size: .8rem;
+    overflow: hidden;
+    text-overflow: ellipsis; /* the host comes first, so it is the end of a long address that goes */
+    white-space: nowrap;
+    pointer-events: none;
+}
+.link-status[hidden] { display: none; }
+/* Clear of the bar along the bottom of the window, when there is one (Toast.razor says which). */
+.toast-over-bar { bottom: calc(62px + var(--safe-bottom)); }
+.toast-over-print { bottom: calc(76px + var(--safe-bottom)); }
+@keyframes toast-life {
+    0%   { opacity: 0; transform: translate(-50%, 6px); }
+    10%  { opacity: 1; transform: translate(-50%, 0); }
+    70%  { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -3px); }
+}
+
+/* ---- Print bar ----
+   Ctrl+P opens this instead of printing straight away: pick the content theme for this print, then
+   Ctrl+P again (or the Print button) to send it. Overlays the bottom of the window and is dropped
+   from the printout itself by the @media print rules. */
+.print-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px max(12px, var(--safe-right)) calc(8px + var(--safe-bottom)) max(12px, var(--safe-left));
+    background: var(--ui-layer-3);
+    border-top: 1px solid var(--ui-divider);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, .18);
+}
+.print-bar-label { font-weight: 600; font-size: .85rem; margin-right: 4px; }
+.print-chip {
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--ui-divider);
+    background: transparent;
+    color: var(--ui-fg);
+    font-family: inherit;
+    font-size: .82rem;
+    cursor: pointer;
+}
+.print-chip:hover { background: var(--ui-hover-live); }
+.print-chip.active {
+    background: var(--ui-accent-fill);
+    border-color: var(--ui-accent-fill);
+    color: var(--ui-on-accent);
+    font-weight: 600;
+}
+.print-bar-hint { margin-left: auto; font-size: .8rem; color: var(--ui-fg-hint); }
+/* Keep the last lines of the document reachable while the bar covers them. */
+.app-body.printing .content { padding-bottom: calc(5rem + var(--safe-bottom)); }
+
+/* ---- Rating bar ----
+   One quiet line along the bottom, where the print bar goes: hint-coloured text, one outlined
+   button, one ×. Shown once (see RatingPrompt.cs); it is furniture, not a dialog. */
+.rate-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 49;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 6px max(12px, var(--safe-right)) calc(6px + var(--safe-bottom)) max(12px, var(--safe-left));
+    background: var(--ui-layer-3);
+    border-top: 1px solid var(--ui-divider);
+    color: var(--ui-fg-hint);
+    font-size: .84rem;
+}
+.rate-bar-go {
+    padding: 3px 12px;
+    border: 1px solid var(--ui-accent);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+.rate-bar-go:hover { background: var(--ui-hover-live); }
+.rate-bar-close {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--ui-fg-hint);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+}
+.rate-bar-close:hover { background: var(--ui-hover-live); color: var(--ui-fg); }
+
+/* ---- Settings ---- */
+.settings { max-width: 720px; margin: 0 auto; padding: 2rem; }
+.settings h2 { margin-top: 0; }
+.setting-row { margin: 1.2rem 0; }
+.setting-label { font-weight: 600; margin-bottom: .4rem; }
+/* Fluent spaces each radio as a form field of its own; these three are one short list. */
+.setting-row fluent-field { margin-block: 0; }
+.muted { color: var(--ui-fg-hint); }
+/* A note or a second control beside the one before it in a setting row. */
+.setting-after { margin-left: .6rem; }
+/* One granted folder in Settings: its name, and the button that forgets it. */
+.setting-folder { display: flex; align-items: center; gap: .6rem; margin-bottom: .4rem; }
+.setting-folder-name { overflow-wrap: anywhere; }
+/* The icons the app draws itself (Icon.razor). A class rather than attributes, because a Fluent button
+   paints every svg it holds with fill: currentColor, and only a style rule outranks that. */
+svg.icon-line { fill: none; stroke: currentColor; }
+svg.icon-solid { fill: currentColor; stroke: none; }
+.selectable, .selectable * { user-select: text; }
+
+/* Settings is drawn over the viewer, which stays mounted underneath (so it keeps the scroll position,
+   zoom and tree it had). The overlay has to hide it completely, and sit above the viewer's own popups. */
+.settings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    background: var(--ui-layer-1);
+    color: var(--ui-fg);
+}
+
+/* A render that is taking its time (see NavigationService.RenderingDelay); the old page stays under it. */
+.rendering {
+    position: fixed;
+    top: calc(58px + var(--safe-top));
+    right: max(20px, var(--safe-right));
+    z-index: 50;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: .85rem;
+    color: var(--ui-fg-hint);
+    background: var(--ui-layer-3);
+    border: 1px solid var(--ui-divider);
+    pointer-events: none;
+}
+
+/* The file on screen has been deleted; what is shown is the last render of it. */
+.app-header .title.missing { opacity: .55; font-style: italic; }
+
+/* The scrim is a narrow window's; a wide one has nothing to put it over. */
+.scrim { display: none; }
+
+/* A finger on a screen wide enough for the desktop layout (a tablet): the same toolbar and rows, large enough to hit.
+   Only a host that says it is a touch host (the Android page's <html data-touch>) gets this: a Windows machine with a touch
+   screen reports a coarse pointer too, and a desktop window is to stay as it was. */
+@media (pointer: coarse) {
+    :where(:root[data-touch]) .app-header fluent-button { --base-height-multiplier: 10; width: 40px; min-width: 40px; height: 40px; }
+    :where(:root[data-touch]) .row, :where(:root[data-touch]) .panel-head, :where(:root[data-touch]) .outline-row, :where(:root[data-touch]) .ctx button { min-height: 40px; }
+    :where(:root[data-touch]) .row { padding-top: 10px; padding-bottom: 10px; }
+    :where(:root[data-touch]) .tabstrip fluent-tab { min-height: 40px; }
+}
+
+/* ---- Small screens ---------------------------------------------------------------------------
+   A narrow window — a phone upright, a desktop window dragged narrow, a phone on its side (short, and under the 1024px
+   a desktop window is at its smallest) — has no room for a sidebar
+   beside the document, so the sidebar becomes a drawer over it, and the toolbar keeps what it cannot do without
+   (the sidebar, back and forward, the title, the view, the document theme, More); the rest is in the More
+   menu (ViewerMenus.OpenMore). A tablet is wide enough for the desktop layout. This query is the same as
+   NARROW_QUERY in js/layout.js, which tells .NET (a test keeps the two equal): change one, change both.
+
+   The drawer's state is a data attribute on .app-body, written by Blazor (ViewerView.razor), not a class a script
+   adds: Blazor owns that element. And buttons are 44px, because a finger is not a pointer. */
+@media (max-width: 720px), (max-height: 500px) and (max-width: 1023px) {
+    .toolbar-left,
+    .zoom-group,
+    .splitter { display: none; }
+
+    .app-header { gap: 0; padding-left: max(4px, var(--safe-left)); padding-right: max(4px, var(--safe-right)); }
+    .toolbar-middle, .toolbar-right { gap: 0; }
+    .app-header fluent-button { --base-height-multiplier: 11; width: 44px; min-width: 44px; height: 44px; }
+    .app-header .title { margin-left: 4px; margin-right: 4px; }
+
+    /* The sidebar: out of the layout, under the toolbar and over the document and the bars, parked off the left
+       edge. Shut, it is also hidden, so the keyboard and a screen reader do not find it. */
+    .sidebar,
+    .app-body.no-sidebar .sidebar {
+        display: flex;
+        position: fixed;
+        top: calc(48px + var(--safe-top));
+        bottom: 0;
+        left: 0;
+        z-index: 55;
+        width: min(85vw, 340px);
+        padding-left: var(--safe-left);
+        padding-bottom: var(--safe-bottom);
+        box-shadow: 0 0 24px rgba(0, 0, 0, .35);
+        transform: translateX(-105%);
+        visibility: hidden;
+        transition: transform .2s ease, visibility 0s linear .2s;
+    }
+    .app-body[data-drawer="open"] .sidebar {
+        transform: none;
+        visibility: visible;
+        transition: transform .2s ease;
+    }
+    /* Tapping what is left of the page puts the drawer away. */
+    .scrim {
+        display: block;
+        position: fixed;
+        inset: calc(48px + var(--safe-top)) 0 0 0;
+        z-index: 54;
+        background: rgba(0, 0, 0, .4);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity .2s ease, visibility 0s linear .2s;
+    }
+    .app-body[data-drawer="open"] .scrim {
+        opacity: 1;
+        visibility: visible;
+        transition: opacity .2s ease;
+    }
+
+    .content { padding: 1rem 1rem calc(4rem + var(--safe-bottom)); }
+    .settings { padding: 1rem 1rem calc(2rem + var(--safe-bottom)); }
+
+    /* Rows a finger can hit. */
+    .row, .panel-head, .outline-row, .ctx button { min-height: 44px; }
+    .row { padding-top: 12px; padding-bottom: 12px; }
+    .row-del { width: 44px; }
+    .tabstrip fluent-tab { min-height: 44px; }
+    .print-chip, .rate-bar-go { min-height: 40px; }
+    .rate-bar-close { width: 40px; height: 40px; }
+    .whats-new-close { width: 44px; height: 44px; }
+    .tour-tip button { min-height: 40px; padding: 4px 12px; }
+
+    /* Menus open under the toolbar or at the finger, wider than a row of text needs, kept on the screen. */
+    .ctx {
+        min-width: 220px;
+        max-width: calc(100vw - 16px);
+        max-height: calc(100dvh - var(--menu-y, calc(46px + var(--safe-top))) - 12px - var(--safe-bottom));
+        overflow-y: auto;
+    }
+    .ctx:not(.ctx-right) {
+        width: 240px;
+        left: clamp(8px, var(--menu-x, 0px), calc(100vw - 248px));
+        top: min(var(--menu-y, calc(46px + var(--safe-top))), calc(100dvh - 210px - var(--safe-bottom)));
+    }
+    .ctx button { padding: 10px 14px; }
+
+    /* The bars along the bottom keep their words on a line of their own with the buttons under them, and none is taller
+       than the toast above it is lifted by: the words are at most two lines, the buttons one. */
+    .rate-bar { flex-wrap: wrap; justify-content: flex-end; gap: 6px 12px; }
+    .rate-bar > span { flex: 1 1 100%; }
+    .toast-over-bar { bottom: calc(144px + var(--safe-bottom)); }
+
+    /* The print bar is one row that scrolls sideways, the way to print first (eleven looks would fill a third of the
+       screen), so it is the same height as on a desktop and the toast clears it by the same amount. */
+    .print-bar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .print-bar > * { flex: 0 0 auto; }
+    .print-bar-label { order: -2; }
+    .print-bar > fluent-button { order: -1; min-height: 40px; }
+}
+
+/* Where a finger is the only pointer (on a touch host, see above): what appears on hover is always there, and a hint about a
+   key is not. */
+@media (hover: none) {
+    /* The × of a history row is there to be tapped, not found by hovering; with no pill to join, it is just a mark. */
+    :where(:root[data-touch]) .row-del {
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+        background: transparent;
+        border-radius: 5px;
+        color: var(--ui-fg-hint);
+    }
+}
+@media (hover: none) and (pointer: coarse) {
+    :where(:root[data-touch]) .print-bar-hint { display: none; }
+}
+
+/* ---- Printing ---------------------------------------------------------------------------------
+   Print the document, not the app: the toolbar, sidebar, splitter and every overlay are dropped, and
+   the scroll containers (html/body/.app-shell/.content-area all clip on screen) are unclamped so the
+   content flows over as many sheets as it needs. js/print.js additionally forces the light theme before
+   opening the print dialog, so the colours below are always the light ones. */
+@media print {
+    html, body { height: auto; overflow: visible; background: #fff; }
+    app { height: auto; }
+
+    /* No content theme (html has neither ctl nor ctd) → the document is printed in the app's own
+       light palette, pinned here so the output never depends on js/print.js having swapped the theme
+       class. With a content theme the theme's own colours win: its palette is what was picked. */
+    html:not(.ctl):not(.ctd) {
+        --md-fg: #1f2328;
+        --md-border: #d0d7de;
+        --md-link: #0969da;
+        --md-code-bg: rgba(175,184,193,.2);
+        --md-quote: #59636e;
+        --md-row: #f6f8fa;
+    }
+    html:not(.ctl):not(.ctd) .hljs { color: #24292e !important; background: transparent !important; }
+
+    /* A content theme was chosen on purpose, so print its colours rather than letting the browser
+       drop the "background graphics" it needs to look like itself. */
+    html.ctl, html.ctd, html.ctl .markdown-body, html.ctd .markdown-body {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+    html.ctd body { background: transparent; } /* the theme paints the page, not the app shell */
+
+    /* Belt and braces for page view: js/print.js drops back to the plain flow before printing, so these
+       rules normally match nothing. If a browser ever prints without firing beforeprint, they still
+       keep the drawn sheets — paper, edges, shadow — off the printer's own pages. */
+    .content-area.paged .content {
+        background: none !important;
+        filter: none !important;
+        zoom: 1 !important;
+    }
+
+    /* App chrome — nothing here belongs on paper. */
+    .app-header,
+    .sidebar,
+    .splitter,
+    .print-bar,
+    .toast,
+    .rendering,
+    .settings-overlay,
+    .menu-backdrop,
+    .ctx,
+    .shortcuts,
+    .whats-new,
+    .rate-bar,
+    .tour-tip,
+    .tour-ring,
+    .fluent-providers { display: none !important; }
+
+    /* Unclamp the shell: flex + fixed viewport height would print a single cropped page. */
+    .app-shell, .app-body, .content-area { display: block; height: auto; overflow: visible; }
+
+    /* The document itself takes the full page width — the on-screen reading measure is too narrow
+       once the sidebar is gone, and the margins come from @page. The second rule outranks the
+       content themes, which set their own on-screen measure on the same element. */
+    .content { max-width: none; margin: 0; padding: 0; }
+    .content.markdown-body { max-width: none; margin: 0; padding: 0; }
+
+    /* On screen a wide table may run past the reading column — the pane simply scrolls. Paper has no
+       such escape: anything past the edge of the sheet is guillotined. `anywhere` lets a cell break
+       mid-word, which is what allows the table to shrink to the page; a broken heading is recoverable,
+       a missing last column is not. */
+    .content.markdown-body th,
+    .content.markdown-body td { overflow-wrap: anywhere; }
+
+    /* Keep code, tables, quotes, diagrams and callouts whole rather than split across sheets, and
+       wrap long code lines (a print sheet cannot be scrolled sideways). */
+    pre, blockquote, table, figure, img, .admonition, .katex-display { break-inside: avoid; }
+    h1, h2, h3, h4 { break-after: avoid; }
+    .content.markdown-body pre { overflow: visible; white-space: pre-wrap; overflow-wrap: break-word; }
+    .content img, pre.mermaid svg { max-width: 100%; height: auto; }
+
+    /* Links stay underlined but lose the blue — it prints as washed-out grey on a mono printer.
+       A content theme keeps its own link colour: its palette is what was picked, and black would
+       vanish on a dark page. */
+    html:not(.ctl):not(.ctd) .content a { color: #000; }
+    .content a { text-decoration: underline; }
+}
+
+/* Keep this at or above ~9mm. The browser draws its own header and footer inside the page margin —
+   document title and date on top, page URL and "1 of 3" at the bottom — and drops the lot when the
+   margin is too small to hold it. The page numbers are worth the address line that comes with them,
+   so the margin stays large enough for the browser to print them. */
+@page { margin: 15mm; }

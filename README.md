@@ -200,10 +200,29 @@ MarkdownBlaze is also in Ubuntu's App Center. To open files on a USB drive or ot
 `sudo snap connect markdownblaze:removable-media` once. Documents in hidden folders of your home
 (such as `~/.notes`) cannot be opened from the snap.
 
+### Install on Android
+
+Download `MarkdownBlaze-<version>-android.apk` from the [latest release](../../releases/latest) and open it on the phone
+(Android 8.0 or later; your browser or file manager asks once to allow installing apps from it). Check it against
+`SHA256SUMS`, or with `gh attestation verify <file> --repo <owner>/<repo>`. Google Play follows. The package is signed with the
+project's own key, so an update installs over the previous one.
+
+The same page, themes, page view and printing, with what a phone changes:
+
+- **Folders** — Android gives an app only the file you tapped, so a file from your phone's storage opens alone, with a bar
+  offering *Show the folder*. Allow that folder once and every file in it opens with its tree, links and pictures. Files from
+  Drive or mail open on their own, with no folder around them.
+- **Printing** goes through the system print dialog, which also has *Save as PDF*.
+- **Pictures** from `http://` addresses are not shown (Android blocks them); `https://` and local pictures are.
+- **Changes** to the open file are picked up when you return to the app: Android cannot watch a file for it.
+
+The app asks for one permission, `INTERNET`, only for the pictures a document takes from the web. See [PRIVACY.md](PRIVACY.md)
+and [packaging/android](packaging/android/README.md) (signing, building, Play).
+
 ### Releases & packaging
 
 Prebuilt, self-contained binaries (Windows zip/installer/MSIX, Linux `tar.gz`/`.deb`/`.pkg.tar.zst`,
-macOS `.dmg`) come from the manual [`release` workflow](packaging/README.md). On Linux,
+macOS `.dmg`, Android `.apk`) come from the manual [`release` workflow](packaging/README.md). On Linux,
 `packaging/linux/install-linux.sh` installs the `.desktop` entry and registers MarkdownBlaze for
 `.md` files and `markdown://` links.
 
@@ -211,7 +230,7 @@ macOS `.dmg`) come from the manual [`release` workflow](packaging/README.md). On
 
 ## Tech stack
 
-- **.NET 10**, **PhotinoX.Blazor 5** (native OS WebView host), **Microsoft Fluent UI Blazor 5**
+- **.NET 10**, **PhotinoX.Blazor 5** (native OS WebView host; **.NET MAUI** Blazor Hybrid on Android), **Microsoft Fluent UI Blazor 5**
 - **Markdig** + **bwets.Markdig.Extensions** for Markdown → HTML
 - **highlight.js**, **Mermaid** and **KaTeX**, all bundled for offline use
 
@@ -224,7 +243,7 @@ docs/                       Project documentation: architecture.md (the invarian
 samples/wiki/               The sample wiki / feature showcase, with the hostile-but-harmless pages in security/
 scripts/                    Maintenance scripts (see scripts/README.md): vendor update, highlight palette
 packaging/                  Windows installer/MSIX, winget, Microsoft Store listing,
-                            Linux .desktop/.deb, Arch PKGBUILD, macOS .app/.dmg
+                            Linux .desktop/.deb, Arch PKGBUILD, macOS .app/.dmg, Android signing and Play (android/)
 tests/
   MarkdownBlaze.Tests/      xUnit tests (sanitizer, links, paths, services, the sample pages)
   fixtures/                 Documents the tests render
@@ -232,9 +251,8 @@ tests/
 src/
   MarkdownBlaze.slnx        What `dotnet build src` loads: the app and the tests, nothing outside this repository
   MarkdownBlaze.Dev.slnx    The same plus the sibling bwets.Markdig.Extensions checkout (needs LocalSources=true)
-  MarkdownBlaze/
-    Program.cs              Photino + Blazor host, markdown:// scheme, startup
-    Assets/                 icon.ico and icon.png, shipped next to the executable for the window icon
+  MarkdownBlaze.Android.slnx  Core and the Android host (needs the maui-android workload; CI builds it in its own job)
+  MarkdownBlaze.Core/       Razor class library: everything that does not depend on the window
     Content/                UserManual.md (shown when no file is given), WhatsNew.md (⋮ → What's new);
                             copied flat into the output folder
     Components/
@@ -260,7 +278,6 @@ src/
       ViewModes, EnumText   Continuous vs page view: the names the page and the preferences file use for the enums
       PreferencesStore      Settings kept between launches
       HistoryStore          Persisted history, order preserved
-      WindowStateService    Window size, position and fullscreen
       RatingPrompt          The one-time request to rate the app in the Microsoft Store
       UriScheme             markdown:// addresses, both directions
       AppPaths, JsonFile, SaveDebouncer, Log, FileLoggerProvider, IUiDispatcher, Background …
@@ -269,18 +286,27 @@ src/
     Security/               HtmlSanitizer, NestingLimit (HTML cut to a browser's depth), ExternalLinks (link allow-list),
                             LocalPath (which files may be read),
                             AssetHandler (serves the open document's pictures over mdasset://)
-    Interop/                ViewerInterop (the connection to the page's JavaScript, both ways), PageEvents, NativeDialogs (the OS
-                            file and folder dialogs)
+    Interop/                ViewerInterop (the connection to the page's JavaScript, both ways), PageEvents
     Platform/               IShellLauncher / ShellLauncher (the one place that starts a browser, a new window or
                             the file manager)
     Platform/Windows/       ShellIntegration (Explorer verbs and the markdown:// handler), PackageIdentity, WindowIcon
-    wwwroot/
-      index.html            The page: splash, Content-Security-Policy, stylesheets, scripts
+    wwwroot/                Served by a host as _content/MarkdownBlaze.Core/
       css/                  app.css (chrome, page view, print), content-themes.css (the document themes),
                             highlight-theme.css, highlight-content.css (generated)
       js/                   ES modules (main.js, render, pagination, zoom, print, tour, …) with their tests in tests/js
       fonts/latin-modern/   The one bundled typeface (Academic theme)
       vendor/               highlight.js, Mermaid and KaTeX for offline use, with VERSIONS.md and SHA256SUMS
+  MarkdownBlaze/            The desktop host (PhotinoX window)
+    Program.cs              Photino + Blazor host, markdown:// and mdasset:// schemes, startup
+    Assets/                 icon.ico and icon.png, shipped next to the executable for the window icon
+    Services/WindowStateService  Window size, position and fullscreen
+    Interop/                PhotinoFilePicker (the OS file and folder dialogs)
+    Platform/               ShellLauncher (the one place that starts a browser, a new window or the file manager),
+                            DesktopAddresses, PagePrinter
+    Platform/Windows/       ShellIntegration (Explorer verbs and the markdown:// handler), PackageIdentity, WindowIcon
+    wwwroot/                index.html (splash, Content-Security-Policy, stylesheets), splash.png
+  MarkdownBlaze.Android/    The Android host (.NET MAUI Blazor Hybrid): the same seams as the desktop, folder access through
+                            Android's document picker, the system print service, the intents that open files
 ```
 
 ## Contributing and security

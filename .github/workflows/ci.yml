@@ -1,8 +1,8 @@
 name: ci
 
 # Every push to main and every pull request is built, format-checked and tested on all three desktop
-# platforms the app ships for. Warnings are errors (Directory.Build.props), so a new analyzer
-# diagnostic fails the build here as it does locally.
+# platforms the app ships for, and the Android host is built on Linux. Warnings are errors
+# (Directory.Build.props), so a new analyzer diagnostic fails the build here as it does locally.
 on:
   push:
     branches: [main]
@@ -59,7 +59,7 @@ jobs:
       - name: Build (Release)
         run: dotnet build ${{ env.APP_PROJECT }} -c Release -warnaserror
 
-      # The page's JavaScript (src/MarkdownBlaze/wwwroot/js) is plain ES modules with no build step; the
+      # The page's JavaScript (src/MarkdownBlaze.Core/wwwroot/js) is plain ES modules with no build step; the
       # pure parts of it are tested with vitest over jsdom. package.json is only that test harness.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -68,3 +68,55 @@ jobs:
 
       - name: JavaScript tests
         run: npm ci && npm test
+
+  # The Android host needs the maui-android workload, so it is not in MarkdownBlaze.slnx and the three jobs above
+  # never build it. Its own solution is built here, in Release (compiled differently, as above), with the debug
+  # key: the signed packages are made by release.yml. The SDK and the workload are pinned as a pair and have to
+  # be the same in release.yml: the MAUI packages in Directory.Packages.props are held at the version of the
+  # workload (workload set 10.0.403 is maui-android 10.0.110), because the workload supplies the platform packs
+  # the app is built against.
+  android:
+    name: build (android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_SOLUTION: src/MarkdownBlaze.Android.slnx
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: "10.0.403"
+
+      # Temurin, not the Microsoft build of OpenJDK: the Android tasks read the JDK's version string and fail
+      # (XA0033) on the Microsoft build's 21.0.x.0.y.
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install the maui-android workload
+        run: dotnet workload install maui-android --version 10.0.403
+
+      # The Android SDK on the runner lacks the platform and build tools the app is built against.
+      - name: Install the Android SDK parts
+        run: >
+          dotnet build src/MarkdownBlaze.Android/MarkdownBlaze.Android.csproj
+          -t:InstallAndroidDependencies -f net10.0-android -p:LocalSources=false
+          -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" -p:AcceptAndroidSDKLicenses=True
+
+      - name: Restore
+        run: dotnet restore ${{ env.ANDROID_SOLUTION }} -p:LocalSources=false
+
+      - name: Build (Release)
+        run: dotnet build ${{ env.ANDROID_SOLUTION }} -c Release --no-restore -p:LocalSources=false -warnaserror
+
+      - name: Format and analyzers
+        run: dotnet format ${{ env.ANDROID_SOLUTION }} --verify-no-changes --severity info --no-restore
+
+      # What the manifest of the build asks for, libraries' additions included: INTERNET and nothing else
+      # (PRIVACY.md). The unit tests cannot see this one, since they run without the workload.
+      - name: Check the merged manifest
+        run: bash packaging/android/check-manifest.sh src/MarkdownBlaze.Android/obj/Release/net10.0-android/android/AndroidManifest.xml

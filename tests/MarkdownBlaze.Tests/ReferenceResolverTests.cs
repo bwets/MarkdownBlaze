@@ -14,7 +14,7 @@ namespace MarkdownBlaze.Tests;
 /// </summary>
 public sealed class ReferenceResolverTests : IDisposable
 {
-    private static readonly MarkdownService Markdown = new();
+    private static readonly MarkdownService Markdown = new(TestAddresses.Desktop);
 
     /// <summary>A 1x1 PNG.</summary>
     private static readonly byte[] Png = Convert.FromBase64String(
@@ -287,7 +287,7 @@ public sealed class ReferenceResolverTests : IDisposable
     {
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
-        var resolver = new ReferenceResolver(_wiki.Path, cancelled.Token);
+        var resolver = new ReferenceResolver(_wiki.Path, TestAddresses.Desktop, cancelled.Token);
         using var document = HtmlSanitizer.Clean("<a href=\"other.md\">x</a>");
 
         _ = Assert.Throws<OperationCanceledException>(() => resolver.Resolve(document.Body!));

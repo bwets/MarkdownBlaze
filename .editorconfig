@@ -298,12 +298,37 @@ dotnet_diagnostic.MA0219.severity = none
 #   Razor components, and anything called from them that must resume on the renderer's synchronization
 #   context, cannot use ConfigureAwait(false). The analyzers do not see .razor code today (generated
 #   files are skipped), so this scope is preventive; the pure services keep both rules and use
-#   ConfigureAwait(false) (NativeDialogs, ViewerInterop); the viewer's own classes, which go on changing state
+#   ConfigureAwait(false) (PhotinoFilePicker, ViewerInterop); the viewer's own classes, which go on changing state
 #   after an await, say so with ConfigureAwait(true) (ViewerActions, ViewerState).
 #   Silences: 0 places today. Reviewed by Fable: approved 2026-10-10
-[src/MarkdownBlaze/**/*.razor]
+[src/MarkdownBlaze.Core/**/*.razor]
 dotnet_diagnostic.MA0004.severity = none
 dotnet_diagnostic.CA2007.severity = none
+
+# MA0182 Internal type is apparently never used
+#   AssetHandler is part of the shared library but is made and called by the host (the desktop window
+#   serves a picture request through it; so will the Android host), and the analyzer does not follow
+#   InternalsVisibleTo into the host. Scoped to that one file.
+#   Silences: 1 place. Reviewed by Fable: approved 2026-11-07
+[src/MarkdownBlaze.Core/Security/AssetHandler.cs]
+dotnet_diagnostic.MA0182.severity = none
+
+# CA1812 Avoid uninstantiated internal classes / MA0182 Internal type is apparently never used
+#   The Android runtime makes the application object and the activity itself, from the [Application] and
+#   [Activity] attributes, through a Java peer and reflection; no line of C# calls their constructors or names
+#   the types, so both analyzers take them for dead code. Making them public would only trade this for CA1515.
+#   Scoped to those two files. Silences: 2 + 2 places. Reviewed by Fable: approved 2026-11-07
+[src/MarkdownBlaze.Android/{MainApplication,MainActivity}.cs]
+dotnet_diagnostic.CA1812.severity = none
+dotnet_diagnostic.MA0182.severity = none
+
+# MA0182 Internal type is apparently never used
+#   FolderOffer and MirrorEngine are the shared half of the Android host's folder access (which folder to offer for
+#   a document, and the copy that keeps a granted folder on disk); the Android host makes and calls them, and
+#   the analyzer does not follow InternalsVisibleTo into it. Scoped to those two files.
+#   Silences: 2 places. Reviewed by Fable: approved 2026-11-07
+[src/MarkdownBlaze.Core/Services/Storage/{FolderOffer,MirrorEngine}.cs]
+dotnet_diagnostic.MA0182.severity = none
 
 # The test project. xunit needs public test classes and discovers methods by attribute.
 #   CA1707 Identifiers should not contain underscores: tests are named as sentences

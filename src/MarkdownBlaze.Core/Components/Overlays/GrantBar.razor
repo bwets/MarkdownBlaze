@@ -1,0 +1,28 @@
+@implements IDisposable
+@inject ViewerState State
+
+@if (State.FolderOffer is { } offer && !State.PrintBarOpen && State.MissingPath is null)
+{
+    @* The document opened on its own, because Android handed over that one file and nothing around it. The folder
+       can be had for one tap, so the bar says which one and asks; it never blocks the document, and Not now
+       puts it away until the document is opened again. Only a host that has folders to grant makes an offer, so
+       the desktop never draws it. Drawn like the rating bar, which gives way to it, and it to the missing-file
+       and print bars. *@
+    <div class="rate-bar" role="status">
+        <span>Show the folder — allow access to @offer.Label</span>
+        <button class="rate-bar-go" @onclick="@(() => OnAllow.InvokeAsync())">Allow</button>
+        <button class="rate-bar-go" @onclick="@(() => OnDecline.InvokeAsync())">Not now</button>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback OnAllow { get; set; }
+
+    [Parameter] public EventCallback OnDecline { get; set; }
+
+    private IDisposable? _watch;
+
+    protected override void OnInitialized() => _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+
+    public void Dispose() => _watch?.Dispose();
+}

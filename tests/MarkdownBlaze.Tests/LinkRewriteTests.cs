@@ -5,7 +5,7 @@ namespace MarkdownBlaze.Tests;
 /// <summary>SEC-2 step 3 and SEC-7: what a link becomes, and which targets the app will follow.</summary>
 public class LinkRewriteTests
 {
-    private static readonly MarkdownService Markdown = new();
+    private static readonly MarkdownService Markdown = new(TestAddresses.Desktop);
 
     private static string Render(TempFolder temp, string markdown) =>
         Markdown.Render(temp.File("doc.md", markdown))!.BodyHtml;

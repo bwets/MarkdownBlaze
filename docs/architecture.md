@@ -3,7 +3,7 @@
 MarkdownBlaze is a native window (PhotinoX, which hosts the operating system's own web view) running a
 Blazor UI built with Microsoft Fluent UI, on .NET 10. A document is turned into HTML by Markdig on the
 .NET side, cleaned by an allow-list sanitizer, and shown in the page; a small amount of JavaScript
-(the ES modules in `src/MarkdownBlaze/wwwroot/js/`) does what only the browser can do: measure, scroll, print, and
+(the ES modules in `src/MarkdownBlaze.Core/wwwroot/js/`) does what only the browser can do: measure, scroll, print, and
 draw code, formulas and diagrams. The page is served from the app's own `markdown://` scheme, and
 everything it needs to render is bundled, so nothing is fetched at start-up.
 
@@ -87,6 +87,24 @@ called. Three kinds of thread feed the UI thread this way:
 
 Work that is started and not awaited goes through `Background.Run` / `Background.Observe`
 (`Services/Background.cs`), which write the failure of a discarded task to the log instead of losing it.
+
+## Small screens and the host's window
+
+The same page runs on a phone (the Android host). Three things make that work, and none of them is a second UI.
+
+- **A narrow window is a layout, not a platform.** Below 720 px (or, on a phone held on its side, below 500 px of height and
+  1024 px of width) the stylesheet turns the sidebar into a drawer over the document and the toolbar keeps its essentials; the
+  rest of it is in the More menu. The breakpoint is written twice, in `css/app.css` and as `NARROW_QUERY` in
+  `js/layout.js`, and a test keeps the two equal. The page tells .NET (`OnLayout`) because .NET builds the menus. The drawer
+  follows invariant 1: Blazor writes `data-drawer` on `.app-body`, and the stylesheet reads it. A narrow desktop window gets the
+  same drawer.
+- **What is for a finger is for a touch host.** A Windows machine with a touch screen reports a coarse pointer too, so the
+  button sizes, the always-visible delete mark and the keyless menus apply only where the host's page says `data-touch` on
+  `<html>` (the Android page). The desktop window is the same at every size above the breakpoint.
+- **The host's window is one object.** `HostWindow` (`Services/HostWindow.cs`) carries what the system's own bars cover
+  (the page keeps its toolbar and bars clear of them, `--safe-*`), whether the app is dark (the host colours the status bar
+  icons) and the Back button (the viewer closes the tour, a popup, the drawer, the print bar, in that order, and then goes back
+  in the history). The desktop host does not register it.
 
 ## How a document gets to the screen
 
@@ -258,4 +276,33 @@ like, and a test renders every one of them and checks that none survives.
 | Rendering, pagination, zoom, print, tour | `wwwroot/js/` (`main.js` and the modules it imports) |
 | Vendored highlight.js, Mermaid, KaTeX | `wwwroot/vendor/` (pinned by `VERSIONS.md` and `SHA256SUMS`) |
 
-All paths in the table are relative to `src/MarkdownBlaze/`.
+All paths in the table are relative to `src/MarkdownBlaze.Core/`, except `Program`, `WindowStateService`, `ShellLauncher`
+and `Platform/Windows/`, which are in the desktop host, `src/MarkdownBlaze/`.
+
+## Project layout
+
+Two projects. **`src/MarkdownBlaze.Core`** is a Razor class library: the components, services, security layer,
+the page's CSS and JavaScript (served by a host as `_content/MarkdownBlaze.Core/…`) and the manual. It names
+no window. **`src/MarkdownBlaze`** is the desktop host: the PhotinoX window and its lock-down (`Program`), the
+window's size and full screen, the Windows registration, the `index.html` the window loads, and the output
+folder layout (`UserManual.md`, `WhatsNew.md` and the notices are copied flat beside the executable). What
+differs from one host to another is a small set of seams in the library, which a host implements and
+registers: `IFilePicker`, `IPrinter` (the page asks it to print, after preparing itself; the desktop answers
+"print it yourself"; Android hands the WebView to the system print service and answers only when the service has finished reading the page, which is why `print.js` ignores `afterprint` while a host prints, and restores when the host answers), `IWindowControl` (full screen), `IShellIntegration` (Settings' registration row),
+`IShellLauncher`, `HostAddresses` (the UI's origin and the address the open document's pictures are served
+under: `mdasset://doc/` on the desktop; a host that cannot register a scheme uses a path of its own origin, and
+the sanitizer, the resolver and the image handler all follow it) and `AppPaths.Configure` (where the data
+folder is). The library's types are `internal`, visible to the desktop host, the Android host and the tests.
+
+## Hosts
+
+The page and everything behind it run unchanged in two hosts, and what a host supplies is the list of seams above. The
+**desktop host** (`src/MarkdownBlaze`) puts the page in a PhotinoX window: the operating system's web view, the `markdown://` and
+`mdasset://` schemes it registers itself, native file dialogs, the page printing itself (`window.print()`), window state and the
+Windows registration. The **Android host** (`src/MarkdownBlaze.Android`, .NET MAUI Blazor Hybrid) puts it in a `BlazorWebView`:
+Android's WebView, served from `https://0.0.0.1/` with the pictures answered by a `WebViewClient` through the same `AssetHandler`,
+a lock-down of what the WebView may do (`WebViewPolicy`), the document picker and a mirror of the folders the reader grants (so
+that `LocalPath`, `ReferenceResolver` and `FileTreeService` keep reasoning about real paths), the intents that open a file, the
+system print service and the Back button. Each host also names itself (`HostInfo`, shown in Settings' about line). The Android
+host is in its own solution, `MarkdownBlaze.Android.slnx`, because it needs the `maui-android` workload; CI builds it in a
+job of its own, and the release workflow signs it (`packaging/android/README.md`).

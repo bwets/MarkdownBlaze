@@ -20,7 +20,7 @@ public sealed class AssetHandlerTests : IDisposable
 
     public AssetHandlerTests()
     {
-        _handler = new AssetHandler(_scope);
+        _handler = new AssetHandler(_scope, TestAddresses.Desktop);
         _scope.Set(new AssetGrant(Token, _folder.Path));
     }
 
@@ -28,7 +28,7 @@ public sealed class AssetHandlerTests : IDisposable
 
     /// <summary>Asks for a path as the page would: the way the renderer writes the address.</summary>
     private Stream? Ask(string decodedPath, out string? contentType, string? token = null) =>
-        _handler.Serve(AssetHandler.UrlFor(token ?? Token, decodedPath), out contentType);
+        _handler.Serve(TestAddresses.Desktop.AssetUrlFor(token ?? Token, decodedPath), out contentType);
 
     /// <summary>Makes a file the given size without writing it (a sparse file on the file systems that have them).</summary>
     private static void Resize(string path, long length)
@@ -77,7 +77,7 @@ public sealed class AssetHandlerTests : IDisposable
         {
             _ = _folder.File(name, Png);
 
-            var url = AssetHandler.UrlFor(Token, name);
+            var url = TestAddresses.Desktop.AssetUrlFor(Token, name);
 
             Assert.Equal(Png, ReadAll(_handler.Serve(url, out _)));
             Assert.DoesNotContain("..", url[(url.IndexOf(Token, StringComparison.Ordinal) + Token.Length)..], StringComparison.Ordinal);
@@ -205,13 +205,13 @@ public sealed class AssetHandlerTests : IDisposable
     public void A_token_from_a_render_that_has_been_replaced_is_refused()
     {
         _ = _folder.File("pic.png", Png);
-        var stale = AssetHandler.UrlFor(Token, "pic.png");
+        var stale = TestAddresses.Desktop.AssetUrlFor(Token, "pic.png");
         Assert.NotNull(_handler.Serve(stale, out _)); // served while it is current ...
         _scope.Set(new AssetGrant("fedcba9876543210fedcba9876543210", _folder.Path)); // ... the next render
 
         Assert.Null(_handler.Serve(stale, out var contentType));
         Assert.Equal("text/plain", contentType);
-        Assert.NotNull(_handler.Serve(AssetHandler.UrlFor("fedcba9876543210fedcba9876543210", "pic.png"), out _));
+        Assert.NotNull(_handler.Serve(TestAddresses.Desktop.AssetUrlFor("fedcba9876543210fedcba9876543210", "pic.png"), out _));
     }
 
     [Theory]
@@ -231,7 +231,7 @@ public sealed class AssetHandlerTests : IDisposable
     public void With_no_grant_at_all_nothing_is_served()
     {
         _ = _folder.File("pic.png", Png);
-        var url = AssetHandler.UrlFor(Token, "pic.png");
+        var url = TestAddresses.Desktop.AssetUrlFor(Token, "pic.png");
         _scope.Clear();
 
         Assert.Null(_handler.Serve(url, out _));

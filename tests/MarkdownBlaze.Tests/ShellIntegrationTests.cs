@@ -1,5 +1,6 @@
 using System.Runtime.Versioning;
 using MarkdownBlaze.Components.Settings;
+using MarkdownBlaze.Platform;
 using MarkdownBlaze.Platform.Windows;
 using Microsoft.Win32;
 
@@ -332,7 +333,7 @@ public sealed class ShellIntegrationTests : IDisposable
         // The review's acceptance test, as a regression guard: nothing in the app starts "reg", and no
         // ProcessStartInfo is built from a bare executable name that a current directory could shadow.
         var sources = Directory.EnumerateFiles(
-            Path.Combine(TestFiles.RepoRoot, "src", "MarkdownBlaze"),
+            Path.Combine(TestFiles.RepoRoot, "src"),
             "*.cs",
             SearchOption.AllDirectories)
             .Where(f => !f.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar, StringComparison.Ordinal)

@@ -1,8 +1,8 @@
 # Privacy Policy — MarkdownBlaze
 
-_Last updated: 2026-10-11_
+_Last updated: 2026-11-07_
 
-MarkdownBlaze ("the app") is an offline desktop application that renders Markdown files on your
+MarkdownBlaze ("the app") is an offline application, for desktop computers and for Android, that renders Markdown files on your
 device. Your privacy is simple to describe: **the app does not collect, transmit, store remotely,
 or share any personal data.**
 
@@ -56,6 +56,22 @@ you ask for them:
 The app never changes the registry when it starts, and the Microsoft Store version does not write to it at
 all (its file types are declared in its package).
 
+## The Android app
+
+The Android app keeps the same preferences, history and log as the desktop app, in the app's own private storage, and
+adds what Android makes it do to open files:
+
+- **Folders you allow.** Android lets an app read a folder only after you pick it. When you allow one (*Show the folder*, or
+  *Open folder*), the app keeps Android's permission for it and makes an **app-private copy** of the Markdown files and
+  pictures in it (32 MB at most per file), so that links and pictures work. A file you open from another app (Drive, a mail,
+  the share sheet) is copied the same way, alone. These copies are kept in the app's **no-backup storage**, which Android
+  neither backs up to your Google account nor transfers to a new phone; the app itself has Android's backup switched off.
+- **Forgetting them.** *Settings* lists the folders the app can read, each with *Forget*, which takes the permission back
+  and deletes the copy. Copies of files that no longer appear in the history are deleted on the next start. Uninstalling the
+  app deletes all of it.
+- **Nothing is sent anywhere.** The app has no account, analytics or crash reporting. The copies and the files they come from
+  are not uploaded; the Google Drive or mail app that handed you a file is subject to its own terms.
+
 ## Network use
 
 The app itself makes no network requests — no update check, no crash reporting, no analytics, and
@@ -81,6 +97,11 @@ This is required for desktop (Win32) apps that host a local web view; MarkdownBl
 to render the local files you choose to open. It is not used to access, collect, or transmit any
 other data. The installer and portable versions run with your normal account's permissions and ask for
 no more.
+
+The Android app asks for **one permission, `INTERNET`**, and uses it only through the web view, to fetch a picture a document
+refers to by an `https://` address (pictures at plain `http://` addresses are not fetched). It asks for no storage, location,
+contacts, camera, microphone or notification permission: files and folders reach it through Android's own picker, one at a
+time, as described above. Printing uses Android's print service, which is Android's, not the app's.
 
 ## Children's privacy
 

@@ -630,7 +630,8 @@ public sealed class NavigationServiceTests : IDisposable
             Watcher = new FileWatcher();
             History = new HistoryStore(dataFolder, debounce: TimeSpan.FromMinutes(5));
             Prefs = new PreferencesStore(dataFolder, debounce: TimeSpan.FromMinutes(5));
-            Nav = new NavigationService(new MarkdownService(), History, Prefs, new StartupArguments([]), Assets, Shell, Watcher, NullLogger.Instance);
+            Nav = new NavigationService(
+                new MarkdownService(TestAddresses.Desktop), History, Prefs, new StartupArguments([]), Assets, Shell, Watcher, NullLogger.Instance);
             Nav.Attach(Dispatcher);
         }
 

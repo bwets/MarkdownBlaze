@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isDarkColour, shift } from '../../src/MarkdownBlaze/wwwroot/js/colour.js';
+import { isDarkColour, shift } from '../../src/MarkdownBlaze.Core/wwwroot/js/colour.js';
 
 describe('shift', () => {
   it('moves towards white for a positive amount', () => expect(shift('rgb(100, 100, 100)', 0.5)).toBe('rgb(178, 178, 178)'));

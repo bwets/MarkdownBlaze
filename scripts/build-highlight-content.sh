@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Rebuilds src/MarkdownBlaze/wwwroot/css/highlight-content.css — highlight.js keyed to the
+# Rebuilds src/MarkdownBlaze.Core/wwwroot/css/highlight-content.css — highlight.js keyed to the
 # *document's* lightness rather than the app's.
 #
 # Both palettes already sit in the bundled highlight-theme.css — the light one at the top, the dark
@@ -20,7 +20,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CSS="$ROOT/src/MarkdownBlaze/wwwroot/css"
+CSS="$ROOT/src/MarkdownBlaze.Core/wwwroot/css"
 HL="$CSS/highlight-theme.css"
 MARKER='.theme-dark {'
 

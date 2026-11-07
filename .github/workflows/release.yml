@@ -20,6 +20,10 @@ on:
         description: "Also upload the snap to the Snap Store and release it to stable (requires SNAPCRAFT_STORE_CREDENTIALS; the snap name must be registered)"
         type: boolean
         default: false
+      publish_play:
+        description: "Also upload the Android bundle to Google Play's internal testing track (requires PLAY_SERVICE_ACCOUNT_JSON; the app must exist in the Play Console)"
+        type: boolean
+        default: false
 
 # Nothing is allowed by default. Each job asks for exactly what it uses: reading the repository to
 # build it, and — only for the jobs that publish — writing to it.
@@ -256,8 +260,132 @@ jobs:
           name: macos
           path: MarkdownBlaze-*-osx-*.dmg
 
+  # The Android package: an APK for the GitHub release and an AAB for Google Play, signed with the keystore kept
+  # in the ANDROID_KEYSTORE_* secrets (see packaging/android/README.md). It never ships an unsigned build: without
+  # the secrets the job stops with an error. Like macOS it is allowed to fail without stopping the release, so
+  # that desktop releases go on while the keystore is not set up; the release notes then say the APK is not in it.
+  #
+  # The SDK and the workload are the pair ci.yml builds with (workload set 10.0.403 is maui-android 10.0.110, the
+  # version the MAUI packages in Directory.Packages.props are held at).
+  android:
+    needs: setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    continue-on-error: true
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      ANDROID_PROJECT: src/MarkdownBlaze.Android/MarkdownBlaze.Android.csproj
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The version code is what Android compares to decide that one build is newer than another, so it has to go
+      # up with every release: major * 1,000,000 + minor * 1,000 + patch (1.0.24 is 1000024; a prerelease suffix is
+      # ignored). The project computes the same and refuses a version outside the range; this says so before the
+      # build, and the package is checked against it afterwards. Minor and patch stay under 1000 and major at most
+      # 2000 (Play accepts a code up to 2,100,000,000). The run number is the patch of a default version, so the
+      # range lasts 999 releases of a minor version: after that, give the next release a new minor version.
+      - name: Work out the version code
+        run: |
+          set -euo pipefail
+          IFS=. read -r major minor patch <<< "${VERSION%%-*}"
+          for part in "$major" "$minor" "$patch"; do
+            if ! printf '%s' "$part" | grep -Eq '^[0-9]{1,4}$'; then
+              echo "::error::The version '$VERSION' does not fit an Android version code (major at most 2000, minor and patch at most 999)."
+              exit 1
+            fi
+          done
+          if [ "$major" -gt 2000 ] || [ "$minor" -gt 999 ] || [ "$patch" -gt 999 ]; then
+            echo "::error::The version '$VERSION' does not fit an Android version code (major at most 2000, minor and patch at most 999)."
+            exit 1
+          fi
+          code=$((10#$major * 1000000 + 10#$minor * 1000 + 10#$patch))
+          echo "VERSION_CODE=$code" >> "$GITHUB_ENV"
+          echo "Version code: $code"
+
+      # The secrets reach the script through the environment, as the version does in `setup`. The keystore is
+      # written to the runner's temp folder (outside the checkout) and removed at the end.
+      - name: Check the signing secrets and write the keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::The secret $name is not set, so the Android package cannot be signed. It is not built unsigned: create the keystore and set the four ANDROID_* secrets (packaging/android/README.md)."
+              exit 1
+            fi
+          done
+          keystore="$RUNNER_TEMP/android-release.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          chmod 600 "$keystore"
+          echo "ANDROID_KEYSTORE_FILE=$keystore" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: "10.0.403"
+
+      # Temurin, not the Microsoft build of OpenJDK: the Android tasks fail (XA0033) on the latter's version string.
+      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install the maui-android workload
+        run: dotnet workload install maui-android --version 10.0.403
+
+      - name: Install the Android SDK parts
+        run: >
+          dotnet build "$ANDROID_PROJECT"
+          -t:InstallAndroidDependencies -f net10.0-android -p:LocalSources=false
+          -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" -p:AcceptAndroidSDKLicenses=True
+
+      # The passwords are given as `env:NAME`: the build reads them from the environment, so they are on no command line.
+      - name: Publish (signed APK and AAB)
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: >
+          dotnet publish "$ANDROID_PROJECT" -c Release -p:LocalSources=false -p:Version="$VERSION"
+          -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="$ANDROID_KEYSTORE_FILE"
+          -p:AndroidSigningKeyAlias="$ANDROID_KEY_ALIAS"
+          -p:AndroidSigningStorePass=env:ANDROID_KEYSTORE_PASSWORD -p:AndroidSigningKeyPass=env:ANDROID_KEY_PASSWORD
+          -o publish/android
+
+      # Names the files like the other releases, and checks what was built: that it is signed (and with whose
+      # certificate), that the version code is the one worked out above, and that it asks for nothing but the network.
+      - name: Name and check the packages
+        run: |
+          set -euo pipefail
+          cp publish/android/net.bwets.markdownblaze-Signed.apk "MarkdownBlaze-$VERSION-android.apk"
+          cp publish/android/net.bwets.markdownblaze-Signed.aab "MarkdownBlaze-$VERSION-android.aab"
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)
+          "${tools}apksigner" verify --print-certs "MarkdownBlaze-$VERSION-android.apk" | grep -E '^Signer #1 certificate (DN|SHA-256)'
+          if ! "${tools}aapt2" dump badging "MarkdownBlaze-$VERSION-android.apk" | grep -q "versionCode='$VERSION_CODE'"; then
+            echo "::error::The APK's version code is not $VERSION_CODE."
+            exit 1
+          fi
+          bash packaging/android/check-manifest.sh src/MarkdownBlaze.Android/obj/Release/net10.0-android/android/AndroidManifest.xml
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/android-release.jks"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android
+          path: |
+            MarkdownBlaze-*-android.apk
+            MarkdownBlaze-*-android.aab
+
   release:
-    needs: [setup, windows, linux, macos, archpkg]
+    needs: [setup, windows, linux, macos, android, archpkg]
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the release and upload the files to it
@@ -276,7 +404,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          find . -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.msix' -o -name '*-setup.exe' -o -name '*.pkg.tar.zst' -o -name '*.dmg' \) -print0 \
+          find . -type f \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' -o -name '*.msix' -o -name '*-setup.exe' -o -name '*.pkg.tar.zst' -o -name '*.dmg' -o -name '*.apk' \) -print0 \
             | xargs -0 sha256sum > ../SHA256SUMS
           cat ../SHA256SUMS
 
@@ -292,6 +420,7 @@ jobs:
             dist/**/*.deb
             dist/**/*.pkg.tar.zst
             dist/**/*.dmg
+            dist/**/*.apk
             dist/**/*.msix
             dist/**/*-setup.exe
 
@@ -317,6 +446,7 @@ jobs:
             echo
             echo "- MSIX certificate thumbprint (SHA-1): \`$CERT_THUMBPRINT\` ($CERT_KIND)"
             echo "- The installer and the zip are not code-signed. Their provenance is attested: \`gh attestation verify <file> --repo $REPO\`"
+            echo "- The Android APK is signed with the project's release key (\`apksigner verify --print-certs\` shows the certificate, which is the same in every release) and its provenance is attested too."
             echo "- \`SHA256SUMS\` lists the checksum of every file."
             echo
             echo "### Files in this release"
@@ -331,6 +461,7 @@ jobs:
             present "Arch package" '*.pkg.tar.zst'
             present "macOS Apple Silicon disk image" '*-osx-arm64.dmg'
             present "macOS Intel disk image" '*-osx-x64.dmg'
+            present "Android package" '*-android.apk'
           } > release-header.md
           cat release-header.md
 
@@ -347,6 +478,7 @@ jobs:
             dist/**/*.deb
             dist/**/*.pkg.tar.zst
             dist/**/*.dmg
+            dist/**/*.apk
             dist/**/*.msix
             dist/**/*-setup.exe
             dist/**/*.cer
@@ -430,6 +562,29 @@ jobs:
         run: |
           $msix = (Get-ChildItem dist -Recurse -Filter *.msix | Select-Object -First 1).FullName
           msstore publish "$msix" -id "$env:STORE_PRODUCT_ID"
+
+  # Uploads the AAB to Google Play's internal testing track, the first step of Play's ladder (internal, closed,
+  # open, production); moving a release up it is done in the Play Console. The app has to exist there and have had
+  # its first release made by hand (Play does not take the first one through the API). The service account's key
+  # is the PLAY_SERVICE_ACCOUNT_JSON secret (see packaging/android/README.md).
+  play:
+    needs: [setup, android]
+    if: ${{ inputs.publish_play }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android
+          path: dist
+
+      - uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: net.bwets.markdownblaze
+          releaseFiles: dist/*.aab
+          track: internal
+          status: completed
 
   # The snap: built from its own publish output on a runner of each architecture, smoke-tested, and
   # (with publish_snap) uploaded to the Snap Store and released to stable. See snap.yml. It is not

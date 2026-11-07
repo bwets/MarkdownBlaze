@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bridge } from '../../src/MarkdownBlaze/wwwroot/js/bridge.js';
+import { bridge } from '../../src/MarkdownBlaze.Core/wwwroot/js/bridge.js';
 import {
   addressOf,
   classifyLink,
@@ -7,7 +7,7 @@ import {
   hideLinkStatus,
   installLinkClicks,
   installLinkStatus,
-} from '../../src/MarkdownBlaze/wwwroot/js/links.js';
+} from '../../src/MarkdownBlaze.Core/wwwroot/js/links.js';
 
 // The list is the one .NET hands over in config.linkSchemes (ExternalLinks.AllowedSchemes).
 const schemes = ['ftp', 'http', 'https', 'mailto', 'tel'];

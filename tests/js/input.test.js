@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { comboFor, dropPath, isEditable, isSupportedName, isTyping, keyName } from '../../src/MarkdownBlaze/wwwroot/js/input.js';
+import { comboFor, dropPath, isEditable, isSupportedName, isTyping, keyName } from '../../src/MarkdownBlaze.Core/wwwroot/js/input.js';
 
 const known = new Set(['alt+left', 'alt+right', 'f5', 'ctrl+r', 'ctrl+p', 'ctrl+o', 'ctrl+shift+o', 'f2', 'shift+f2', 'f9', 'shift+f9', '?', 'escape']);
 const key = (k, mods = {}) => ({ key: k, ctrlKey: false, altKey: false, shiftKey: false, ...mods });

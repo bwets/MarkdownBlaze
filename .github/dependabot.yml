@@ -10,6 +10,11 @@ updates:
     groups:
       nuget:
         patterns: ["*"]
+    # The MAUI packages are held at the version of the maui-android workload that ci.yml and release.yml install
+    # (see the note in Directory.Packages.props); they are moved by hand, together with that workload version.
+    ignore:
+      - dependency-name: "Microsoft.Maui.Controls"
+      - dependency-name: "Microsoft.AspNetCore.Components.WebView.Maui"
 
   - package-ecosystem: github-actions
     directory: /

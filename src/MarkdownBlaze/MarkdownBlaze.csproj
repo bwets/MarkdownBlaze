@@ -30,40 +30,39 @@
   <!-- Versions live in Directory.Packages.props (central package management). -->
   <ItemGroup>
     <PackageReference Include="PhotinoX.Blazor" />
-    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" />
-    <PackageReference Include="Markdig" />
-    <!-- Allow-list HTML sanitizer: the rendered document is untrusted input (see Security/HtmlSanitizer.cs). -->
-    <PackageReference Include="HtmlSanitizer" />
   </ItemGroup>
 
-  <!--
-    bwets.Markdig.Extensions: the published NuGet package by default. Set LocalSources=true (e.g. in
-    MarkdownBlaze.csproj.user, or -p:LocalSources=true) to reference the sibling source checkout
-    instead, so both projects can be edited in one loop. Directory.Build.targets turns
-    LocalSources=true in a Release build into an error, so a local project reference can never ship.
-  -->
+  <!-- The components, services, security layer and the page's CSS and JavaScript (served as
+       _content/MarkdownBlaze.Core/...) are in the class library; this project is the desktop window. -->
   <ItemGroup>
-    <ProjectReference Include="..\..\..\bwets.Markdig.Extensions\src\bwets.Markdig.Extensions\bwets.Markdig.Extensions.csproj" Condition="'$(LocalSources)' == 'true'" />
-    <PackageReference Include="bwets.Markdig.Extensions" Condition="'$(LocalSources)' != 'true'" />
+    <ProjectReference Include="..\MarkdownBlaze.Core\MarkdownBlaze.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The unit tests exercise the security helpers directly. -->
+    <!-- The unit tests exercise the host's own helpers (the shell launcher, the Windows registration). -->
     <InternalsVisibleTo Include="MarkdownBlaze.Tests" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Update="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
-    <!-- The manual and the change log live in Content/ in the source tree but are copied flat into the
-         output root (Link), which is where MarkdownService looks for them and where the installer
-         finds them. -->
-    <Content Include="Content\UserManual.md" Link="UserManual.md" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Content\WhatsNew.md" Link="WhatsNew.md" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The manual and the change log live in MarkdownBlaze.Core/Content/ in the source tree but are copied
+         flat into the output root (Link), which is where MarkdownService looks for them and where the
+         installer finds them. -->
+    <Content Include="..\MarkdownBlaze.Core\Content\UserManual.md" Link="UserManual.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\MarkdownBlaze.Core\Content\WhatsNew.md" Link="WhatsNew.md" CopyToOutputDirectory="PreserveNewest" />
     <!-- The notices for the libraries and fonts that ship inside the app (their licences require it). -->
     <Content Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" />
     <!-- Shipped so the runtime can set the window icon (Windows loads the .ico via WM_SETICON; Linux uses the .png). -->
     <Content Include="Assets\icon.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\icon.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- The class library's documentation XML (made for the analyzers, like this project's own, which
+       PublishDocumentationFile above keeps out) travels with its assembly as a "related file"; it is
+       of no use to anyone who runs the app. -->
+  <Target Name="LeaveCoreDocumentationOutOfThePublish" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Filename)%(Extension)' == 'MarkdownBlaze.Core.xml'" />
+    </ItemGroup>
+  </Target>
 
 </Project>

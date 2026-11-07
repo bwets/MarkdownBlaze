@@ -41,6 +41,10 @@ artifacts/
 *.ipa
 *.app/
 
+# Android signing keys: the keystore lives in GitHub secrets and a backup, never here (packaging/android/README.md)
+*.jks
+*.keystore
+
 # OS files
 .DS_Store
 Thumbs.db

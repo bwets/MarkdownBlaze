@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The splash screen's colour in a dark system: the same as the app's dark background (see the splash entry in the project
+     file for the light one), so the cold start does not flash white before the page paints. -->
+<resources>
+  <color name="maui_splash_color">#292929</color>
+</resources>

@@ -16,7 +16,7 @@ public sealed partial class SecuritySamplesTests
     private const int RegexTimeoutMilliseconds = 2000;
     private const string DeepNesting = "deep-nesting.md";
 
-    private static readonly MarkdownService Markdown = new();
+    private static readonly MarkdownService Markdown = new(TestAddresses.Desktop);
     private static readonly string SamplesFolder = Path.Combine(TestFiles.RepoRoot, "samples", "wiki", "security");
 
     public static TheoryData<string> Samples()

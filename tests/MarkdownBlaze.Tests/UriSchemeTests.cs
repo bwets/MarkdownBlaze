@@ -1,3 +1,4 @@
+using MarkdownBlaze.Platform;
 using MarkdownBlaze.Services;
 
 namespace MarkdownBlaze.Tests;
@@ -42,7 +43,7 @@ public class UriSchemeTests
     {
         var path = Path.Combine(Root, "sub folder", name);
 
-        var address = UriScheme.AppBase.AbsoluteUri.TrimEnd('/') + "/" + UriScheme.FragmentForFile(path);
+        var address = DesktopAddresses.AppBase.AbsoluteUri.TrimEnd('/') + "/" + UriScheme.FragmentForFile(path);
 
         Assert.Equal(path, UriScheme.TryGetFilePath(address));
     }
@@ -53,7 +54,7 @@ public class UriSchemeTests
     {
         // The WebView hands back the address after its own URL parser has had a go at the fragment.
         var path = Path.Combine(Root, name);
-        var typed = UriScheme.AppBase.AbsoluteUri + UriScheme.FragmentForFile(path);
+        var typed = DesktopAddresses.AppBase.AbsoluteUri + UriScheme.FragmentForFile(path);
 
         var normalised = new Uri(typed).AbsoluteUri;
 

@@ -1,0 +1,17 @@
+<!--
+  The Android host and what it needs. It requires the maui-android workload (dotnet workload install
+  maui-android), which is why it is not in MarkdownBlaze.slnx, the solution CI builds on Linux and macOS.
+-->
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="../.gitignore" />
+    <File Path="../.editorconfig" />
+    <File Path="../.gitattributes" />
+    <File Path="../global.json" />
+    <File Path="../Directory.Build.props" />
+    <File Path="../Directory.Build.targets" />
+    <File Path="../Directory.Packages.props" />
+  </Folder>
+  <Project Path="MarkdownBlaze.Core/MarkdownBlaze.Core.csproj" />
+  <Project Path="MarkdownBlaze.Android/MarkdownBlaze.Android.csproj" />
+</Solution>

@@ -32,10 +32,10 @@
     <!-- No <link rel="icon">: a WebView has no tab to show it in. The window icon is set natively (Program.cs). -->
     <link href="_content/Microsoft.FluentUI.AspNetCore.Components/Microsoft.FluentUI.AspNetCore.Components.bundle.scp.css" rel="stylesheet" />
     <link href="_content/Microsoft.FluentUI.AspNetCore.Components/css/reboot.css" rel="stylesheet" />
-    <link href="css/highlight-theme.css" rel="stylesheet" />
-    <link href="css/highlight-content.css" rel="stylesheet" />
-    <link href="css/content-themes.css" rel="stylesheet" />
-    <link href="css/app.css" rel="stylesheet" />
+    <link href="_content/MarkdownBlaze.Core/css/highlight-theme.css" rel="stylesheet" />
+    <link href="_content/MarkdownBlaze.Core/css/highlight-content.css" rel="stylesheet" />
+    <link href="_content/MarkdownBlaze.Core/css/content-themes.css" rel="stylesheet" />
+    <link href="_content/MarkdownBlaze.Core/css/app.css" rel="stylesheet" />
 </head>
 <body>
     <!-- Splash: shown until Blazor mounts the root component and replaces this content. -->
@@ -47,7 +47,7 @@
         </div>
     </app>
 
-    <!-- No script of ours here: the page's JavaScript is the ES module js/main.js, which the viewer
+    <!-- No script of ours here: the page's JavaScript is the ES module _content/MarkdownBlaze.Core/js/main.js, which the viewer
          imports once Blazor is up (Interop/ViewerInterop.cs) and hands a reference to itself and its
          configuration. Nothing in it has to run before Blazor does. It lazy-loads the heavy render
          libs (highlight.js ~1.2MB, mermaid ~3.5MB, KaTeX) only when a document actually needs them,

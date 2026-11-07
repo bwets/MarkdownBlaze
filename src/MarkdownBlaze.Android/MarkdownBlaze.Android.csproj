@@ -1,0 +1,91 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Android host: .NET MAUI Blazor Hybrid. A BlazorWebView shows the components of MarkdownBlaze.Core in
+    Android's WebView, and this project supplies what the desktop host (src/MarkdownBlaze) supplies for its
+    window: the seams in Core's Platform folder, the addresses, the picture requests and the limits on what the
+    web view may do. It is not in MarkdownBlaze.slnx, which CI builds on Linux and macOS without the Android
+    workload; MarkdownBlaze.Android.slnx and MarkdownBlaze.Dev.slnx have it.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <RootNamespace>MarkdownBlaze</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Android 8.0 and up (about 97 % of devices; a current WebView needs it); built against API 36. -->
+    <SupportedOSPlatformVersion>26.0</SupportedOSPlatformVersion>
+    <TargetPlatformVersion>36.0</TargetPlatformVersion>
+
+    <ApplicationTitle>MarkdownBlaze</ApplicationTitle>
+    <ApplicationId>net.bwets.markdownblaze</ApplicationId>
+
+    <!-- What a build made on a developer's machine calls itself; the release workflow's -p:Version=<the real
+         one> wins over this line, as in the desktop project. -->
+    <Version>0.0.0-dev</Version>
+    <!-- "1.0.24-beta" shows as 1.0.24, and the version code (which Android compares: it must go up with every
+         release) is major * 1,000,000 + minor * 1,000 + patch (1.0.24 is 1000024), 1 for a build without a version.
+         A part outside its range would make two versions share a code or the code go down, so it stops the build
+         (CheckVersionCode, below). -->
+    <ApplicationDisplayVersion>$([System.Text.RegularExpressions.Regex]::Match('$(Version)', '^[0-9]+\.[0-9]+\.[0-9]+'))</ApplicationDisplayVersion>
+    <_VersionMajor>$([System.Text.RegularExpressions.Regex]::Match('$(Version)', '^[0-9]+'))</_VersionMajor>
+    <_VersionMinor>$([System.Text.RegularExpressions.Regex]::Match('$(Version)', '^[0-9]+\.([0-9]+)').Groups[1].Value)</_VersionMinor>
+    <_VersionPatch>$([System.Text.RegularExpressions.Regex]::Match('$(Version)', '^[0-9]+\.[0-9]+\.([0-9]+)').Groups[1].Value)</_VersionPatch>
+    <ApplicationVersion>$([MSBuild]::Add($([MSBuild]::Add($([MSBuild]::Multiply($(_VersionMajor), 1000000)), $([MSBuild]::Multiply($(_VersionMinor), 1000)))), $(_VersionPatch)))</ApplicationVersion>
+    <ApplicationVersion Condition="'$(ApplicationVersion)' == '0'">1</ApplicationVersion>
+
+    <!-- GenerateDocumentationFile (Directory.Build.props) exists for the analyzers. -->
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+    <!-- One architecture per device family would be a packaging choice (WP6); the emulator is x86_64. -->
+    <RuntimeIdentifiers Condition="'$(RuntimeIdentifier)' == ''">android-arm64;android-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <!-- Versions live in Directory.Packages.props (central package management). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MarkdownBlaze.Core\MarkdownBlaze.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The launcher icon and the splash screen, from the artwork in branding/. -->
+  <ItemGroup>
+    <MauiIcon Include="..\..\branding\icon-1024.png" Link="Resources\AppIcon\appicon.png" Color="#FFFFFF" BaseSize="108,108" Resize="true" />
+    <MauiSplashScreen Include="..\..\branding\icon-512.png" Link="Resources\Splash\splash.png" Color="#FFFFFF" BaseSize="128,128" />
+  </ItemGroup>
+
+  <!-- The manual, the change log and the notices of the libraries that ship inside the app. They are packed
+       into the APK as assets and BundledDocuments copies them into the app's own folder, where
+       MarkdownService looks for them (a file can only be opened by its path). -->
+  <ItemGroup>
+    <MauiAsset Include="..\MarkdownBlaze.Core\Content\UserManual.md" LogicalName="bundled/UserManual.md" />
+    <MauiAsset Include="..\MarkdownBlaze.Core\Content\WhatsNew.md" LogicalName="bundled/WhatsNew.md" />
+    <MauiAsset Include="..\..\THIRD-PARTY-NOTICES.md" LogicalName="bundled/THIRD-PARTY-NOTICES.md" />
+  </ItemGroup>
+
+  <!-- Play accepts a version code up to 2,100,000,000, and the formula above is only monotonic while the minor and
+       patch numbers stay under 1000. -->
+  <Target Name="CheckVersionCode" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(_VersionMajor)' != '' And ($(_VersionMajor) &gt; 2000 Or '$(_VersionMinor)' == '' Or '$(_VersionPatch)' == '' Or $(_VersionMinor) &gt; 999 Or $(_VersionPatch) &gt; 999)"
+           Text="The version '$(Version)' does not fit the Android version code: major at most 2000, minor and patch at most 999 (major * 1,000,000 + minor * 1,000 + patch)." />
+  </Target>
+
+  <!--
+    Release packages. `dotnet publish -c Release` makes both: the APK that goes on the GitHub release and the AAB that
+    goes to Google Play. They are signed with the keystore the build is given and with nothing else: no keystore and no
+    password is kept in the repository (packaging/android/README.md). The release workflow passes
+      -p:AndroidKeyStore=true -p:AndroidSigningKeyStore=<file> -p:AndroidSigningKeyAlias=<alias>
+      -p:AndroidSigningStorePass=env:ANDROID_KEYSTORE_PASSWORD -p:AndroidSigningKeyPass=env:ANDROID_KEY_PASSWORD
+    where `env:NAME` makes the build read the password from that environment variable, so it is never on a command
+    line or in a log. Without a keystore the packages are signed with the debug key, which is what CI builds.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <AndroidPackageFormats>apk;aab</AndroidPackageFormats>
+  </PropertyGroup>
+
+</Project>

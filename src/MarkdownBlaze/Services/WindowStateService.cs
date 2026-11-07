@@ -1,4 +1,5 @@
 using System.Drawing;
+using MarkdownBlaze.Platform;
 using Microsoft.Extensions.Logging;
 using Photino.NET;
 
@@ -10,7 +11,7 @@ namespace MarkdownBlaze.Services;
 /// tracked, so un-maximizing returns to a sensible size while the maximized flag is stored
 /// separately. First run (no saved bounds) starts maximized.
 /// </summary>
-internal sealed partial class WindowStateService
+internal sealed partial class WindowStateService : IWindowControl
 {
     private static readonly ILogger Logger = Log.For(nameof(WindowStateService));
 

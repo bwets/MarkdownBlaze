@@ -10,7 +10,7 @@ public class LocalPathTests
     private static readonly byte[] Png = Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
 
-    private static readonly MarkdownService Markdown = new();
+    private static readonly MarkdownService Markdown = new(TestAddresses.Desktop);
 
     // ---- the path helper ------------------------------------------------------------------------
 

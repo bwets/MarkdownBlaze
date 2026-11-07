@@ -8,7 +8,7 @@ namespace MarkdownBlaze.Tests;
 /// <summary>SEC-1: a document's HTML is untrusted and must be cleaned before it reaches the page.</summary>
 public partial class HtmlSanitizerTests
 {
-    private static readonly MarkdownService Markdown = new();
+    private static readonly MarkdownService Markdown = new(TestAddresses.Desktop);
 
     /// <summary>Nothing that can run, load a frame, or change the page may survive, whichever spelling it came in.</summary>
     private static readonly string[] Forbidden =
@@ -264,7 +264,7 @@ public partial class HtmlSanitizerTests
             .Where(file => !file.Contains(Path.Combine("wiki", "security") + Path.DirectorySeparatorChar, StringComparison.Ordinal))
             .Concat(Directory.EnumerateFiles(Path.Combine(root, "tests", "fixtures", "features"), "*.md"))
             .Append(Path.Combine(root, "README.md"))
-            .Concat(Directory.EnumerateFiles(Path.Combine(root, "src", "MarkdownBlaze", "Content"), "*.md"))
+            .Concat(Directory.EnumerateFiles(Path.Combine(root, "src", "MarkdownBlaze.Core", "Content"), "*.md"))
             .ToList();
         Assert.True(documents.Count >= 8, "found only " + documents.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " documents");
 
@@ -397,7 +397,7 @@ public partial class HtmlSanitizerTests
             "<ul class=\"contains-task-list\"><li class=\"task-list-item\"><input type=\"checkbox\" checked> x</li></ul><details open><summary>s</summary>b</details>",
             string.Concat(Enumerable.Repeat("<div>", 700)) + "deep" + string.Concat(Enumerable.Repeat("</div>", 700)),
         ];
-        var expected = inputs.Select(HtmlSanitizer.Sanitize).ToArray();
+        var expected = inputs.Select(input => HtmlSanitizer.Sanitize(input)).ToArray();
 
         var results = new string[8 * 25];
         _ = Parallel.For(

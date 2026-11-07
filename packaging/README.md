@@ -1,6 +1,7 @@
 # Packaging & releases
 
-MarkdownBlaze is a **Photino + Blazor (Fluent UI)** desktop app on .NET 10. Releases are produced by the
+MarkdownBlaze is a **Photino + Blazor (Fluent UI)** desktop app on .NET 10, and an Android app (.NET MAUI) that shows the same
+page. Releases are produced by the
 **`release` GitHub Actions workflow** (`.github/workflows/release.yml`), which is **manual only**
 (`workflow_dispatch`) — it never runs on push.
 
@@ -14,6 +15,8 @@ Actions → **release** → *Run workflow*:
 - **publish_store** — also submit to the Microsoft Store (see below).
 - **publish_snap** — also upload the snap to the Snap Store and release it to `stable` (needs the
   `SNAPCRAFT_STORE_CREDENTIALS` secret; see *Snap Store / Ubuntu App Center* below).
+- **publish_play** — also upload the Android bundle to Google Play's *internal* testing track (needs the
+  `PLAY_SERVICE_ACCOUNT_JSON` secret; see [`android/README.md`](android/README.md)).
 
 It creates a GitHub **Release `v<version>`** with:
 
@@ -26,9 +29,12 @@ It creates a GitHub **Release `v<version>`** with:
 | `markdownblaze_<v>_amd64.deb` | Debian/Ubuntu package |
 | `markdownblaze-<v>-1-x86_64.pkg.tar.zst` | Arch Linux package (`pacman -U`) |
 | `MarkdownBlaze-<v>-osx-arm64.dmg` / `-osx-x64` | macOS disk images (Apple Silicon / Intel) |
+| `MarkdownBlaze-<v>-android.apk` | Android package (Android 8.0 and up), signed with the release keystore (see [`android/README.md`](android/README.md)) |
 | `SHA256SUMS` | Checksums for every artifact |
 
-The snap is not in this table: the same run builds it, but it goes to the Snap Store, not to the release.
+The snap is not in this table: the same run builds it, but it goes to the Snap Store, not to the release. Likewise the
+Android bundle (`.aab`) is built in the same run as the APK but goes to Google Play, not to the release. The Android job needs
+the keystore secrets; without them it fails and the release goes on without the APK (the notes say so).
 
 The release notes start with the thumbprint of the certificate the MSIX was signed with, and every
 file is covered by a build-provenance attestation (`gh attestation verify <file> --repo <owner>/<repo>`):
@@ -41,6 +47,7 @@ says so if it did.
 - **Windows:** the Microsoft **WebView2 Runtime** (preinstalled on current Windows).
 - **Linux:** **WebKitGTK** + GTK — `webkit2gtk-4.1` and `gtk3` (declared by the `.deb` and the Arch package).
 - **macOS:** none — uses the system **WKWebView** (WebKit) built into macOS 11+.
+- **Android:** the system WebView (Android 8.0 and up; keep it updated from Google Play).
 
 ## Windows registration
 
@@ -292,7 +299,8 @@ The Store does not care which certificate is used: it re-signs the package it re
 ## Continuous integration
 
 `.github/workflows/ci.yml` builds, format-checks and tests every push to `main` and every pull request
-on Windows, Linux and macOS. `.github/dependabot.yml` proposes weekly updates to the NuGet packages
+on Windows, Linux and macOS, and builds the Android host on Linux (`android` job: Temurin 21, the `maui-android`
+workload, a format check, and a check of the merged manifest). `.github/dependabot.yml` proposes weekly updates to the NuGet packages
 (`Directory.Packages.props`) and to the GitHub Actions the workflows use. Actions are pinned by commit
 SHA with the version in a comment; Dependabot updates both.
 

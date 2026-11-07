@@ -22,6 +22,12 @@ internal sealed class FakeShellLauncher : IShellLauncher
     /// <summary>The addresses <see cref="OpenStoreReview"/> was asked to open.</summary>
     public List<Uri> StoreReviews { get; } = [];
 
+    /// <summary>Whether this shell can start another window; the Android one cannot, and its menus leave the entry out.</summary>
+    public bool CanOpenInNewWindow { get; set; } = true;
+
+    /// <summary>Whether this shell can show a file in a file manager.</summary>
+    public bool CanRevealInFileManager { get; set; } = true;
+
     public bool OpenExternal(Uri uri)
     {
         lock (_lock) Opened.Add(uri);

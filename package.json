@@ -1,7 +1,7 @@
 {
   "name": "markdownblaze-js-tests",
   "private": true,
-  "description": "Test harness for the page's JavaScript modules (src/MarkdownBlaze/wwwroot/js). Nothing here ships: the app has no JavaScript build step.",
+  "description": "Test harness for the page's JavaScript modules (src/MarkdownBlaze.Core/wwwroot/js). Nothing here ships: the app has no JavaScript build step.",
   "type": "module",
   "scripts": {
     "test": "vitest run"

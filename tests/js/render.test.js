@@ -9,7 +9,7 @@ import {
   runMermaid,
   stripMathDelims,
   withSteadyMeasures,
-} from '../../src/MarkdownBlaze/wwwroot/js/render.js';
+} from '../../src/MarkdownBlaze.Core/wwwroot/js/render.js';
 
 describe('stripMathDelims', () => {
   it.each([

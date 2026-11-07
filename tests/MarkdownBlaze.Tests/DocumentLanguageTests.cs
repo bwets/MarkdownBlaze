@@ -63,7 +63,7 @@ public class DocumentLanguageTests
         var prose = TestFiles.Fixture("languages", "fr.txt");
         var code = string.Concat(Enumerable.Repeat("var result = renderer.Parse(document).Tokenize().Flush(output);\n", 300));
 
-        var result = new MarkdownService().RenderText("doc.md", $"{prose}\n```csharp\n{code}```\n");
+        var result = new MarkdownService(TestAddresses.Desktop).RenderText("doc.md", $"{prose}\n```csharp\n{code}```\n");
 
         Assert.Equal("fr", result.Language);
     }
@@ -73,7 +73,7 @@ public class DocumentLanguageTests
     {
         var code = string.Concat(Enumerable.Repeat("var result = renderer.Parse(document);\n", 50));
 
-        Assert.Null(new MarkdownService().RenderText("doc.md", $"```csharp\n{code}```\n").Language);
+        Assert.Null(new MarkdownService(TestAddresses.Desktop).RenderText("doc.md", $"```csharp\n{code}```\n").Language);
     }
 
     [Fact]

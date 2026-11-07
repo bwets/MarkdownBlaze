@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    Everything the app does that does not depend on the window it is shown in: the Blazor components, the
+    services, the security layer, the page's JavaScript and CSS (served from _content/MarkdownBlaze.Core/).
+    A host (src/MarkdownBlaze, the PhotinoX desktop window) supplies the window and the few seams in
+    Platform/ and Services/ that differ from one host to another (IFilePicker, IPrinter, IWindowControl,
+    IShellIntegration, IShellLauncher, HostAddresses, AppPaths.Configure).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MarkdownBlaze</RootNamespace>
+
+    <!-- What a build made on a developer's machine calls itself; MarkdownService.AppVersion reads this
+         assembly's version, and the release workflow's -p:Version=<the real one> reaches this project too
+         (a property given on the command line wins over this line). Anything that ends in -dev is "no
+         version": there is no number to show for a build nobody released. -->
+    <Version>0.0.0-dev</Version>
+
+    <!-- GenerateDocumentationFile (Directory.Build.props) exists for the analyzers; the XML it makes is
+         of no use to anyone who runs the app, so it is not published. -->
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+  </PropertyGroup>
+
+  <!-- Versions live in Directory.Packages.props (central package management). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" />
+    <PackageReference Include="Markdig" />
+    <!-- Allow-list HTML sanitizer: the rendered document is untrusted input (see Security/HtmlSanitizer.cs). -->
+    <PackageReference Include="HtmlSanitizer" />
+  </ItemGroup>
+
+  <!--
+    bwets.Markdig.Extensions: the published NuGet package by default. Set LocalSources=true (e.g. in
+    MarkdownBlaze.Core.csproj.user, or -p:LocalSources=true) to reference the sibling source checkout
+    instead, so both projects can be edited in one loop. Directory.Build.targets turns
+    LocalSources=true in a Release build into an error, so a local project reference can never ship.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\bwets.Markdig.Extensions\src\bwets.Markdig.Extensions\bwets.Markdig.Extensions.csproj" Condition="'$(LocalSources)' == 'true'" />
+    <PackageReference Include="bwets.Markdig.Extensions" Condition="'$(LocalSources)' != 'true'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The types here are internal: the unit tests exercise the security helpers directly, and the hosts
+         build their window and register the seams from them. -->
+    <InternalsVisibleTo Include="MarkdownBlaze" />
+    <InternalsVisibleTo Include="MarkdownBlaze.Android" />
+    <InternalsVisibleTo Include="MarkdownBlaze.Tests" />
+  </ItemGroup>
+
+</Project>

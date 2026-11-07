@@ -39,7 +39,7 @@ namespace MarkdownBlaze.Platform.Windows;
 /// </para>
 /// </summary>
 [SupportedOSPlatform("windows")]
-internal sealed partial class ShellIntegration
+internal sealed partial class ShellIntegration : IShellIntegration
 {
     /// <summary>The ProgId the installer registers too.</summary>
     public const string ProgId = "MarkdownBlaze.Document";

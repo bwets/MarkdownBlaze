@@ -1,0 +1,255 @@
+@implements IDisposable
+@implements IUiDispatcher
+@inject NavigationService Nav
+@inject FileTreeService Tree
+@inject PreferencesStore Prefs
+@inject ViewerState State
+@inject ViewerActions Actions
+@inject ViewerMenus Menus
+@inject Commands Commands
+@inject ViewerInterop Interop
+@inject PageEvents Events
+@inject ILogger<ViewerView> Logger
+@inject IServiceProvider Services
+
+@* The viewer's layout, and nothing else: the parts it is made of draw themselves from ViewerState and
+   tell it what the reader asked for. While Settings is drawn over it the viewer is inert, so the keyboard
+   cannot reach what is underneath. *@
+<div class="app-shell" inert="@State.Suspended">
+    <header class="app-header @(State.SidebarPinned ? "" : "no-sidebar")">
+        <Toolbar OnCommand="Commands.RunAsync" OnViewMenu="Menus.OpenView" OnThemeMenu="@(_ => Menus.OpenTheme())" OnMoreMenu="@(_ => Menus.OpenMore())" />
+    </header>
+
+    @* data-drawer is what a narrow window's stylesheet reads to slide the sidebar out over the document (Blazor owns this
+       element, so the state is an attribute it writes, not a class a script adds). It means nothing to a wide one. *@
+    <div class="app-body @(State.SidebarPinned ? "" : "no-sidebar") @(State.PrintBarOpen ? "printing" : "")" data-drawer="@(State.DrawerOpen ? "open" : "closed")">
+        <Sidebar />
+
+        <div class="scrim" aria-hidden="true" @onclick="State.CloseDrawer"></div>
+
+        <div id="md-splitter" class="splitter"></div>
+
+        @* document-pane marks this as the pane holding the document, so a content theme can paper it
+           without also papering the Settings page, which uses the same .content-area layout class. *@
+        <main class="content-area document-pane">
+            @* @key forces Blazor to discard and rebuild this subtree on every navigation instead of
+               diffing it. The rendered markdown is mutated in place by highlight.js / mermaid / KaTeX,
+               so diffing against Blazor's virtual DOM would corrupt the render tree.
+
+               lang is the document's own language, which is what the text is hyphenated by. *@
+            <div class="content markdown-body" lang="@Nav.CurrentLanguage" @key="Nav.RenderToken">@((MarkupString)Nav.CurrentHtml)</div>
+            <RenderingChip Active="@Nav.IsRendering" />
+        </main>
+    </div>
+</div>
+
+<Toast />
+<RateBar OnRate="Actions.RateApp" OnDismiss="State.AnswerRating" />
+<MissingFileBar OnRemove="Actions.RemoveMissingFromHistory" OnKeep="@(() => State.SetMissing(null))" />
+<GrantBar OnAllow="Actions.AllowFolderAsync" OnDecline="Actions.DeclineFolder" />
+<PrintBar OnPreview="Actions.PreviewPrintThemeAsync" OnPrint="Actions.DoPrintAsync" />
+<ContextMenu />
+<WhatsNewDialog />
+<ShortcutsDialog />
+
+@code {
+    [Parameter] public EventCallback OnOpenSettings { get; set; }
+
+    /// <summary>
+    /// True while Settings is drawn over the viewer. The viewer stays alive underneath — it keeps its
+    /// scroll position, zoom and tree — but it is not the one being used, so keyboard shortcuts leave it
+    /// alone.
+    /// </summary>
+    [Parameter] public bool Suspended { get; set; }
+
+    private int _lastRenderToken = -1;
+    private string? _lastPath;
+    private IDisposable? _watch;
+
+    // What a host that has folders to grant (Android) sends in from outside: the documents it was asked to
+    // open, its notices, the changes of its mirror and its coming back to the front. Null on the desktop.
+    private HostInbox? _inbox;
+    private HostWindow? _window;
+    private bool _ready;
+
+    // ---- The way back to the renderer thread -----------------------------------------------------
+    // NavigationService and ViewerState are single-threaded: what arrives on the file watcher's timer or
+    // from a render on the thread pool is handed to this component's own InvokeAsync — the Blazor
+    // renderer's dispatcher — before it touches any state.
+
+    private SynchronizationContext? _renderer;
+
+    bool IUiDispatcher.CheckAccess() => SynchronizationContext.Current == _renderer;
+    Task IUiDispatcher.InvokeAsync(Action work) => InvokeAsync(work);
+    Task IUiDispatcher.InvokeAsync(Func<Task> work) => InvokeAsync(work);
+
+    protected override void OnParametersSet() => State.Suspended = Suspended;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _renderer = SynchronizationContext.Current;
+
+        _watch = State.Watch(() => InvokeAsync(StateHasChanged));
+        Nav.Changed += OnNavChanged;
+        Nav.DocumentOpened += OnDocumentOpened;
+        Nav.FileMissing += OnFileMissing;
+        Tree.Changed += OnTreeChanged;
+        State.SettingsRequested += OnSettingsRequested;
+
+        _inbox = Services.GetService<HostInbox>();
+        if (_inbox is not null)
+        {
+            _inbox.DocumentPosted += OnDocumentPosted;
+            _inbox.NoticeRaised += OnNotice;
+            _inbox.TreeChanged += OnMirrorChanged;
+            _inbox.Resumed += OnResumed;
+        }
+
+        // What covers the edges of the page is the host's to say (Android's status and gesture bars); the page is told at
+        // once and whenever it changes. A host with no such bars has no HostWindow.
+        _window = Services.GetService<HostWindow>();
+        if (_window is not null) _window.InsetsChanged += OnInsetsChanged;
+
+        // The page reports to the app through these (and is told which keys to report, from the same
+        // registry the shortcuts overlay is drawn from).
+        Interop.Connect(Events, Commands.Combos);
+        Nav.Attach(this);
+        State.Attach(this);
+
+        // The viewer is created once and lives as long as the window, so this runs once. The document
+        // is rendered off the UI thread: the component draws its empty page first, and again when the
+        // render is done.
+        await Nav.InitializeAsync();
+
+        // Whatever the app was pointed at is the folder the reader is working in — unless that is the
+        // bundled manual, which lives in the install directory and is nobody's working folder.
+        if (Nav.CurrentPath is not null && !MarkdownService.IsUserManual(Nav.CurrentPath))
+            Tree.SetRootFromFile(Nav.CurrentPath);
+
+        RefreshRows();
+
+        // What arrived while the viewer was being made is shown now (and what arrives later, as it comes).
+        _ready = true;
+        await ShowIncomingAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // No remembered width → null, and the page picks the default against the left toolbar.
+            if (_window is not null) await Interop.SetInsetsAsync(_window.Insets);
+            await Interop.SetSidebarWidthAsync((int?)Prefs.Current.SidebarWidth);
+            await Interop.InitResizerAsync("md-splitter");
+            // Theme first (it decides the paper colour), then zoom, then the view mode: pagination
+            // reads both of the others.
+            await Actions.ApplyRememberedContentThemeAsync();
+            await Interop.SetDocumentZoomAsync(Prefs.Current.DocumentZoom, remember: false);
+            await Interop.SetViewModeAsync(State.ViewMode, State.PageFit);
+            // Offered on first run — and again whenever Settings asks for it (OfferTourAsync). The
+            // viewer exists once per run of the app, so this is once per run: put off with Later, the
+            // tour waits for the next launch.
+            if (!Prefs.Current.TourSeen) await OfferTourAsync();
+        }
+
+        if (Nav.RenderToken != _lastRenderToken)
+        {
+            // Reset the scroll position only when the document actually changed (link click, back/
+            // forward, history) — not on a same-file reload/auto-refresh, which keeps your place.
+            var documentChanged = Nav.CurrentPath != _lastPath;
+            _lastRenderToken = Nav.RenderToken;
+            _lastPath = Nav.CurrentPath;
+            await Interop.RenderDocumentAsync();
+            // The title is what the print dialog calls the job and what "Save as PDF" offers as the
+            // filename; the fragment puts the document into the window's address, which is what the
+            // browser prints in the page footer.
+            await Interop.SetDocumentTitleAsync(Nav.CurrentTitle, UriScheme.FragmentForFile(Nav.CurrentPath));
+            if (documentChanged)
+            {
+                await Interop.ScrollTopAsync();
+                // Put the open document at the top of the tree: after following a link it is often
+                // far down a long folder, and a highlighted panel you cannot see is no help.
+                await Interop.ScrollTreeToAsync("md-tree", TreePanel.CurrentPanelId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Starts the guided tour. The viewer does it on first run; Settings asks for it again through the
+    /// app, once the viewer is back in view.
+    /// </summary>
+    public Task OfferTourAsync() => Actions.StartTourAsync();
+
+    // The events come from the services, which may raise them on another thread; the rows read and
+    // change the tree's state, so they are worked out on the renderer's thread like everything else here.
+    private void OnNavChanged(object? sender, EventArgs e) => Background.Observe(InvokeAsync(() =>
+    {
+        State.DropFolderOfferUnlessFor(Nav.CurrentPath);
+        RefreshAndRender();
+    }), Logger);
+
+    private void OnTreeChanged(object? sender, EventArgs e) => Background.Observe(InvokeAsync(RefreshAndRender), Logger);
+
+    // From the host's thread: the bars moved (a turn of the device), and the page keeps its content clear of them.
+    private void OnInsetsChanged(object? sender, EventArgs e) => Background.Run(() => InvokeAsync(() => Interop.SetInsetsAsync(_window!.Insets)), Logger);
+
+    /// <summary>The system's Back button (Android): see <see cref="ViewerActions.BackAsync"/>.</summary>
+    public Task<bool> BackAsync() => Actions.BackAsync();
+
+    private void RefreshAndRender()
+    {
+        RefreshRows();
+        State.NotifyChanged();
+    }
+
+    private void RefreshRows() => State.SetRows(new TreeRows(
+        Tree.Nodes(Nav.CurrentPath),
+        Tree.Detached(Nav.CurrentPath),
+        Nav.CurrentHeadings.Count == 0 ? 1 : Nav.CurrentHeadings.Min(h => h.Level)));
+
+    // The host may call from any thread: each of these goes to the renderer's before it touches state.
+    private void OnDocumentPosted(object? sender, EventArgs e) => Background.Run(() => InvokeAsync(ShowIncomingAsync), Logger);
+
+    private void OnNotice(object? sender, NoticeEventArgs e) => Background.Run(() => InvokeAsync(() => State.ShowToastAsync(e.Message)), Logger);
+
+    private void OnMirrorChanged(object? sender, EventArgs e) => Background.Observe(InvokeAsync(Tree.Refresh), Logger);
+
+    private void OnResumed(object? sender, EventArgs e) => Background.Run(() => InvokeAsync(Actions.RefreshAfterResumeAsync), Logger);
+
+    private async Task ShowIncomingAsync()
+    {
+        // Until the viewer has opened what it was started with, a document waits: opened before that, it would be
+        // replaced by the start-up document.
+        if (_inbox is null || !_ready) return;
+
+        while (_inbox.TryTake(out var document))
+        {
+            State.CloseDrawer(); // what was asked for is the document, not the list beside it
+            await Actions.OpenIncomingAsync(document!);
+        }
+    }
+
+    private void OnDocumentOpened(object? sender, EventArgs e) => Background.Observe(InvokeAsync(Actions.ShowRateBarIfDue), Logger);
+
+    private void OnFileMissing(object? sender, MissingFileEventArgs e) => Background.Run(() => InvokeAsync(() => Actions.ShowMissingAsync(e.Path)), Logger);
+
+    private void OnSettingsRequested(object? sender, EventArgs e) => Background.Run(() => InvokeAsync(() => OnOpenSettings.InvokeAsync()), Logger);
+
+    public void Dispose()
+    {
+        _watch?.Dispose();
+        Nav.Changed -= OnNavChanged;
+        Nav.DocumentOpened -= OnDocumentOpened;
+        Nav.FileMissing -= OnFileMissing;
+        Tree.Changed -= OnTreeChanged;
+        State.SettingsRequested -= OnSettingsRequested;
+        if (_window is not null) _window.InsetsChanged -= OnInsetsChanged;
+        if (_inbox is not null)
+        {
+            _inbox.DocumentPosted -= OnDocumentPosted;
+            _inbox.NoticeRaised -= OnNotice;
+            _inbox.TreeChanged -= OnMirrorChanged;
+            _inbox.Resumed -= OnResumed;
+        }
+    }
+}

@@ -164,7 +164,7 @@ public sealed class RenderDeadlineTests : IDisposable
     [Fact]
     public void A_document_nested_too_deeply_for_markdown_says_so_instead_of_unable_to_open()
     {
-        using var sut = new Sut(_data.Path, new MarkdownService());
+        using var sut = new Sut(_data.Path, new MarkdownService(TestAddresses.Desktop));
         sut.Nav.RenderDeadline = NavigationService.DefaultRenderDeadline; // Markdig refuses it in a moment; the short deadline is not what is tested
         var path = Doc("deep.md", string.Concat(Enumerable.Repeat(">", 10_000)) + " x");
 

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-system" data-touch>
+<head>
+    <meta charset="utf-8" />
+    <!-- data-touch on <html> says this host is a touch screen: the stylesheet sizes buttons and rows for a finger and
+         shows what hover shows, and the keys are left out of tooltips and menus (js/layout.js). The desktop host's page has
+         no such mark, because a Windows machine with a touch screen reports a coarse pointer as well. -->
+    <!-- The page is not zoomed by the WebView (the app zooms the document itself, js/zoom.js), so the viewport
+         says so as well as the WebView's settings (Platform/WebViewPolicy.cs). It also covers the whole screen, under the
+         system bars (the window is edge to edge); the page keeps clear of them by the sizes the host reports (js/layout.js). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- The same Content-Security-Policy as the desktop host's (src/MarkdownBlaze/wwwroot/index.html, which
+         says why each part is there), except for the picture scheme: the desktop serves the open document's
+         pictures from mdasset://, here they come from https://0.0.0.1/_mdasset/<token>/..., the app's own
+         origin, which 'self' already covers. Pictures from the web are fetched by the page, http as well as https
+         (the WebView is set to let a plain http picture onto an https page, as the desktop does; the rest of this policy keeps everything else closed to http: see Platform/WebViewPolicy.cs). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; connect-src 'self'" />
+    <meta name="referrer" content="no-referrer" />
+    <base href="/" />
+    <title>MarkdownBlaze</title>
+    <link href="_content/Microsoft.FluentUI.AspNetCore.Components/Microsoft.FluentUI.AspNetCore.Components.bundle.scp.css" rel="stylesheet" />
+    <link href="_content/Microsoft.FluentUI.AspNetCore.Components/css/reboot.css" rel="stylesheet" />
+    <link href="_content/MarkdownBlaze.Core/css/highlight-theme.css" rel="stylesheet" />
+    <link href="_content/MarkdownBlaze.Core/css/highlight-content.css" rel="stylesheet" />
+    <link href="_content/MarkdownBlaze.Core/css/content-themes.css" rel="stylesheet" />
+    <link href="_content/MarkdownBlaze.Core/css/app.css" rel="stylesheet" />
+</head>
+<body>
+    <!-- Splash: shown until Blazor mounts the root component and replaces this content. -->
+    <app>
+        <div class="splash">
+            <img class="splash-logo" src="splash.png" alt="MarkdownBlaze" />
+            <div class="splash-name">MarkdownBlaze</div>
+            <div class="splash-bar"><span></span></div>
+        </div>
+    </app>
+
+    <!-- No script of ours here: the page's JavaScript is the ES module _content/MarkdownBlaze.Core/js/main.js, which
+         the viewer imports once Blazor is up (see the desktop host's index.html). -->
+    <script src="_framework/blazor.webview.js" autostart="false"></script>
+</body>
+</html>

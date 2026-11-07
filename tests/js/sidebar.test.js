@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampWidth, defaultWidth, minWidth } from '../../src/MarkdownBlaze/wwwroot/js/sidebar.js';
+import { clampWidth, defaultWidth, minWidth } from '../../src/MarkdownBlaze.Core/wwwroot/js/sidebar.js';
 
 describe('sidebar width', () => {
   it('the minimum is the left toolbar plus the header padding', () => expect(minWidth(211.2)).toBe(220));

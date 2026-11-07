@@ -42,7 +42,8 @@ public sealed class FolderTreeTests : IDisposable
 
         _prefs = new PreferencesStore(_data.Path, debounce: TimeSpan.FromMinutes(5));
         _history = new HistoryStore(_data.Path, debounce: TimeSpan.FromMinutes(5));
-        _nav = new NavigationService(new MarkdownService(), _history, _prefs, new StartupArguments([]), new AssetScope(), _shell, _watcher, NullLogger.Instance);
+        _nav = new NavigationService(
+            new MarkdownService(TestAddresses.Desktop), _history, _prefs, new StartupArguments([]), new AssetScope(), _shell, _watcher, NullLogger.Instance);
 
         var services = _context.Services;
         _ = services.AddSingleton(_prefs);
@@ -51,8 +52,10 @@ public sealed class FolderTreeTests : IDisposable
         _ = services.AddSingleton<IShellLauncher>(_shell);
         _ = services.AddSingleton<MarkdownService>();
         _ = services.AddSingleton<FileTreeService>();
-        _ = services.AddSingleton<NativeDialogs>();
-        _ = services.AddSingleton(new WindowStateService(_prefs, _history));
+        _ = services.AddSingleton(TestAddresses.Desktop);
+        _ = services.AddSingleton<IFilePicker, PhotinoFilePicker>();
+        _ = services.AddSingleton<IPrinter, PagePrinter>();
+        _ = services.AddSingleton<IWindowControl>(new WindowStateService(_prefs, _history));
         _ = services.AddSingleton(NullLogger<ViewerInterop>.Instance);
         _ = services.AddScoped<ViewerInterop>();
         _ = services.AddScoped<ViewerState>();

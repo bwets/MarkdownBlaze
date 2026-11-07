@@ -11,7 +11,7 @@ namespace MarkdownBlaze.Tests;
 /// </summary>
 public sealed partial class MarkdownServiceTests : IDisposable
 {
-    private static readonly MarkdownService Markdown = new();
+    private static readonly MarkdownService Markdown = new(TestAddresses.Desktop);
     private readonly TempFolder _wiki = CreateWiki();
 
     public void Dispose() => _wiki.Dispose();

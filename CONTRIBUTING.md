@@ -14,7 +14,8 @@ dotnet build src/MarkdownBlaze.slnx            # the app and its tests; nothing 
 dotnet run --project src/MarkdownBlaze -- samples/wiki/index.md
 ```
 
-`src/MarkdownBlaze.slnx` is what a fresh clone builds. The launch profiles in
+`src/MarkdownBlaze.slnx` is what a fresh clone builds: the shared library `MarkdownBlaze.Core` (components, services,
+security, the page's CSS and JavaScript), the desktop window `MarkdownBlaze` that hosts it, and the tests. The launch profiles in
 `src/MarkdownBlaze/Properties/launchSettings.json` open the sample wiki or the welcome manual. The
 "Sample Wiki" profile names its file relative to the project folder (`../../samples/wiki/index.md`), which is
 where Visual Studio and Rider start it. `dotnet run --launch-profile` ignores a `workingDirectory` setting
@@ -28,7 +29,7 @@ The app writes a log to `%LOCALAPPDATA%\MarkdownBlaze\logs`; `--log-level debug`
 
 The Markdown extensions come from the `bwets.Markdig.Extensions` NuGet package. To edit that library and
 this app in one loop, check it out next to this repository (`../bwets.Markdig.Extensions`), set
-`LocalSources=true` (in the git-ignored `src/MarkdownBlaze/MarkdownBlaze.csproj.user`, or with
+`LocalSources=true` (in the git-ignored `src/MarkdownBlaze.Core/MarkdownBlaze.Core.csproj.user`, or with
 `-p:LocalSources=true`) and open `src/MarkdownBlaze.Dev.slnx`, which lists both. A Release build with
 `LocalSources=true` is an error (`Directory.Build.targets`), so a local project reference can never ship:
 build Release the way CI does, with `-p:LocalSources=false`.
@@ -58,7 +59,7 @@ dotnet build src/MarkdownBlaze/MarkdownBlaze.csproj -c Release -warnaserror -p:L
 - **Tests.** `dotnet test tests/MarkdownBlaze.Tests`. Every security-relevant or behavioural change comes
   with a test. Tests that only make sense on one platform use `[SkippableFact]` and say why in the skip
   message. The sample documents in `samples/wiki/security/` are rendered by a test, so they stay accurate.
-- **JavaScript tests.** The page's JavaScript is plain ES modules in `src/MarkdownBlaze/wwwroot/js/` (no build
+- **JavaScript tests.** The page's JavaScript is plain ES modules in `src/MarkdownBlaze.Core/wwwroot/js/` (no build
   step, no bundler). Its pure parts are tested with vitest over jsdom: `npm ci && npm test`, tests in
   `tests/js/`. Nothing the tests need ships with the app; `package.json` is only the harness.
 - **Comments stay.** The explanatory comments are a feature; moving code means moving them with it.
@@ -93,7 +94,7 @@ with its licence text, in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## The changelog
 
-`src/MarkdownBlaze/Content/WhatsNew.md` is the one changelog: it is what the app shows under ⋮ → What's new,
+`src/MarkdownBlaze.Core/Content/WhatsNew.md` is the one changelog: it is what the app shows under ⋮ → What's new,
 and there is no `CHANGELOG.md`. Changes a reader would notice go under the `## {{version}}` section at the top,
 in the same voice as the entries there (a bold lead, then a sentence or two); the file's header comment
 says what to do when a release is cut. Tests, CI and refactoring are not for readers and stay out of it.

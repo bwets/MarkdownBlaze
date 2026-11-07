@@ -387,10 +387,97 @@ public sealed partial class PackagingTests : IDisposable
             "*.pkg.tar.zst",
             "*-osx-arm64.dmg",
             "*-osx-x64.dmg",
+            "*-android.apk",
         })
         {
             Assert.Contains("present \"", workflow, StringComparison.Ordinal);
             Assert.Contains($"'{expected}'", workflow, StringComparison.Ordinal);
         }
+    }
+
+    // ---- Android ----------------------------------------------------------------------------------
+
+    private static XElement AndroidManifest() =>
+        XDocument.Parse(Read("src", "MarkdownBlaze.Android", "Platforms", "Android", "AndroidManifest.xml")).Root!;
+
+    private static XNamespace AndroidNs => "http://schemas.android.com/apk/res/android";
+
+    private static XDocument AndroidProject() => XDocument.Parse(Read("src", "MarkdownBlaze.Android", "MarkdownBlaze.Android.csproj"));
+
+    private static string AndroidProperty(string name) =>
+        AndroidProject().Descendants(name).First(e => e.Parent!.Attribute("Condition") is null).Value;
+
+    [Fact]
+    public void The_android_app_asks_for_the_network_and_nothing_else()
+    {
+        // The pictures a document takes from the web are the one reason (PRIVACY.md). The merged manifest, which
+        // libraries add to, is checked by packaging/android/check-manifest.sh in CI, since it needs the workload.
+        var permissions = AndroidManifest().Elements("uses-permission").Select(e => (string?)e.Attribute(AndroidNs + "name")).ToList();
+
+        Assert.Equal(["android.permission.INTERNET"], permissions);
+    }
+
+    [Fact]
+    public void The_android_app_does_not_claim_the_markdown_scheme_or_allow_plain_http()
+    {
+        // The desktop's markdown:// addresses carry its paths. A scheme could be claimed in the manifest or by an
+        // attribute on the activity, so both are read.
+        var manifest = Read("src", "MarkdownBlaze.Android", "Platforms", "Android", "AndroidManifest.xml");
+        var activity = Read("src", "MarkdownBlaze.Android", "MainActivity.cs");
+
+        Assert.DoesNotContain("\"markdown\"", manifest, StringComparison.Ordinal);
+        Assert.DoesNotContain("DataSchemes = [\"markdown\"", activity, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"markdown\"", activity.Replace("\"text/markdown\"", "", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.False(string.Equals("true", (string?)AndroidManifest().Element("application")!.Attribute(AndroidNs + "usesCleartextTraffic"), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_android_app_is_kept_out_of_the_cloud_backup()
+        // allowBackup=true would copy the preferences, the history and the log to the owner's Google account, which
+        // PRIVACY.md says never happens, and the history of a restored phone would point at mirrors that were not
+        // restored (they live in no-backup storage). So no backup at all.
+        => Assert.Equal("false", (string?)AndroidManifest().Element("application")!.Attribute(AndroidNs + "allowBackup"));
+
+    [Fact]
+    public void The_android_app_has_the_identity_and_the_versions_the_plan_set()
+    {
+        Assert.Equal("net.bwets.markdownblaze", AndroidProperty("ApplicationId"));
+        Assert.Equal("26.0", AndroidProperty("SupportedOSPlatformVersion"));
+        Assert.Equal("36.0", AndroidProperty("TargetPlatformVersion"));
+        Assert.Equal("net10.0-android", AndroidProperty("TargetFramework"));
+    }
+
+    [Fact]
+    public void No_android_keystore_or_password_is_in_the_repository()
+    {
+        // Signing is configured by the release workflow from secrets; the passwords are given as env:NAME, which makes
+        // the build read the environment, so none is on a command line or in a file.
+        var project = Read("src", "MarkdownBlaze.Android", "MarkdownBlaze.Android.csproj");
+        var release = Read(".github", "workflows", "release.yml");
+        var ignore = Read(".gitignore");
+
+        Assert.DoesNotContain("<AndroidSigningStorePass>", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AndroidSigningKeyPass>", project, StringComparison.Ordinal);
+        Assert.Contains("-p:AndroidSigningStorePass=env:ANDROID_KEYSTORE_PASSWORD", release, StringComparison.Ordinal);
+        Assert.Contains("-p:AndroidSigningKeyPass=env:ANDROID_KEY_PASSWORD", release, StringComparison.Ordinal);
+        Assert.Matches("(?m)^\\*\\.jks$", ignore);
+        Assert.Matches("(?m)^\\*\\.keystore$", ignore);
+    }
+
+    [Fact]
+    public void The_release_publishes_to_play_only_when_asked_and_never_ships_an_unsigned_android_package()
+    {
+        var workflow = Read(".github", "workflows", "release.yml");
+
+        var input = workflow[workflow.IndexOf("publish_play:", StringComparison.Ordinal)..];
+        Assert.Contains("default: false", input[..input.IndexOf("permissions:", StringComparison.Ordinal)], StringComparison.Ordinal);
+        Assert.Contains("if: ${{ inputs.publish_play }}", workflow, StringComparison.Ordinal);
+        Assert.Contains("track: internal", workflow, StringComparison.Ordinal);
+        Assert.Contains("::error::The secret $name is not set", workflow, StringComparison.Ordinal);
+
+        // The inputs and the secrets reach scripts through env, never through an expression in the script text.
+        var android = workflow[workflow.IndexOf("\n  android:", StringComparison.Ordinal)..workflow.IndexOf("\n  release:", StringComparison.Ordinal)];
+        foreach (var line in android.Split('\n').Where(l => !l.TrimStart().StartsWith('#') && !l.TrimStart().StartsWith("-p:", StringComparison.Ordinal)))
+            Assert.False(line.Contains("${{ secrets", StringComparison.Ordinal) && !line.Contains(':', StringComparison.Ordinal), line);
     }
 }

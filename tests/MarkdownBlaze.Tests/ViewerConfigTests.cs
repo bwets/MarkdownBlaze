@@ -59,7 +59,7 @@ public class ViewerConfigTests
     [Fact]
     public void The_scripts_do_not_repeat_what_the_config_carries()
     {
-        var scripts = Directory.EnumerateFiles(Path.Combine(TestFiles.RepoRoot, "src", "MarkdownBlaze", "wwwroot", "js"), "*.js").ToList();
+        var scripts = Directory.EnumerateFiles(Path.Combine(TestFiles.RepoRoot, "src", "MarkdownBlaze.Core", "wwwroot", "js"), "*.js").ToList();
         Assert.NotEmpty(scripts);
         Assert.DoesNotContain(scripts, f => string.Equals(Path.GetFileName(f), "app.js", StringComparison.Ordinal));
 

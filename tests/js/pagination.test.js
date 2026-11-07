@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fillLastSheet, fitScale, layOut, mm, sheetGeometry } from '../../src/MarkdownBlaze/wwwroot/js/pagination.js';
+import { fillLastSheet, fitScale, layOut, mm, sheetGeometry } from '../../src/MarkdownBlaze.Core/wwwroot/js/pagination.js';
 
 // A fake layout: blocks stacked one under the other, each with the height it would have. Setting a
 // block's marginTop pushes it, and everything below it, down — which is all the browser's flow does
