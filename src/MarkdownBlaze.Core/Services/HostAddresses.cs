@@ -32,7 +32,9 @@ internal sealed class HostAddresses
         ArgumentNullException.ThrowIfNull(appBase);
         ArgumentException.ThrowIfNullOrEmpty(assetPrefix);
         if (!appBase.IsAbsoluteUri) throw new ArgumentException("The app's address must be absolute.", nameof(appBase));
-        if (!Uri.TryCreate(assetPrefix, UriKind.Absolute, out _) || !assetPrefix.EndsWith('/'))
+        // On Unix a rooted path such as "/_mdasset/" parses as an absolute file: URI, so "absolute" alone does
+        // not tell a real address from a path; a prefix that is a file: URI is refused for the same reason.
+        if (!Uri.TryCreate(assetPrefix, UriKind.Absolute, out var prefix) || prefix.IsFile || !assetPrefix.EndsWith('/'))
             throw new ArgumentException("The picture prefix must be an absolute address ending in a slash.", nameof(assetPrefix));
 
         AppBase = appBase;

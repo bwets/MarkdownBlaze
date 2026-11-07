@@ -53,10 +53,12 @@
     <ProjectReference Include="..\MarkdownBlaze.Core\MarkdownBlaze.Core.csproj" />
   </ItemGroup>
 
-  <!-- The launcher icon and the splash screen, from the artwork in branding/. -->
+  <!-- The launcher icon and the splash screen, from the artwork in branding/. The Link paths use forward
+       slashes: metadata is not path-normalised, and on Linux a backslash becomes part of the file name, which
+       the resizetizer refuses. -->
   <ItemGroup>
-    <MauiIcon Include="..\..\branding\icon-1024.png" Link="Resources\AppIcon\appicon.png" Color="#FFFFFF" BaseSize="108,108" Resize="true" />
-    <MauiSplashScreen Include="..\..\branding\icon-512.png" Link="Resources\Splash\splash.png" Color="#FFFFFF" BaseSize="128,128" />
+    <MauiIcon Include="../../branding/icon-1024.png" Link="Resources/AppIcon/appicon.png" Color="#FFFFFF" BaseSize="108,108" Resize="true" />
+    <MauiSplashScreen Include="../../branding/icon-512.png" Link="Resources/Splash/splash.png" Color="#FFFFFF" BaseSize="128,128" />
   </ItemGroup>
 
   <!-- The manual, the change log and the notices of the libraries that ship inside the app. They are packed
