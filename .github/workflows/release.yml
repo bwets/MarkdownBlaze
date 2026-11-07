@@ -358,16 +358,36 @@ jobs:
           -p:AndroidSigningStorePass=env:ANDROID_KEYSTORE_PASSWORD -p:AndroidSigningKeyPass=env:ANDROID_KEY_PASSWORD
           -o publish/android
 
-      # Names the files like the other releases, and checks what was built: that it is signed (and with whose
-      # certificate), that the version code is the one worked out above, and that it asks for nothing but the network.
+      # Names the files like the other releases, and checks what was built: that it is signed with the release key
+      # (its certificate's SHA-256 is public, and the same in every release — see packaging/android/README.md), that
+      # the version code is the one worked out above, and that it asks for nothing but the network. Each tool's output
+      # is kept and printed before it is checked: piped straight into grep, a tool that failed only looked like a
+      # line that did not match, and the log said nothing at all.
       - name: Name and check the packages
+        env:
+          RELEASE_CERT_SHA256: b4c36472c0829112fa2abcf46540de704219438cc02756d171422c862440143a
         run: |
           set -euo pipefail
-          cp publish/android/net.bwets.markdownblaze-Signed.apk "MarkdownBlaze-$VERSION-android.apk"
+          apk="MarkdownBlaze-$VERSION-android.apk"
+          cp publish/android/net.bwets.markdownblaze-Signed.apk "$apk"
           cp publish/android/net.bwets.markdownblaze-Signed.aab "MarkdownBlaze-$VERSION-android.aab"
           tools=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)
-          "${tools}apksigner" verify --print-certs "MarkdownBlaze-$VERSION-android.apk" | grep -E '^Signer #1 certificate (DN|SHA-256)'
-          if ! "${tools}aapt2" dump badging "MarkdownBlaze-$VERSION-android.apk" | grep -q "versionCode='$VERSION_CODE'"; then
+          echo "build-tools: $tools"
+          if ! certs=$("${tools}apksigner" verify --print-certs "$apk" 2>&1); then
+            printf '%s\n' "$certs"
+            echo "::error::apksigner does not verify $apk."
+            exit 1
+          fi
+          # Here-strings, not pipes: `grep -q` stops reading at the first match, and under pipefail the writer it
+          # leaves behind (killed by SIGPIPE) would make a match look like a failure.
+          grep -E '^Signer #1 certificate (DN|SHA-256)' <<<"$certs" || printf '%s\n' "$certs"
+          if ! grep -qiE "^Signer #1 certificate SHA-256 digest: $RELEASE_CERT_SHA256\$" <<<"$certs"; then
+            echo "::error::$apk is not signed with the release key (SHA-256 $RELEASE_CERT_SHA256)."
+            exit 1
+          fi
+          badging=$("${tools}aapt2" dump badging "$apk")
+          sed -n 1p <<<"$badging"
+          if ! grep -q "versionCode='$VERSION_CODE'" <<<"$badging"; then
             echo "::error::The APK's version code is not $VERSION_CODE."
             exit 1
           fi
