@@ -19,6 +19,11 @@ namespace MarkdownBlaze.Security;
 /// the window stops nesting at 512 and puts what follows in the element it has reached, so a document
 /// nested deeper than that is already shown flattened. Nothing a reader could have seen is lost here.
 /// </para>
+/// <para>
+/// Since 1.9 AngleSharp's parser follows the same rule and never builds a tree deeper than this, so for
+/// parsed HTML the cut finds nothing to do. It is kept on purpose: it is the layer that does not depend on
+/// a parser's own limit, which an upgrade could change again.
+/// </para>
 /// </summary>
 internal static class NestingLimit
 {

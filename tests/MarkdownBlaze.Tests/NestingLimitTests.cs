@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
 using MarkdownBlaze.Security;
 using MarkdownBlaze.Services;
@@ -19,6 +20,22 @@ public sealed class NestingLimitTests
     private static AngleSharp.Html.Dom.IHtmlDocument Parse(string html) =>
         new HtmlParser().ParseDocument("<!doctype html><html><body>" + html);
 
+    /// <summary>
+    /// <paramref name="depth"/> nested <c>div</c>s with <paramref name="inside"/> parsed into the innermost, built
+    /// node by node. Parsing the same markup cannot make the tree: since AngleSharp 1.9 the parser stops nesting
+    /// near Chromium's depth by itself (<see cref="The_parser_itself_stops_nesting_near_the_limit"/>), so a tree
+    /// too deep for the sanitizer now has to come from something other than the parser. The cut stays, as the
+    /// layer that does not depend on a parser's own limit.
+    /// </summary>
+    private static AngleSharp.Html.Dom.IHtmlDocument Built(int depth, string inside)
+    {
+        var document = Parse(string.Empty);
+        var parent = (IElement)document.Body!;
+        for (var level = 0; level < depth; level++) parent = (IElement)parent.AppendChild(document.CreateElement("div"));
+        parent.InnerHtml = inside;
+        return document;
+    }
+
     /// <summary>The deepest element of markup the page would be given, measured by parsing it as the page does.</summary>
     private static int DepthOfMarkup(string html) => NestingLimit.DepthOf(Parse(html).Body!);
 
@@ -28,7 +45,7 @@ public sealed class NestingLimitTests
     public void Nothing_within_the_limit_is_touched()
     {
         var html = Nested("<div>", "</div>", NestingLimit.MaxDepth);
-        using var document = Parse(html);
+        using var document = Built(NestingLimit.MaxDepth, "x");
 
         var flattened = NestingLimit.Apply(document.Body!);
 
@@ -41,8 +58,7 @@ public sealed class NestingLimitTests
     public void An_element_below_the_limit_becomes_its_text_in_document_order()
     {
         // 512 levels, then at the bottom: text, an element holding text, text again, a comment.
-        var html = Nested("<div>", "</div>", NestingLimit.MaxDepth, "a<b>b<i>c</i>d</b>e<!--hidden-->f");
-        using var document = Parse(html);
+        using var document = Built(NestingLimit.MaxDepth, "a<b>b<i>c</i>d</b>e<!--hidden-->f");
 
         var flattened = NestingLimit.Apply(document.Body!);
 
@@ -56,7 +72,7 @@ public sealed class NestingLimitTests
     [Fact]
     public void An_element_with_no_text_below_the_limit_is_removed()
     {
-        using var document = Parse(Nested("<div>", "</div>", NestingLimit.MaxDepth, "<span></span><hr>"));
+        using var document = Built(NestingLimit.MaxDepth, "<span></span><hr>");
 
         var flattened = NestingLimit.Apply(document.Body!);
 
@@ -66,12 +82,22 @@ public sealed class NestingLimitTests
     }
 
     [Fact]
+    public void The_parser_itself_stops_nesting_near_the_limit()
+    {
+        // Chromium's rule, which AngleSharp follows since 1.9: past its limit a start tag becomes a sibling at
+        // the deepest level instead of a child. Nothing is lost, and the parser's tree is never deeper than ours.
+        using var document = Parse(Nested("<div>", "</div>", NestingLimit.MaxDepth * 2));
+
+        Assert.InRange(NestingLimit.DepthOf(document.Body!), 1, NestingLimit.MaxDepth);
+        Assert.Equal(NestingLimit.MaxDepth * 2, document.QuerySelectorAll("div").Length);
+    }
+
+    [Fact]
     public void Markup_written_as_text_below_the_limit_stays_text()
     {
         // The content of a <script> that ends up below the limit is kept as text — and written out as
         // text, because the element that held it is gone.
-        var html = Nested("<div>", "</div>", NestingLimit.MaxDepth + 3, "<script>alert('x')</script>");
-        using var document = Parse(html);
+        using var document = Built(NestingLimit.MaxDepth + 3, "<script>alert('x')</script>");
 
         _ = NestingLimit.Apply(document.Body!);
 

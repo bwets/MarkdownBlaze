@@ -121,7 +121,8 @@ The same page runs on a phone (the Android host). Three things make that work, a
 5. **Parse the HTML, and cut it down.** The HTML — Markdig's, with whatever raw HTML the author wrote in it — is
    parsed once with AngleSharp, whose parser is iterative, and `NestingLimit` replaces everything deeper than
    512 levels (Chromium's own limit) with its text, walking the tree with a stack of its own. This comes
-   before anything else touches the tree, because the sanitizer's walk recurses once per level.
+   before anything else touches the tree, because the sanitizer's walk recurses once per level. (Since 1.9
+   AngleSharp's parser stops nesting at that depth by itself; the cut stays, so the limit does not depend on it.)
 6. **Sanitize.** The tree goes through the allow-list in `HtmlSanitizer`, which removes everything an author
    could have used to run code — including any `data-nav` or `mdasset:` address the author wrote — and every
    class, id and role that the app's own markup uses.

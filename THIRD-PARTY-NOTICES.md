@@ -12,11 +12,11 @@ and release.
 | [Mermaid](#mermaid) | 12.1.0 | MIT | diagrams |
 | [KaTeX](#katex) | 0.19.0 | MIT | mathematics |
 | [Latin Modern Roman](#latin-modern-roman) | 2.004 | GUST Font License | the typeface of the Academic document theme |
-| [Markdig](#markdig) | 1.4.0 | BSD-2-Clause | Markdown parsing |
-| [Microsoft Fluent UI Blazor](#microsoft-fluent-ui-blazor) | 5.0.0 | MIT | the application's interface components |
-| [PhotinoX](#photinox) | 5.3.5 | Apache-2.0 | the native window and the web view host |
-| [HtmlSanitizer](#htmlsanitizer) | 9.2.1039 | MIT | sanitising the rendered document |
-| [AngleSharp](#anglesharp) and AngleSharp.Css | 1.7.2 / 1.0.2 | MIT | HTML and CSS parsing for the sanitiser |
+| [Markdig](#markdig) | 1.6.0 | BSD-2-Clause | Markdown parsing |
+| [Microsoft Fluent UI Blazor](#microsoft-fluent-ui-blazor) | 5.0.1 | MIT | the application's interface components |
+| [PhotinoX](#photinox) | 5.4.1 | Apache-2.0 | the native window and the web view host |
+| [HtmlSanitizer](#htmlsanitizer) | 11.0.16 | MIT | sanitising the rendered document |
+| [AngleSharp](#anglesharp) and AngleSharp.Css | 1.9.1 / 1.3.2 | MIT | HTML and CSS parsing for the sanitiser |
 | [.NET MAUI](#net-maui-and-the-xamarinandroid-bindings) | 10.0.110 | MIT | the Android app's host (Android only) |
 | [AndroidX libraries](#androidx-glide-and-gson) | 1.x to 2.x (see below) | Apache-2.0 | Android's support libraries, which MAUI builds on (Android only) |
 | [Glide](#androidx-glide-and-gson) | 4.16.0 | BSD-2-Clause, MIT and Apache-2.0 | image loading inside MAUI (Android only) |
@@ -181,7 +181,7 @@ License, text from <https://tug.org/fonts/licenses/GUST-FONT-LICENSE.txt>. The f
 
 ## Markdig
 
-Version 1.4.0, <https://github.com/xoofx/markdig>, NuGet package `Markdig`. Licence: BSD-2-Clause.
+Version 1.6.0, <https://github.com/xoofx/markdig>, NuGet package `Markdig`. Licence: BSD-2-Clause.
 
 ```text
 Copyright (c) 2016-2026, Alexandre Mutel
@@ -213,7 +213,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Microsoft Fluent UI Blazor
 
-Version 5.0.0, <https://github.com/microsoft/fluentui-blazor>, NuGet package
+Version 5.0.1, <https://github.com/microsoft/fluentui-blazor>, NuGet package
 `Microsoft.FluentUI.AspNetCore.Components`. Licence: MIT.
 
 ```text
@@ -245,7 +245,7 @@ Version 5.0.0, <https://github.com/microsoft/fluentui-blazor>, NuGet package
 
 ## PhotinoX
 
-Version 5.3.5. NuGet packages `PhotinoX`, `PhotinoX.Blazor`, `PhotinoX.App` and `PhotinoX.Native`
+Version 5.4.1. NuGet packages `PhotinoX`, `PhotinoX.Blazor`, `PhotinoX.App` and `PhotinoX.Native`
 (<https://github.com/ivanvoyager/PhotinoX>, <https://github.com/ivanvoyager/PhotinoX.Blazor>,
 <https://github.com/ivanvoyager/PhotinoX.App>, <https://github.com/ivanvoyager/PhotinoX.Native>), a maintained fork of
 Photino.NET by TryPhotino. Package copyright: Copyright (c) ivanvoyager, TryPhotino 2026. Licence:
@@ -461,7 +461,7 @@ Apache-2.0. The four repositories publish the same licence text, reproduced once
 
 ## HtmlSanitizer
 
-Version 9.2.1039, <https://github.com/mganss/HtmlSanitizer>, NuGet package `HtmlSanitizer`. Licence: MIT.
+Version 11.0.16, <https://github.com/mganss/HtmlSanitizer>, NuGet package `HtmlSanitizer`. Licence: MIT.
 
 ```text
 The MIT License (MIT)
@@ -492,7 +492,7 @@ SOFTWARE.
 
 ## AngleSharp
 
-AngleSharp 1.7.2 (<https://github.com/AngleSharp/AngleSharp>), a dependency of HtmlSanitizer. Licence: MIT.
+AngleSharp 1.9.1 (<https://github.com/AngleSharp/AngleSharp>), a dependency of HtmlSanitizer. Licence: MIT.
 
 ```text
 The MIT License (MIT)
@@ -524,7 +524,7 @@ SOFTWARE.
 
 ## AngleSharp.Css
 
-AngleSharp.Css 1.0.2 (<https://github.com/AngleSharp/AngleSharp.Css>), a dependency of HtmlSanitizer. Licence: MIT.
+AngleSharp.Css 1.3.2 (<https://github.com/AngleSharp/AngleSharp.Css>), a dependency of HtmlSanitizer. Licence: MIT.
 
 ```text
 The MIT License (MIT)
