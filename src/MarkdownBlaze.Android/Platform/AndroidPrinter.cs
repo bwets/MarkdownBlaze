@@ -47,10 +47,12 @@ internal sealed partial class AndroidPrinter : IPrinter
 
                 // The title of the page names the job (and the PDF file); A4 is what the page view draws, and the dialog can change it.
                 var jobName = string.IsNullOrWhiteSpace(webView.Title) ? "MarkdownBlaze" : webView.Title;
-                var attributes = new PrintAttributes.Builder()
-                    .SetMediaSize(PrintAttributes.MediaSize.IsoA4!)!
-                    .SetMinMargins(new PrintAttributes.Margins(MarginMils, MarginMils, MarginMils, MarginMils))!
-                    .Build();
+                // Not chained: the binding's nullability of these members differs between Android workload versions,
+                // and a chain would need a '!' that one version calls necessary and the other unnecessary.
+                var builder = new PrintAttributes.Builder();
+                if (PrintAttributes.MediaSize.IsoA4 is { } a4) _ = builder.SetMediaSize(a4);
+                _ = builder.SetMinMargins(new PrintAttributes.Margins(MarginMils, MarginMils, MarginMils, MarginMils));
+                var attributes = builder.Build();
 
                 // The sheets are white paper: the WebView paints its background behind them, and the dark one of a dark app would show in the margins.
                 webView.SetBackgroundColor(Android.Graphics.Color.White);
