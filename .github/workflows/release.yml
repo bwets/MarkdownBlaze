@@ -380,8 +380,9 @@ jobs:
           fi
           # Here-strings, not pipes: `grep -q` stops reading at the first match, and under pipefail the writer it
           # leaves behind (killed by SIGPIPE) would make a match look like a failure.
-          grep -E '^Signer #1 certificate (DN|SHA-256)' <<<"$certs" || printf '%s\n' "$certs"
-          if ! grep -qiE "^Signer #1 certificate SHA-256 digest: $RELEASE_CERT_SHA256\$" <<<"$certs"; then
+          grep -E '^(Signer #1|V[0-9.]+ Signer:) certificate (DN|SHA-256)' <<<"$certs" || printf '%s\n' "$certs"
+          # build-tools 36 labels the line "Signer #1", 37 "V3.0 Signer:"; both are the same certificate.
+          if ! grep -qiE "^(Signer #1|V[0-9.]+ Signer:) certificate SHA-256 digest: $RELEASE_CERT_SHA256\$" <<<"$certs"; then
             echo "::error::$apk is not signed with the release key (SHA-256 $RELEASE_CERT_SHA256)."
             exit 1
           fi
