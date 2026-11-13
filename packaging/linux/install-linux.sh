@@ -38,6 +38,19 @@ sed "s|^Exec=.*|Exec=\"$BIN_ESCAPED\" %u|" "$TEMPLATE" > "$DESKTOP_FILE"
 
 chmod 644 "$DESKTOP_FILE"
 
+# The entry names its icon "MarkdownBlaze", so install it into the user's hicolor theme, as the .deb and
+# the Arch package do system-wide. It is MarkdownBlaze.svg next to the binary in a release tarball, and
+# branding/icon.svg when this script runs from the repository.
+ICON="$(dirname "$BIN")/MarkdownBlaze.svg"
+if [ ! -f "$ICON" ]; then ICON="$SCRIPT_DIR/../../branding/icon.svg"; fi
+if [ -f "$ICON" ]; then
+    ICON_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
+    install -Dm644 "$ICON" "$ICON_ROOT/scalable/apps/MarkdownBlaze.svg"
+    gtk-update-icon-cache -q -t -f "$ICON_ROOT" 2>/dev/null || true
+else
+    echo "Warning: MarkdownBlaze.svg not found next to the executable; the launcher will use a generic icon." >&2
+fi
+
 # Refresh the desktop database and set MarkdownBlaze as the default for markdown files.
 update-desktop-database "$APPS_DIR" 2>/dev/null || true
 xdg-mime default MarkdownBlaze.desktop text/markdown 2>/dev/null || true
