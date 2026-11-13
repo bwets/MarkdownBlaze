@@ -176,12 +176,17 @@ jobs:
           for rid in linux-x64 linux-arm64; do
             out="MarkdownBlaze-$VERSION-$rid"
             dotnet publish "$PROJECT" -c Release -r "$rid" --self-contained true -p:Version="$VERSION" -o "$out"
-            # Bundle the desktop entry + icon so the tarball is self-contained for packaging.
+            # Bundle the desktop entry, icon and the script that installs them, so the tarball is
+            # self-contained for packaging and for installer.sh.
             cp packaging/linux/MarkdownBlaze.desktop "$out/MarkdownBlaze.desktop"
             cp branding/icon.svg "$out/MarkdownBlaze.svg"
+            install -m755 packaging/linux/install-linux.sh "$out/install-linux.sh"
             chmod +x "$out/MarkdownBlaze" || true
             tar -czf "$out.tar.gz" "$out"
           done
+          # The one-line installer is a release asset of its own, so releases/latest/download/installer.sh
+          # is always the latest one.
+          install -m755 packaging/linux/installer.sh installer.sh
 
       - name: Build .deb (x64)
         run: bash packaging/linux/build-deb.sh "$VERSION" "MarkdownBlaze-$VERSION-linux-x64"
@@ -192,6 +197,7 @@ jobs:
           path: |
             MarkdownBlaze-*-linux-*.tar.gz
             *.deb
+            installer.sh
 
   macos:
     needs: setup
@@ -503,6 +509,7 @@ jobs:
             dist/**/*.msix
             dist/**/*-setup.exe
             dist/**/*.cer
+            dist/**/installer.sh
             SHA256SUMS
 
   winget:

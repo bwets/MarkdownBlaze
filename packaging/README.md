@@ -92,8 +92,16 @@ wants the code has to wait for it: `Start-Process -Wait` in PowerShell, `start /
 
 `packaging/linux/MarkdownBlaze.desktop` is the one definition of the desktop entry: the `.deb`, the Arch
 package and `packaging/linux/install-linux.sh` all install it, and the script only rewrites its `Exec`
-path (to the absolute path of the binary it is given). The scalable icon every package installs as
-`MarkdownBlaze.svg` is `branding/icon.svg`; the workflow copies it into each Linux build.
+path (to the absolute path of the binary it is given) and installs the icon into the user's `hicolor`
+theme. The scalable icon every package installs as `MarkdownBlaze.svg` is `branding/icon.svg`; the
+workflow copies it, the desktop entry and `install-linux.sh` into each Linux build.
+
+`packaging/linux/installer.sh` is the one-line installer (`curl … | sh /dev/stdin`). The workflow attaches
+it to every release, so `releases/latest/download/installer.sh` is always the latest copy. It is POSIX `sh`
+(it is piped into whatever `sh` is), downloads the tarball for the machine's architecture, checks it
+against `SHA256SUMS`, unpacks it to `~/.local/markdownblaze.app` (replacing only a previous install),
+links `~/.local/bin/markdownblaze` and runs the bundled `install-linux.sh`. A release from before
+`install-linux.sh` was bundled installs without the desktop entry, with a warning.
 
 The `.deb` is named `markdownblaze` (Debian names are lowercase) and declares `Maintainer` and `Homepage`;
 its `postinst` and `postrm` refresh the desktop and icon caches (`update-desktop-database`,

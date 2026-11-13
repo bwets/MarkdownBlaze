@@ -190,6 +190,18 @@ switch (so an address someone else wrote cannot add switches of its own).
 | `--devtools` | Turn the web view's developer tools on (`F12`) in a release build; a debug build always has them. |
 | `--register` / `--unregister` | Windows only: add or remove the Explorer and `markdown://` registration and exit without opening a window. Exit code 0 done, 1 the registry refused, 2 not applicable (not Windows, or the Store package). |
 
+### Install on Linux with the installer
+
+```bash
+curl -fsSL https://github.com/bwets/MarkdownBlaze/releases/latest/download/installer.sh | sh /dev/stdin
+```
+
+For any distribution, x64 or arm64, without root: it downloads the latest release, checks it against
+`SHA256SUMS`, unpacks it to `~/.local/markdownblaze.app`, adds a `markdownblaze` command to `~/.local/bin`
+and the app to the launcher, and makes it the handler for `.md` files and `markdown://` links. Run it
+again to update. Options go after `/dev/stdin`: `dest=<dir>`, `launch=n` (do not start it when done),
+`installer=version-<x.y.z>` (a given release). WebKitGTK 4.1 must be installed (see Requirements).
+
 ### Install on Linux from the Snap Store
 
 ```bash
