@@ -14,6 +14,74 @@ OS WebView driven by **[Photino](https://www.tryphotino.io/) + Blazor** and
 > 📖 The [`samples/wiki/`](samples/wiki/index.md) folder is a self-contained sample wiki that doubles as a
 > feature tour. Open it with `MarkdownBlaze samples/wiki/`.
 
+## Installation
+
+Every download is on the [latest release](../../releases/latest) page, with `SHA256SUMS` to check it and a
+build-provenance attestation for each file (`gh attestation verify <file> --repo bwets/MarkdownBlaze`).
+
+### Windows
+
+- **Microsoft Store:** [MarkdownBlaze](https://apps.microsoft.com/detail/9P9VDVST2980), updated by the Store.
+- **winget:** `winget install GregoryKieffer.MarkdownBlaze`
+- **Installer:** `MarkdownBlaze-<version>-win-x64-setup.exe`. It installs for the current user without admin
+  rights and registers `.md` files, the folder menu and `markdown://` links.
+- **Portable:** `MarkdownBlaze-<version>-win-x64.zip`. Unzip it anywhere and run `MarkdownBlaze.exe`; it
+  registers nothing until you ask in *Settings → Windows integration*.
+
+MarkdownBlaze uses the WebView2 Runtime, which current Windows already has.
+
+### macOS
+
+Download `MarkdownBlaze-<version>-osx-arm64.dmg` (Apple Silicon) or `MarkdownBlaze-<version>-osx-x64.dmg`
+(Intel), open it and drag MarkdownBlaze to *Applications*. macOS 11 or later.
+
+The app is not notarized, so the first launch needs a manual allow: right-click it and choose *Open* once, or
+clear the quarantine attribute:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/MarkdownBlaze.app
+```
+
+### Linux
+
+**Installer**, for any distribution, x64 or arm64, without root:
+
+```bash
+curl -fsSL https://github.com/bwets/MarkdownBlaze/releases/latest/download/installer.sh | sh /dev/stdin
+```
+
+It downloads the latest release, checks it against `SHA256SUMS`, unpacks it to `~/.local/markdownblaze.app`,
+adds a `markdownblaze` command to `~/.local/bin` and the app to the launcher, and makes it the handler for
+`.md` files and `markdown://` links. Run it again to update. Options go after `/dev/stdin`: `dest=<dir>`,
+`launch=n` (do not start it when done), `installer=version-<x.y.z>` (a given release).
+
+**Snap Store** (also in Ubuntu's App Center):
+
+```bash
+sudo snap install markdownblaze
+```
+
+To open files on a USB drive or other removable media, run `sudo snap connect markdownblaze:removable-media`
+once. Documents in hidden folders of your home (such as `~/.notes`) cannot be opened from the snap.
+
+**Packages** from the release:
+
+- Debian/Ubuntu: `sudo apt install ./markdownblaze_<version>_amd64.deb`
+- Arch: `sudo pacman -U markdownblaze-<version>-1-x86_64.pkg.tar.zst`
+- Any distribution: unpack `MarkdownBlaze-<version>-linux-x64.tar.gz` (or `-arm64`) anywhere and run the
+  `install-linux.sh` inside it to add the launcher entry, the icon and the `.md` association.
+
+Outside the snap, MarkdownBlaze needs WebKitGTK 4.1 and GTK 3 from the system (`webkit2gtk-4.1` and
+`gtk3`; on Debian/Ubuntu `libwebkit2gtk-4.1-0`). The `.deb` and the Arch package pull them in; the
+installer warns if WebKitGTK is missing.
+
+### Android
+
+Download `MarkdownBlaze-<version>-android.apk` and open it on the phone (Android 8.0 or later; your browser
+or file manager asks once to allow installing apps from it). Google Play follows. The package is signed with
+the project's own key, so an update installs over the previous one. What a phone changes is described in
+[On Android](#on-android).
+
 ## Screenshots
 
 | | |
@@ -190,36 +258,9 @@ switch (so an address someone else wrote cannot add switches of its own).
 | `--devtools` | Turn the web view's developer tools on (`F12`) in a release build; a debug build always has them. |
 | `--register` / `--unregister` | Windows only: add or remove the Explorer and `markdown://` registration and exit without opening a window. Exit code 0 done, 1 the registry refused, 2 not applicable (not Windows, or the Store package). |
 
-### Install on Linux with the installer
+### On Android
 
-```bash
-curl -fsSL https://github.com/bwets/MarkdownBlaze/releases/latest/download/installer.sh | sh /dev/stdin
-```
-
-For any distribution, x64 or arm64, without root: it downloads the latest release, checks it against
-`SHA256SUMS`, unpacks it to `~/.local/markdownblaze.app`, adds a `markdownblaze` command to `~/.local/bin`
-and the app to the launcher, and makes it the handler for `.md` files and `markdown://` links. Run it
-again to update. Options go after `/dev/stdin`: `dest=<dir>`, `launch=n` (do not start it when done),
-`installer=version-<x.y.z>` (a given release). WebKitGTK 4.1 must be installed (see Requirements).
-
-### Install on Linux from the Snap Store
-
-```bash
-sudo snap install markdownblaze
-```
-
-MarkdownBlaze is also in Ubuntu's App Center. To open files on a USB drive or other removable media, run
-`sudo snap connect markdownblaze:removable-media` once. Documents in hidden folders of your home
-(such as `~/.notes`) cannot be opened from the snap.
-
-### Install on Android
-
-Download `MarkdownBlaze-<version>-android.apk` from the [latest release](../../releases/latest) and open it on the phone
-(Android 8.0 or later; your browser or file manager asks once to allow installing apps from it). Check it against
-`SHA256SUMS`, or with `gh attestation verify <file> --repo <owner>/<repo>`. Google Play follows. The package is signed with the
-project's own key, so an update installs over the previous one.
-
-The same page, themes, page view and printing, with what a phone changes:
+The Android app ([Installation](#android)) has the same page, themes, page view and printing, with what a phone changes:
 
 - **Folders** — Android gives an app only the file you tapped, so a file from your phone's storage opens alone, with a bar
   offering *Show the folder*. Allow that folder once and every file in it opens with its tree, links and pictures. Files from
