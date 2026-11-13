@@ -3,6 +3,7 @@ using MarkdownBlaze.Components.Settings;
 using MarkdownBlaze.Components.Viewer;
 using MarkdownBlaze.Interop;
 using MarkdownBlaze.Platform;
+using MarkdownBlaze.Platform.Linux;
 using MarkdownBlaze.Platform.Windows;
 using MarkdownBlaze.Security;
 using MarkdownBlaze.Services;
@@ -73,6 +74,11 @@ internal static partial class Program
         app.Services.GetRequiredService<WindowStateService>().Attach(app.MainWindow);
 
         SetWindowIcon(app.MainWindow);
+
+        // Linux: the desktop's dark style does not reach WebKitGTK by itself (see DesktopColorScheme). Once
+        // the window exists GTK is initialised, and this runs on its thread, before the message loop starts.
+        if (OperatingSystem.IsLinux())
+            _ = app.MainWindow.RegisterCreatedHandler((_, _) => DesktopColorScheme.Follow());
 
         // Expose the window so components can use native dialogs (e.g. the "open file" button).
         app.Services.GetRequiredService<PhotinoFilePicker>().Attach(app.MainWindow);
