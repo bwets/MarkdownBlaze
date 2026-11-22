@@ -337,7 +337,7 @@ jobs:
           dotnet-version: "10.0.403"
 
       # Temurin, not the Microsoft build of OpenJDK: the Android tasks fail (XA0033) on the latter's version string.
-      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "21"
@@ -493,7 +493,7 @@ jobs:
           cat release-header.md
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: v${{ env.VERSION }}
           name: MarkdownBlaze ${{ env.VERSION }}
