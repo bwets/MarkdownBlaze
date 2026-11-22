@@ -92,7 +92,7 @@ jobs:
 
       # Temurin, not the Microsoft build of OpenJDK: the Android tasks read the JDK's version string and fail
       # (XA0033) on the Microsoft build's 21.0.x.0.y.
-      - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: "21"
